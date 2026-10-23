@@ -1,0 +1,31 @@
+// @vitest-environment happy-dom
+import { afterEach, expect, it } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { getScrollback, ptyWrite, toBytes } from "./pty";
+
+afterEach(() => clearMocks());
+
+it("passes ArrayBuffer payloads through untouched", () => {
+  const buffer = new Uint8Array([0x1b, 0x5b, 0x6d]).buffer;
+  expect(Array.from(toBytes(buffer))).toEqual([0x1b, 0x5b, 0x6d]);
+});
+
+it("keeps a UTF-8 sequence split across chunks as raw bytes", () => {
+  // "é" is 0xC3 0xA9; a PTY read can end between the two bytes.
+  expect(Array.from(toBytes([0x61, 0xc3]))).toEqual([0x61, 0xc3]);
+  expect(Array.from(toBytes(new Uint8Array([0xa9]).buffer))).toEqual([0xa9]);
+});
+
+it("sends camelCase arguments to Rust commands", async () => {
+  let received: unknown;
+  mockIPC((cmd, args) => {
+    received = { cmd, args };
+  });
+  await ptyWrite("node-1", "ls\r");
+  expect(received).toEqual({ cmd: "pty_write", args: { nodeId: "node-1", data: "ls\r" } });
+});
+
+it("decodes scrollback returned as raw bytes", async () => {
+  mockIPC(() => new Uint8Array([104, 105]).buffer);
+  expect(new TextDecoder().decode(await getScrollback("node-1"))).toBe("hi");
+});

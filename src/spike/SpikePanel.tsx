@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { createNodeElement, nodeKindOf } from "@/canvas/nodeElement";
 import { diagnostics, log, useDiagnostics } from "./diagnostics";
 import { installDropInterceptor, SNIPPET_MIME } from "./dropInterceptor";
-import { getSpikeTerminal, short, spikeEntries } from "./registry";
+import { onPtyExit } from "@/ipc/pty";
+import { getSpikeTerminal, realTerminals, short, spikeEntries } from "./registry";
 
 // Throwaway (milestone 2 prototype): tools to check the go/no-go criteria of
 // spec §15 by hand. Deleted once the decision is recorded.
@@ -39,12 +40,18 @@ export function SpikePanel({ api, container }: { api: ExcalidrawImperativeAPI; c
     });
   }, [api]);
 
-  const addTerminals = (count: number) => {
+  useEffect(() => {
+    const unlisten = onPtyExit(({ nodeId, exitCode }) => log(`[${short(nodeId)}] processus terminé (code ${exitCode})`));
+    return () => void unlisten.then((stop) => stop());
+  }, []);
+
+  const addTerminals = (count: number, real = false) => {
     const { scrollX, scrollY, zoom, width, height } = api.getAppState();
     const origin = { x: width / 2 / zoom.value - scrollX, y: height / 2 / zoom.value - scrollY };
     const added = Array.from({ length: count }, (_, i) =>
       createNodeElement("terminal", { x: origin.x + (i % 5) * 760, y: origin.y + Math.floor(i / 5) * 480 }),
     );
+    if (real) added.forEach((element) => realTerminals.add(element.id));
     api.updateScene({
       elements: [...api.getSceneElementsIncludingDeleted(), ...added],
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
@@ -86,6 +93,7 @@ export function SpikePanel({ api, container }: { api: ExcalidrawImperativeAPI; c
       </div>
       <div className="mb-2 flex flex-wrap gap-1">
         <Button size="sm" variant="outline" onClick={() => addTerminals(10)}>+10 terminaux</Button>
+        <Button size="sm" variant="outline" onClick={() => addTerminals(1, true)}>+ PowerShell réel</Button>
         <Button size="sm" variant="outline" onClick={flood}>Flood 5 s</Button>
         <Button size="sm" variant="outline" onClick={listBindings}>Liaisons</Button>
         <Button
