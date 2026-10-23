@@ -43,6 +43,9 @@ mod tests {
     #[test]
     fn serializes_as_kind_and_message() {
         let json = serde_json::to_value(AppError::NotFound("no such folder".into())).unwrap();
-        assert_eq!(json, serde_json::json!({ "kind": "notFound", "message": "no such folder" }));
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "notFound", "message": "no such folder" })
+        );
     }
 }

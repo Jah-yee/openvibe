@@ -2,9 +2,9 @@ use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{Child, ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_system};
 
-use super::scrollback::{Scrollback, SCROLLBACK_CAPACITY};
+use super::scrollback::{SCROLLBACK_CAPACITY, Scrollback};
 use super::shell::SpawnPlan;
 use crate::error::{AppError, AppResult};
 
@@ -63,11 +63,18 @@ impl Session {
             writer: Mutex::new(writer),
             master: Mutex::new(Some(pair.master)),
             killer: Mutex::new(child.clone_killer()),
-            output: Mutex::new(Output { scrollback: Scrollback::new(SCROLLBACK_CAPACITY), sink: Some(sink) }),
+            output: Mutex::new(Output {
+                scrollback: Scrollback::new(SCROLLBACK_CAPACITY),
+                sink: Some(sink),
+            }),
             pid: child.process_id(),
         });
         let reader = spawn_reader(reader, session.clone());
-        Ok(Started { session, child, reader })
+        Ok(Started {
+            session,
+            child,
+            reader,
+        })
     }
 
     pub fn write(&self, data: &[u8]) -> AppResult<()> {

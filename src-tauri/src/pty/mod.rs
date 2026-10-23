@@ -18,7 +18,12 @@ pub struct PtyManager {
 }
 
 pub fn pty_size(cols: u16, rows: u16) -> PtySize {
-    PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 }
+    PtySize {
+        rows: rows.max(1),
+        cols: cols.max(1),
+        pixel_width: 0,
+        pixel_height: 0,
+    }
 }
 
 impl PtyManager {
@@ -32,9 +37,15 @@ impl PtyManager {
     ) -> AppResult<Option<u32>> {
         let mut sessions = self.sessions.lock().unwrap();
         if sessions.contains_key(node_id) {
-            return Err(AppError::InvalidInput(format!("le terminal {node_id} tourne déjà")));
+            return Err(AppError::InvalidInput(format!(
+                "le terminal {node_id} tourne déjà"
+            )));
         }
-        let Started { session, mut child, reader } = Session::start(plan, size, sink)?;
+        let Started {
+            session,
+            mut child,
+            reader,
+        } = Session::start(plan, size, sink)?;
         sessions.insert(node_id.to_string(), session.clone());
         drop(sessions);
 
@@ -159,11 +170,22 @@ mod windows_tests {
     /// ConPTY is created with PSEUDOCONSOLE_INHERIT_CURSOR, so it asks for the cursor
     /// position (`ESC[6n`) and blocks until it gets an answer. xterm.js answers in the
     /// app; tests have to play that role.
-    fn spawn_answering(mgr: &PtyManager, id: &str, plan: SpawnPlan, sink: VecSink) -> mpsc::Receiver<Option<u32>> {
+    fn spawn_answering(
+        mgr: &PtyManager,
+        id: &str,
+        plan: SpawnPlan,
+        sink: VecSink,
+    ) -> mpsc::Receiver<Option<u32>> {
         let (tx, rx) = mpsc::channel();
-        mgr.spawn(id, plan, pty_size(80, 24), Box::new(sink.clone()), move |code| {
-            let _ = tx.send(code);
-        })
+        mgr.spawn(
+            id,
+            plan,
+            pty_size(80, 24),
+            Box::new(sink.clone()),
+            move |code| {
+                let _ = tx.send(code);
+            },
+        )
         .unwrap();
         wait_until("cursor position query", || sink.text().contains("\x1b[6n"));
         mgr.write(id, b"\x1b[1;1R").unwrap();
@@ -174,10 +196,21 @@ mod windows_tests {
     fn streams_output_and_reports_exit_code() {
         let mgr = PtyManager::default();
         let sink = VecSink::default();
-        let exited = spawn_answering(&mgr, "a", cmd_plan(&["/c", "echo openvibe-hello"], None), sink.clone());
-        let code = exited.recv_timeout(Duration::from_secs(20)).expect("process should exit");
+        let exited = spawn_answering(
+            &mgr,
+            "a",
+            cmd_plan(&["/c", "echo openvibe-hello"], None),
+            sink.clone(),
+        );
+        let code = exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("process should exit");
         assert_eq!(code, Some(0));
-        assert!(sink.text().contains("openvibe-hello"), "output: {:?}", sink.text());
+        assert!(
+            sink.text().contains("openvibe-hello"),
+            "output: {:?}",
+            sink.text()
+        );
         assert!(mgr.list().is_empty());
         assert!(mgr.scrollback("a").is_none());
     }
@@ -186,11 +219,24 @@ mod windows_tests {
     fn types_initial_input_before_the_cursor_query_is_answered() {
         let mgr = PtyManager::default();
         let sink = VecSink::default();
-        let exited = spawn_answering(&mgr, "b", cmd_plan(&[], Some("echo from-initial\r")), sink.clone());
-        wait_until("initial input output", || sink.text().contains("from-initial"));
+        let exited = spawn_answering(
+            &mgr,
+            "b",
+            cmd_plan(&[], Some("echo from-initial\r")),
+            sink.clone(),
+        );
+        wait_until("initial input output", || {
+            sink.text().contains("from-initial")
+        });
         mgr.write("b", b"echo from-write\rexit\r").unwrap();
-        exited.recv_timeout(Duration::from_secs(20)).expect("cmd should exit");
-        assert!(sink.text().contains("from-write"), "output: {:?}", sink.text());
+        exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("cmd should exit");
+        assert!(
+            sink.text().contains("from-write"),
+            "output: {:?}",
+            sink.text()
+        );
     }
 
     #[test]
@@ -202,21 +248,37 @@ mod windows_tests {
         plan.cwd = folder.clone();
         let sink = VecSink::default();
         let exited = spawn_answering(&PtyManager::default(), "e", plan, sink.clone());
-        assert_eq!(exited.recv_timeout(Duration::from_secs(20)).expect("should exit"), Some(0));
-        assert!(sink.text().contains("Mes projets é"), "output: {:?}", sink.text());
+        assert_eq!(
+            exited
+                .recv_timeout(Duration::from_secs(20))
+                .expect("should exit"),
+            Some(0)
+        );
+        assert!(
+            sink.text().contains("Mes projets é"),
+            "output: {:?}",
+            sink.text()
+        );
     }
 
     #[test]
     fn attach_replays_scrollback_to_the_new_sink() {
         let mgr = PtyManager::default();
         let first = VecSink::default();
-        let exited = spawn_answering(&mgr, "c", cmd_plan(&[], Some("echo before-attach\r")), first.clone());
+        let exited = spawn_answering(
+            &mgr,
+            "c",
+            cmd_plan(&[], Some("echo before-attach\r")),
+            first.clone(),
+        );
         wait_until("first output", || first.text().contains("before-attach"));
         let second = VecSink::default();
         assert!(mgr.attach("c", Box::new(second.clone())));
         assert!(second.text().contains("before-attach"));
         mgr.kill("c");
-        exited.recv_timeout(Duration::from_secs(20)).expect("killed process should exit");
+        exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("killed process should exit");
         assert!(!mgr.attach("c", Box::new(VecSink::default())));
     }
 
@@ -224,19 +286,30 @@ mod windows_tests {
     fn rejects_a_second_spawn_for_the_same_node_and_resizes() {
         let mgr = PtyManager::default();
         let exited = spawn_answering(&mgr, "d", cmd_plan(&[], None), VecSink::default());
-        let again = mgr.spawn("d", cmd_plan(&[], None), pty_size(80, 24), Box::new(VecSink::default()), |_| {});
+        let again = mgr.spawn(
+            "d",
+            cmd_plan(&[], None),
+            pty_size(80, 24),
+            Box::new(VecSink::default()),
+            |_| {},
+        );
         assert_eq!(again.unwrap_err().kind(), "invalidInput");
         mgr.resize("d", pty_size(120, 40)).unwrap();
         assert_eq!(mgr.list(), vec!["d".to_string()]);
         mgr.kill_all();
-        exited.recv_timeout(Duration::from_secs(20)).expect("kill_all should stop it");
+        exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("kill_all should stop it");
     }
 
     #[test]
     fn unknown_terminals_are_not_found_and_kill_is_idempotent() {
         let mgr = PtyManager::default();
         assert_eq!(mgr.write("nope", b"x").unwrap_err().kind(), "notFound");
-        assert_eq!(mgr.resize("nope", pty_size(80, 24)).unwrap_err().kind(), "notFound");
+        assert_eq!(
+            mgr.resize("nope", pty_size(80, 24)).unwrap_err().kind(),
+            "notFound"
+        );
         mgr.kill("nope");
     }
 }

@@ -17,7 +17,11 @@ pub struct Scrollback {
 
 impl Scrollback {
     pub fn new(capacity: usize) -> Self {
-        Self { buf: VecDeque::new(), capacity, truncated: false }
+        Self {
+            buf: VecDeque::new(),
+            capacity,
+            truncated: false,
+        }
     }
 
     pub fn push(&mut self, bytes: &[u8]) {

@@ -5,8 +5,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::error::AppResult;
 use crate::presets::{self, PresetInfo};
 use crate::pty::session::OutputSink;
-use crate::pty::shell::{build_plan, which_locate, ShellKind, SpawnSpec};
-use crate::pty::{pty_size, PtyManager};
+use crate::pty::shell::{ShellKind, SpawnSpec, build_plan, which_locate};
+use crate::pty::{PtyManager, pty_size};
 
 /// Forwards PTY output to the webview as raw bytes (an `ArrayBuffer` in JS).
 struct ChannelSink(Channel<Response>);
@@ -41,13 +41,29 @@ pub async fn pty_spawn(
 ) -> AppResult<Option<u32>> {
     let plan = build_plan(&node_id, &spec, &which_locate)?;
     let exited_id = node_id.clone();
-    pty.spawn(&node_id, plan, pty_size(cols, rows), Box::new(ChannelSink(on_data)), move |exit_code| {
-        let _ = app.emit("pty-exit", PtyExitEvent { node_id: exited_id, exit_code });
-    })
+    pty.spawn(
+        &node_id,
+        plan,
+        pty_size(cols, rows),
+        Box::new(ChannelSink(on_data)),
+        move |exit_code| {
+            let _ = app.emit(
+                "pty-exit",
+                PtyExitEvent {
+                    node_id: exited_id,
+                    exit_code,
+                },
+            );
+        },
+    )
 }
 
 #[tauri::command]
-pub async fn pty_attach(pty: State<'_, PtyManager>, node_id: String, on_data: Channel<Response>) -> AppResult<bool> {
+pub async fn pty_attach(
+    pty: State<'_, PtyManager>,
+    node_id: String,
+    on_data: Channel<Response>,
+) -> AppResult<bool> {
     Ok(pty.attach(&node_id, Box::new(ChannelSink(on_data))))
 }
 
@@ -57,7 +73,12 @@ pub async fn pty_write(pty: State<'_, PtyManager>, node_id: String, data: String
 }
 
 #[tauri::command]
-pub async fn pty_resize(pty: State<'_, PtyManager>, node_id: String, cols: u16, rows: u16) -> AppResult<()> {
+pub async fn pty_resize(
+    pty: State<'_, PtyManager>,
+    node_id: String,
+    cols: u16,
+    rows: u16,
+) -> AppResult<()> {
     pty.resize(&node_id, pty_size(cols, rows))
 }
 
