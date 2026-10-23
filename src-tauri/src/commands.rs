@@ -46,12 +46,12 @@ pub async fn pty_spawn(
         plan,
         pty_size(cols, rows),
         Box::new(ChannelSink(on_data)),
-        move |exit_code| {
+        move |info| {
             let _ = app.emit(
                 "pty-exit",
                 PtyExitEvent {
                     node_id: exited_id,
-                    exit_code,
+                    exit_code: info.code,
                 },
             );
         },

@@ -13,6 +13,7 @@ pub struct Scrollback {
     buf: VecDeque<u8>,
     capacity: usize,
     truncated: bool,
+    dirty: bool,
 }
 
 impl Scrollback {
@@ -21,10 +22,15 @@ impl Scrollback {
             buf: VecDeque::new(),
             capacity,
             truncated: false,
+            dirty: false,
         }
     }
 
     pub fn push(&mut self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
+        self.dirty = true;
         if bytes.len() >= self.capacity {
             self.buf.clear();
             self.buf.extend(&bytes[bytes.len() - self.capacity..]);
@@ -41,17 +47,26 @@ impl Scrollback {
 
     /// Bytes that are safe to write into a fresh terminal. Once old output has been
     /// dropped the buffer may begin in the middle of an escape sequence, so we skip
-    /// to the first newline and reset attributes before the rest.
+    /// to the first newline (or, in a screen redrawn without newlines, to the first
+    /// escape sequence) and reset attributes before the rest.
     pub fn snapshot(&self) -> Vec<u8> {
         let data: Vec<u8> = self.buf.iter().copied().collect();
         if !self.truncated {
             return data;
         }
-        let start = data.iter().position(|&b| b == b'\n').map_or(0, |i| i + 1);
+        let start = match data.iter().position(|&b| b == b'\n') {
+            Some(newline) => newline + 1,
+            None => data.iter().position(|&b| b == 0x1b).unwrap_or(0),
+        };
         let mut out = Vec::with_capacity(RESET_ATTRIBUTES.len() + data.len() - start);
         out.extend_from_slice(RESET_ATTRIBUTES);
         out.extend_from_slice(&data[start..]);
         out
+    }
+
+    /// True once per batch of new output; lets the periodic flusher skip idle terminals.
+    pub fn take_dirty(&mut self) -> bool {
+        std::mem::replace(&mut self.dirty, false)
     }
 }
 
@@ -83,10 +98,18 @@ mod tests {
     }
 
     #[test]
-    fn replays_whole_buffer_when_truncated_without_newline() {
+    fn replays_whole_buffer_when_truncated_without_newline_or_escape() {
         let mut sb = Scrollback::new(4);
         sb.push(b"abcdefgh");
         assert_eq!(sb.snapshot(), b"\x1b[0mefgh");
+    }
+
+    #[test]
+    fn skips_a_cut_escape_sequence_when_there_is_no_newline() {
+        let mut sb = Scrollback::new(10);
+        // The kept tail is "1mcd\x1b[0mef": "1m" is the end of a cut "\x1b[31m".
+        sb.push(b"ab\x1b[31mcd\x1b[0mef");
+        assert_eq!(sb.snapshot(), b"\x1b[0m\x1b[0mef");
     }
 
     #[test]
@@ -94,5 +117,16 @@ mod tests {
         let mut sb = Scrollback::new(4);
         sb.push(b"");
         assert!(sb.snapshot().is_empty());
+    }
+
+    #[test]
+    fn dirty_flag_is_set_by_output_and_cleared_on_take() {
+        let mut sb = Scrollback::new(8);
+        assert!(!sb.take_dirty());
+        sb.push(b"");
+        assert!(!sb.take_dirty());
+        sb.push(b"x");
+        assert!(sb.take_dirty());
+        assert!(!sb.take_dirty());
     }
 }

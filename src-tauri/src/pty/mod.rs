@@ -11,6 +11,12 @@ use crate::error::{AppError, AppResult};
 use session::{OutputSink, Session, Started};
 use shell::SpawnPlan;
 
+/// Reported once a terminal's process has exited and its output is drained.
+pub struct ExitInfo {
+    pub code: Option<u32>,
+    pub scrollback: Vec<u8>,
+}
+
 /// Owns every running terminal, keyed by canvas node id.
 #[derive(Default)]
 pub struct PtyManager {
@@ -33,7 +39,7 @@ impl PtyManager {
         plan: SpawnPlan,
         size: PtySize,
         sink: Box<dyn OutputSink>,
-        on_exit: impl FnOnce(Option<u32>) + Send + 'static,
+        on_exit: impl FnOnce(ExitInfo) + Send + 'static,
     ) -> AppResult<Option<u32>> {
         let mut sessions = self.sessions.lock().unwrap();
         if sessions.contains_key(node_id) {
@@ -58,7 +64,10 @@ impl PtyManager {
             // Join so every byte reaches the sink before the exit is reported.
             let _ = reader.join();
             sessions.lock().unwrap().remove(&node_id);
-            on_exit(code);
+            on_exit(ExitInfo {
+                code,
+                scrollback: session.scrollback(),
+            });
         });
         Ok(pid)
     }
@@ -102,6 +111,31 @@ impl PtyManager {
 
     pub fn scrollback(&self, node_id: &str) -> Option<Vec<u8>> {
         self.get(node_id).map(|session| session.scrollback())
+    }
+
+    /// Scrollbacks that changed since the previous call (spec §5.6, every 10 s).
+    pub fn dirty_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+        self.snapshot_sessions()
+            .into_iter()
+            .filter_map(|(id, session)| session.take_dirty_scrollback().map(|data| (id, data)))
+            .collect()
+    }
+
+    /// Every live scrollback, for the final flush when the app exits.
+    pub fn all_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+        self.snapshot_sessions()
+            .into_iter()
+            .map(|(id, session)| (id, session.scrollback()))
+            .collect()
+    }
+
+    /// Copies the session list so no output lock is taken while holding the map lock.
+    fn snapshot_sessions(&self) -> Vec<(String, Arc<Session>)> {
+        let sessions = self.sessions.lock().unwrap();
+        sessions
+            .iter()
+            .map(|(id, s)| (id.clone(), s.clone()))
+            .collect()
     }
 
     fn get(&self, node_id: &str) -> Option<Arc<Session>> {
@@ -175,15 +209,15 @@ mod windows_tests {
         id: &str,
         plan: SpawnPlan,
         sink: VecSink,
-    ) -> mpsc::Receiver<Option<u32>> {
+    ) -> mpsc::Receiver<ExitInfo> {
         let (tx, rx) = mpsc::channel();
         mgr.spawn(
             id,
             plan,
             pty_size(80, 24),
             Box::new(sink.clone()),
-            move |code| {
-                let _ = tx.send(code);
+            move |info| {
+                let _ = tx.send(info);
             },
         )
         .unwrap();
@@ -192,8 +226,14 @@ mod windows_tests {
         rx
     }
 
+    fn wait_exit(exited: &mpsc::Receiver<ExitInfo>) -> ExitInfo {
+        exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("process should exit")
+    }
+
     #[test]
-    fn streams_output_and_reports_exit_code() {
+    fn streams_output_and_reports_exit_code_with_the_final_scrollback() {
         let mgr = PtyManager::default();
         let sink = VecSink::default();
         let exited = spawn_answering(
@@ -202,15 +242,14 @@ mod windows_tests {
             cmd_plan(&["/c", "echo openvibe-hello"], None),
             sink.clone(),
         );
-        let code = exited
-            .recv_timeout(Duration::from_secs(20))
-            .expect("process should exit");
-        assert_eq!(code, Some(0));
+        let info = wait_exit(&exited);
+        assert_eq!(info.code, Some(0));
         assert!(
             sink.text().contains("openvibe-hello"),
             "output: {:?}",
             sink.text()
         );
+        assert!(String::from_utf8_lossy(&info.scrollback).contains("openvibe-hello"));
         assert!(mgr.list().is_empty());
         assert!(mgr.scrollback("a").is_none());
     }
@@ -229,9 +268,7 @@ mod windows_tests {
             sink.text().contains("from-initial")
         });
         mgr.write("b", b"echo from-write\rexit\r").unwrap();
-        exited
-            .recv_timeout(Duration::from_secs(20))
-            .expect("cmd should exit");
+        wait_exit(&exited);
         assert!(
             sink.text().contains("from-write"),
             "output: {:?}",
@@ -248,12 +285,7 @@ mod windows_tests {
         plan.cwd = folder.clone();
         let sink = VecSink::default();
         let exited = spawn_answering(&PtyManager::default(), "e", plan, sink.clone());
-        assert_eq!(
-            exited
-                .recv_timeout(Duration::from_secs(20))
-                .expect("should exit"),
-            Some(0)
-        );
+        assert_eq!(wait_exit(&exited).code, Some(0));
         assert!(
             sink.text().contains("Mes projets é"),
             "output: {:?}",
@@ -261,8 +293,19 @@ mod windows_tests {
         );
     }
 
+    /// Keeps each chunk apart, to check what the first message on a sink is.
+    #[derive(Clone, Default)]
+    struct ChunkSink(Arc<Mutex<Vec<Vec<u8>>>>);
+
+    impl OutputSink for ChunkSink {
+        fn send(&self, bytes: &[u8]) -> bool {
+            self.0.lock().unwrap().push(bytes.to_vec());
+            true
+        }
+    }
+
     #[test]
-    fn attach_replays_scrollback_to_the_new_sink() {
+    fn attach_sends_the_replay_as_the_first_message() {
         let mgr = PtyManager::default();
         let first = VecSink::default();
         let exited = spawn_answering(
@@ -272,14 +315,34 @@ mod windows_tests {
             first.clone(),
         );
         wait_until("first output", || first.text().contains("before-attach"));
-        let second = VecSink::default();
+        let second = ChunkSink::default();
         assert!(mgr.attach("c", Box::new(second.clone())));
-        assert!(second.text().contains("before-attach"));
+        let replay = second.0.lock().unwrap()[0].clone();
+        assert!(String::from_utf8_lossy(&replay).contains("before-attach"));
         mgr.kill("c");
-        exited
-            .recv_timeout(Duration::from_secs(20))
-            .expect("killed process should exit");
+        wait_exit(&exited);
         assert!(!mgr.attach("c", Box::new(VecSink::default())));
+    }
+
+    #[test]
+    fn reports_each_changed_scrollback_once() {
+        let mgr = PtyManager::default();
+        let sink = VecSink::default();
+        let exited = spawn_answering(
+            &mgr,
+            "f",
+            cmd_plan(&[], Some("echo flushed\r")),
+            sink.clone(),
+        );
+        wait_until("output", || sink.text().contains("flushed"));
+        let dirty = mgr.dirty_scrollbacks();
+        assert_eq!(dirty.len(), 1);
+        assert_eq!(dirty[0].0, "f");
+        assert!(String::from_utf8_lossy(&dirty[0].1).contains("flushed"));
+        assert!(mgr.dirty_scrollbacks().is_empty());
+        assert_eq!(mgr.all_scrollbacks().len(), 1);
+        mgr.kill_all();
+        wait_exit(&exited);
     }
 
     #[test]
@@ -297,9 +360,7 @@ mod windows_tests {
         mgr.resize("d", pty_size(120, 40)).unwrap();
         assert_eq!(mgr.list(), vec!["d".to_string()]);
         mgr.kill_all();
-        exited
-            .recv_timeout(Duration::from_secs(20))
-            .expect("kill_all should stop it");
+        wait_exit(&exited);
     }
 
     #[test]

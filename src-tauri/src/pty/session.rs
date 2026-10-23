@@ -101,17 +101,26 @@ impl Session {
         self.master.lock().unwrap().take();
     }
 
+    /// The replay is always sent, even when empty, so the first message on a new
+    /// sink is the replay: the frontend relies on that to ignore the answers xterm
+    /// gives to terminal queries replayed from the past.
     pub fn attach(&self, sink: Box<dyn OutputSink>) {
         let mut output = self.output.lock().unwrap();
-        let snapshot = output.scrollback.snapshot();
-        if !snapshot.is_empty() {
-            sink.send(&snapshot);
-        }
+        sink.send(&output.scrollback.snapshot());
         output.sink = Some(sink);
     }
 
     pub fn scrollback(&self) -> Vec<u8> {
         self.output.lock().unwrap().scrollback.snapshot()
+    }
+
+    /// The scrollback if it changed since the last call, for the periodic flusher.
+    pub fn take_dirty_scrollback(&self) -> Option<Vec<u8>> {
+        let mut output = self.output.lock().unwrap();
+        output
+            .scrollback
+            .take_dirty()
+            .then(|| output.scrollback.snapshot())
     }
 }
 
