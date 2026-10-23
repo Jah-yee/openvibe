@@ -1,3 +1,6 @@
+pub mod nodes;
+pub mod scenes;
+pub mod scrollback;
 pub mod settings;
 pub mod workspaces;
 
