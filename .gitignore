@@ -25,3 +25,6 @@ dist-ssr
 
 # Git Bash crash dumps
 *.stackdump
+
+# Excalidraw fonts, copied by scripts/copy-excalidraw-fonts.mjs
+public/fonts/

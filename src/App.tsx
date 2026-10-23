@@ -1,19 +1,12 @@
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
-import { ping } from "@/ipc/app";
+import { Canvas } from "@/canvas/Canvas";
 
 export default function App() {
-  const check = async () => {
-    try {
-      toast.success(`Rust a répondu : ${await ping()}`);
-    } catch (error) {
-      toast.error(String(error));
-    }
-  };
   return (
-    <div className="grid h-screen place-items-center">
-      <Button onClick={check}>Tester l'IPC</Button>
+    <div className="flex h-screen w-screen overflow-hidden">
+      <main className="min-w-0 flex-1">
+        <Canvas />
+      </main>
       <Toaster theme="dark" />
     </div>
   );

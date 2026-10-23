@@ -8,9 +8,11 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "postinstall": "node scripts/copy-excalidraw-fonts.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
     "@fontsource-variable/geist": "^5.3.0",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/api": "^2",
