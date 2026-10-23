@@ -1,65 +1,93 @@
 import { createStore, useStore } from "zustand";
-import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import type { AppState } from "@excalidraw/excalidraw/types";
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getSetting,
+  listWorkspaces,
+  renameWorkspace,
+  setSetting,
+  type Workspace,
+} from "@/ipc/db";
 
-export interface Workspace {
-  id: string;
-  name: string;
-}
+export type { Workspace };
 
-/** What a workspace remembers of its canvas. Persisted to SQLite in milestone 5. */
-export interface SavedScene {
-  elements: readonly ExcalidrawElement[];
-  appState: Pick<AppState, "scrollX" | "scrollY" | "zoom">;
-}
+const ACTIVE_KEY = "ui.activeWorkspaceId";
 
 export interface WorkspacesState {
   workspaces: Workspace[];
-  activeId: string;
-  scenes: Record<string, SavedScene>;
-  create: (name?: string) => string;
-  rename: (id: string, name: string) => void;
-  remove: (id: string) => void;
+  activeId: string | null;
+  status: "loading" | "ready" | "error";
+  error?: string;
+  /** Loads the workspaces from SQLite, creating the first one on a fresh install. */
+  init: () => Promise<void>;
+  create: () => Promise<void>;
+  rename: (id: string, name: string) => Promise<void>;
+  /** Deletes a workspace (never the last one) and selects its neighbor if it was active. */
+  remove: (id: string) => Promise<void>;
   select: (id: string) => void;
-  saveScene: (id: string, scene: SavedScene) => void;
+}
+
+/** "Workspace N" with the smallest N not already taken. */
+export function nextDefaultName(workspaces: Workspace[]): string {
+  const taken = new Set(workspaces.map((w) => w.name));
+  let n = 1;
+  while (taken.has(`Workspace ${n}`)) n++;
+  return `Workspace ${n}`;
+}
+
+function rememberActive(id: string) {
+  setSetting(ACTIVE_KEY, id).catch((error: unknown) => console.warn("active workspace not saved", error));
 }
 
 export function createWorkspacesStore() {
-  const first: Workspace = { id: crypto.randomUUID(), name: "Workspace 1" };
   return createStore<WorkspacesState>()((set, get) => ({
-    workspaces: [first],
-    activeId: first.id,
-    scenes: {},
+    workspaces: [],
+    activeId: null,
+    status: "loading",
 
-    create: (name) => {
-      const workspace = { id: crypto.randomUUID(), name: name?.trim() || `Workspace ${get().workspaces.length + 1}` };
-      set((s) => ({ workspaces: [...s.workspaces, workspace], activeId: workspace.id }));
-      return workspace.id;
+    init: async () => {
+      try {
+        let workspaces = await listWorkspaces();
+        if (workspaces.length === 0) workspaces = [await createWorkspace(nextDefaultName([]))];
+        const saved = await getSetting<string>(ACTIVE_KEY);
+        const activeId = workspaces.some((w) => w.id === saved) ? saved! : workspaces[0].id;
+        set({ workspaces, activeId, status: "ready" });
+      } catch (error) {
+        set({ status: "error", error: String(error) });
+      }
     },
 
-    rename: (id, name) => {
+    create: async () => {
+      const workspace = await createWorkspace(nextDefaultName(get().workspaces));
+      set((s) => ({ workspaces: [...s.workspaces, workspace], activeId: workspace.id }));
+      rememberActive(workspace.id);
+    },
+
+    rename: async (id, name) => {
       const trimmed = name.trim();
       if (!trimmed) return;
+      await renameWorkspace(id, trimmed);
       set((s) => ({ workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, name: trimmed } : w)) }));
     },
 
     // There is always at least one workspace; removing the active one selects its
     // neighbor (the next one, or the previous one when it was last).
-    remove: (id) => {
-      const { workspaces, activeId, scenes } = get();
+    remove: async (id) => {
+      const { workspaces, activeId } = get();
       const index = workspaces.findIndex((w) => w.id === id);
       if (index === -1 || workspaces.length === 1) return;
+      await deleteWorkspace(id);
       const remaining = workspaces.filter((w) => w.id !== id);
       const nextActive = id === activeId ? remaining[Math.min(index, remaining.length - 1)].id : activeId;
-      const { [id]: _removed, ...otherScenes } = scenes;
-      set({ workspaces: remaining, activeId: nextActive, scenes: otherScenes });
+      set({ workspaces: remaining, activeId: nextActive });
+      if (nextActive && nextActive !== activeId) rememberActive(nextActive);
     },
 
     select: (id) => {
-      if (get().workspaces.some((w) => w.id === id)) set({ activeId: id });
+      if (id === get().activeId || !get().workspaces.some((w) => w.id === id)) return;
+      set({ activeId: id });
+      rememberActive(id);
     },
-
-    saveScene: (id, scene) => set((s) => ({ scenes: { ...s.scenes, [id]: scene } })),
   }));
 }
 
