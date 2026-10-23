@@ -12,6 +12,8 @@ pub enum AppError {
     Pty(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Db(#[from] rusqlite::Error),
 }
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -23,6 +25,7 @@ impl AppError {
             AppError::NotFound(_) => "notFound",
             AppError::Pty(_) => "pty",
             AppError::Io(_) => "io",
+            AppError::Db(_) => "db",
         }
     }
 }

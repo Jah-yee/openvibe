@@ -1,4 +1,5 @@
 mod commands;
+mod db;
 mod error;
 mod presets;
 mod pty;
