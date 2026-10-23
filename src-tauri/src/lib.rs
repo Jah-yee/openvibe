@@ -1,5 +1,6 @@
 mod commands;
 mod error;
+mod presets;
 mod pty;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
