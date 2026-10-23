@@ -1,13 +1,31 @@
-import { useCallback, useState } from "react";
-import { CaptureUpdateAction, Excalidraw } from "@excalidraw/excalidraw";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { useCallback, useMemo, useState } from "react";
+import { CaptureUpdateAction, Excalidraw, getSceneVersion } from "@excalidraw/excalidraw";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { NodeHost } from "@/nodes/NodeHost";
+import { workspacesStore } from "@/store/workspaces";
 import { InsertMenu } from "./InsertMenu";
 import { createNodeElement, isOpenVibeLink, type NodeKind } from "./nodeElement";
+import { createChangeDetector } from "./sceneChanges";
 
-export function Canvas() {
+const sceneKey = (elements: readonly ExcalidrawElement[], appState: AppState) =>
+  `${getSceneVersion(elements)}:${appState.scrollX}:${appState.scrollY}:${appState.zoom.value}`;
+
+/** One Excalidraw instance per workspace; remounted (via `key`) when switching. */
+export function Canvas({ workspaceId }: { workspaceId: string }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const initialData = useMemo(() => workspacesStore.getState().scenes[workspaceId] ?? null, [workspaceId]);
+  const hasChanged = useMemo(() => createChangeDetector(sceneKey), [workspaceId]);
+
+  const onChange = useCallback(
+    (elements: readonly ExcalidrawElement[], appState: AppState) => {
+      if (!hasChanged(elements, appState)) return;
+      const { scrollX, scrollY, zoom } = appState;
+      workspacesStore.getState().saveScene(workspaceId, { elements, appState: { scrollX, scrollY, zoom } });
+    },
+    [workspaceId, hasChanged],
+  );
 
   const insert = useCallback(
     (kind: NodeKind) => {
@@ -28,6 +46,8 @@ export function Canvas() {
         theme="dark"
         langCode="fr-FR"
         excalidrawAPI={setApi}
+        initialData={initialData}
+        onChange={onChange}
         validateEmbeddable={isOpenVibeLink}
         renderEmbeddable={(element) => <NodeHost element={element} />}
         renderTopRightUI={() => <InsertMenu onInsert={insert} />}
