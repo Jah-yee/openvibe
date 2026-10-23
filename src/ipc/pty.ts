@@ -59,7 +59,21 @@ export function ptyAttach(nodeId: string, onData: (bytes: Uint8Array) => void): 
   return call("pty_attach", { nodeId, onData: byteChannel(onData) });
 }
 
-export const ptyWrite = (nodeId: string, data: string) => call<void>("pty_write", { nodeId, data });
+// Tauri runs async commands concurrently, so two writes sent back to back could
+// reach the PTY swapped. Each terminal's writes are chained to keep their order.
+const writeQueues = new Map<string, Promise<unknown>>();
+
+export function ptyWrite(nodeId: string, data: string): Promise<void> {
+  const previous = writeQueues.get(nodeId) ?? Promise.resolve();
+  const write = previous.then(() => call<void>("pty_write", { nodeId, data }));
+  const tail = write.catch(() => undefined);
+  writeQueues.set(nodeId, tail);
+  void tail.then(() => {
+    if (writeQueues.get(nodeId) === tail) writeQueues.delete(nodeId);
+  });
+  return write;
+}
+
 export const ptyResize = (nodeId: string, cols: number, rows: number) => call<void>("pty_resize", { nodeId, cols, rows });
 export const ptyKill = (nodeId: string) => call<void>("pty_kill", { nodeId });
 export const ptyList = () => call<string[]>("pty_list");

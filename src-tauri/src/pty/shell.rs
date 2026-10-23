@@ -170,11 +170,24 @@ fn claude_command(launch: Option<&ClaudeLaunch>, syntax: ShellSyntax) -> AppResu
     // Parsing guarantees the id is a bare UUID, so it never needs quoting.
     let session = uuid::Uuid::parse_str(&launch.session_id)
         .map_err(|_| AppError::InvalidInput(format!("identifiant de session invalide : {}", launch.session_id)))?;
+    let title = clean_title(&launch.title);
     Ok(match launch.mode {
         ClaudeMode::Resume => format!("claude --resume {session}"),
-        _ if launch.title.trim().is_empty() => format!("claude --session-id {session}"),
-        _ => format!("claude --session-id {session} -n {}", quote(syntax, launch.title.trim())),
+        _ if title.is_empty() => format!("claude --session-id {session}"),
+        // Git Bash rewrites arguments that look like paths ("/fix" → "C:/Program Files/Git/fix").
+        _ if syntax == ShellSyntax::Posix => {
+            format!("MSYS_NO_PATHCONV=1 claude --session-id {session} -n {}", quote(syntax, &title))
+        }
+        _ => format!("claude --session-id {session} -n {}", quote(syntax, &title)),
     })
+}
+
+/// Titles are typed into an interactive shell: control characters would submit or
+/// cancel the line, PowerShell 5.1 drops embedded `"` before calling a native
+/// program, and a trailing `\` escapes the closing quote in cmd and PowerShell.
+fn clean_title(title: &str) -> String {
+    let kept: String = title.chars().filter(|c| !c.is_control() && *c != '"').collect();
+    kept.trim().trim_end_matches('\\').trim_end().to_string()
 }
 
 pub fn build_plan(node_id: &str, spec: &SpawnSpec, locate: Locate) -> AppResult<SpawnPlan> {
@@ -248,6 +261,35 @@ mod tests {
     #[test]
     fn new_claude_session_without_title_omits_name() {
         let cmd = preset_command(&spec(Preset::Claude, claude(ClaudeMode::New, "  ")), ShellSyntax::Posix).unwrap();
+        assert_eq!(cmd.as_deref(), Some("claude --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10"));
+    }
+
+    #[test]
+    fn strips_control_characters_from_the_title() {
+        // A carriage return would submit the line early and run the rest as a command.
+        let cmd = preset_command(&spec(Preset::Claude, claude(ClaudeMode::New, "Fix\r del *\x03")), ShellSyntax::Cmd).unwrap();
+        assert_eq!(cmd.as_deref(), Some("claude --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10 -n \"Fix del *\""));
+    }
+
+    #[test]
+    fn drops_double_quotes_and_trailing_backslashes_from_the_title() {
+        let cmd = preset_command(&spec(Preset::Claude, claude(ClaudeMode::New, "Fix \"login\" page\\")), ShellSyntax::PowerShell).unwrap();
+        assert_eq!(cmd.as_deref(), Some("claude --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10 -n 'Fix login page'"));
+    }
+
+    #[test]
+    fn disables_msys_path_conversion_for_posix_titles() {
+        // Git Bash would otherwise turn "/fix login" into "C:/Program Files/Git/fix login".
+        let cmd = preset_command(&spec(Preset::Claude, claude(ClaudeMode::New, "/fix login")), ShellSyntax::Posix).unwrap();
+        assert_eq!(
+            cmd.as_deref(),
+            Some("MSYS_NO_PATHCONV=1 claude --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10 -n '/fix login'")
+        );
+    }
+
+    #[test]
+    fn a_title_of_only_control_characters_omits_the_name() {
+        let cmd = preset_command(&spec(Preset::Claude, claude(ClaudeMode::New, "\r\n\t")), ShellSyntax::PowerShell).unwrap();
         assert_eq!(cmd.as_deref(), Some("claude --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10"));
     }
 

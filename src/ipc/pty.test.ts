@@ -25,6 +25,35 @@ it("sends camelCase arguments to Rust commands", async () => {
   expect(received).toEqual({ cmd: "pty_write", args: { nodeId: "node-1", data: "ls\r" } });
 });
 
+it("sends writes to one terminal in order, one at a time", async () => {
+  const started: string[] = [];
+  let release!: () => void;
+  mockIPC((cmd, args) => {
+    if (cmd !== "pty_write") return;
+    started.push((args as { data: string }).data);
+    if (started.length === 1) return new Promise<void>((resolve) => (release = resolve));
+  });
+  const first = ptyWrite("node-1", "a");
+  const second = ptyWrite("node-1", "b");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(started).toEqual(["a"]); // "b" waits until "a" has reached Rust
+  release();
+  await Promise.all([first, second]);
+  expect(started).toEqual(["a", "b"]);
+});
+
+it("keeps writing after a failed write", async () => {
+  const sent: string[] = [];
+  mockIPC((_cmd, args) => {
+    const { data } = args as { data: string };
+    sent.push(data);
+    if (data === "a") throw { kind: "notFound", message: "gone" };
+  });
+  await expect(ptyWrite("node-2", "a")).rejects.toMatchObject({ kind: "notFound" });
+  await ptyWrite("node-2", "b");
+  expect(sent).toEqual(["a", "b"]);
+});
+
 it("decodes scrollback returned as raw bytes", async () => {
   mockIPC(() => new Uint8Array([104, 105]).buffer);
   expect(new TextDecoder().decode(await getScrollback("node-1"))).toBe("hi");
