@@ -1,0 +1,68 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import type { TerminalPayload } from "@/nodes/types";
+import { createNodesStore } from "./nodes";
+
+const payload: TerminalPayload = { title: "A", cwd: "C:/code", preset: "shell", command: "", shell: "default" };
+let saves: { id: string; payloadJson: string }[];
+
+beforeEach(() => {
+  saves = [];
+  mockIPC((cmd, args) => {
+    if (cmd === "save_node") saves.push(args as { id: string; payloadJson: string });
+  });
+});
+afterEach(() => {
+  clearMocks();
+  vi.useRealTimers();
+});
+
+it("saves a created node immediately", async () => {
+  const { store } = createNodesStore();
+  await store.getState().create("n1", { workspaceId: "w1", kind: "terminal", payload });
+  expect(saves.map((s) => s.id)).toEqual(["n1"]);
+  expect(JSON.parse(saves[0].payloadJson)).toEqual(payload);
+});
+
+it("groups quick updates into one save after 500 ms", async () => {
+  const { store } = createNodesStore();
+  await store.getState().create("n1", { workspaceId: "w1", kind: "terminal", payload });
+  vi.useFakeTimers();
+  store.getState().update("n1", { title: "B" });
+  store.getState().update("n1", { title: "C" });
+  expect(saves).toHaveLength(1);
+  await vi.advanceTimersByTimeAsync(500);
+  expect(saves).toHaveLength(2);
+  expect(JSON.parse(saves[1].payloadJson).title).toBe("C");
+});
+
+it("flushes pending updates on demand", async () => {
+  const { store, flushPending } = createNodesStore();
+  await store.getState().create("n1", { workspaceId: "w1", kind: "terminal", payload });
+  store.getState().update("n1", { title: "Z" });
+  await flushPending();
+  expect(JSON.parse(saves[saves.length - 1].payloadJson).title).toBe("Z");
+});
+
+it("hydrates from SQLite without overwriting newer in-memory nodes", async () => {
+  const { store } = createNodesStore();
+  await store.getState().create("n1", { workspaceId: "w1", kind: "terminal", payload: { ...payload, title: "fresh" } });
+  store.getState().hydrate("w1", [
+    { id: "n1", kind: "terminal", payloadJson: JSON.stringify({ ...payload, title: "stale" }) },
+    { id: "n2", kind: "terminal", payloadJson: JSON.stringify(payload) },
+    { id: "bad", kind: "terminal", payloadJson: "{not json" },
+  ]);
+  const { nodes } = store.getState();
+  expect(nodes.n1.payload.title).toBe("fresh");
+  expect(nodes.n2.workspaceId).toBe("w1");
+  expect(nodes.bad).toBeUndefined();
+});
+
+it("forgets the nodes of a workspace", async () => {
+  const { store } = createNodesStore();
+  await store.getState().create("a", { workspaceId: "w1", kind: "terminal", payload });
+  await store.getState().create("b", { workspaceId: "w2", kind: "terminal", payload });
+  expect(store.getState().forgetWorkspace("w1")).toEqual(["a"]);
+  expect(Object.keys(store.getState().nodes)).toEqual(["b"]);
+});
