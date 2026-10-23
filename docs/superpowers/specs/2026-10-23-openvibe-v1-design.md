@@ -492,7 +492,21 @@ React Flow pour les nœuds, au-dessus d'une couche Excalidraw dont la vue (dépl
 
 ### Décision
 
-*À compléter à la fin du jalon 2, avec les observations de chaque critère.*
+Prototype passé par Mathieu le 2026-10-24 sur Windows 11 (WebView2), avec l'outillage de la tâche 6 du plan 1 et le vrai PowerShell de la tâche 12.
+
+| Critère | Observation | OK ? |
+|---|---|---|
+| 1. Saisie dans Xterm sans raccourcis Excalidraw | Texte affiché ; aucun changement d'outil ; le nœud n'est pas supprimé par Suppr | ✔ |
+| 2. Échap atteint le processus | « Échap reçu par le terminal », sans contournement | ✔ |
+| 3. Molette : terminal actif / canvas | Le terminal défile quand il est actif, le canvas sinon | ✔ |
+| 4. Redimensionnement à 100 % | Le texte se réorganise, sans flou | ✔ |
+| 5. Hors écran puis retour ; changement de workspace | Contenu conservé ; « remonté avec son état » au retour de workspace | ✔ |
+| 6. Dépôt d'un snippet | Collé dans le terminal sans Entrée ; ignoré sur le canvas vide, aucun élément texte créé | ✔ |
+| 7. Flèche liée à un élément intégré | `terminal:xxxx → terminal:yyyy` lu dans la scène | ✔ |
+| 8. 10 terminaux + flood | 50 img/s ou plus pendant déplacement et zoom ; aucun terminal noir | ✔ |
+| Pont PTY (jalon 3) | PowerShell réel avec accents corrects ; `claude` démarre avec le compte existant ; `pty-exit` reçu ; aucun processus orphelin après fermeture | ✔ |
+
+**Décision : option A (Excalidraw comme canvas).** Aucun contournement n'a été nécessaire (le blocage de propagation des touches est resté désactivé).
 
 ## 16. Conventions
 
