@@ -1,7 +1,8 @@
 use serde::Serialize;
 use tauri::ipc::{Channel, Response};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::db::{Db, scrollback};
 use crate::error::AppResult;
 use crate::presets::{self, PresetInfo};
 use crate::pty::session::OutputSink;
@@ -25,11 +26,6 @@ struct PtyExitEvent {
 }
 
 #[tauri::command]
-pub fn ping() -> String {
-    "pong".into()
-}
-
-#[tauri::command]
 pub async fn pty_spawn(
     app: AppHandle,
     pty: State<'_, PtyManager>,
@@ -47,6 +43,13 @@ pub async fn pty_spawn(
         pty_size(cols, rows),
         Box::new(ChannelSink(on_data)),
         move |info| {
+            // Saved before the event so a restore right after the exit finds it.
+            let saved = app
+                .state::<Db>()
+                .with(|conn| scrollback::save(conn, &exited_id, &info.scrollback));
+            if let Err(err) = saved {
+                eprintln!("scrollback of {exited_id} not saved: {err}");
+            }
             let _ = app.emit(
                 "pty-exit",
                 PtyExitEvent {
@@ -93,10 +96,20 @@ pub async fn pty_list(pty: State<'_, PtyManager>) -> AppResult<Vec<String>> {
     Ok(pty.list())
 }
 
-/// Live scrollback only for now; milestone 5 falls back to the copy saved in SQLite.
+/// The live scrollback when the terminal runs, otherwise the last copy saved in SQLite.
 #[tauri::command]
-pub async fn get_scrollback(pty: State<'_, PtyManager>, node_id: String) -> AppResult<Response> {
-    Ok(Response::new(pty.scrollback(&node_id).unwrap_or_default()))
+pub async fn get_scrollback(
+    pty: State<'_, PtyManager>,
+    db: State<'_, Db>,
+    node_id: String,
+) -> AppResult<Response> {
+    let data = match pty.scrollback(&node_id) {
+        Some(live) => live,
+        None => db
+            .with(|conn| scrollback::load(conn, &node_id))?
+            .unwrap_or_default(),
+    };
+    Ok(Response::new(data))
 }
 
 #[tauri::command]
@@ -107,4 +120,20 @@ pub async fn list_presets() -> AppResult<Vec<PresetInfo>> {
 #[tauri::command]
 pub async fn list_shells() -> AppResult<Vec<ShellKind>> {
     Ok(presets::list_shells(&which_locate))
+}
+
+/// Writes scrollbacks to SQLite: only the changed ones, or all of them at exit.
+pub fn flush_scrollbacks(app: &AppHandle, all: bool) {
+    let pty = app.state::<PtyManager>();
+    let batch = if all {
+        pty.all_scrollbacks()
+    } else {
+        pty.dirty_scrollbacks()
+    };
+    let db = app.state::<Db>();
+    for (node_id, data) in batch {
+        if let Err(err) = db.with(|conn| scrollback::save(conn, &node_id, &data)) {
+            eprintln!("scrollback of {node_id} not saved: {err}");
+        }
+    }
 }
