@@ -351,7 +351,7 @@ type GitPayload    = { title: string; path?: string };
 | | `save_scene(workspaceId, elementsJson, appStateJson, nodeIds)` | sauvegarde + purge |
 | | `save_files(workspaceId, files)` | images ajoutées |
 | | `save_node(id, workspaceId, kind, payload)` | contenu d'un nœud |
-| PTY | `pty_spawn(nodeId, spec, cols, rows, onData: Channel) -> pid | null` | lance shell + commande |
+| PTY | `pty_spawn(nodeId, spec, cols, rows, onData: Channel) -> pid` (ou `null`) | lance shell + commande |
 | | `pty_attach(nodeId, onData: Channel) -> bool` | rattache une session vivante |
 | | `pty_write(nodeId, data)`, `pty_resize(nodeId, cols, rows)`, `pty_kill(nodeId)` | interaction |
 | | `pty_list() -> nodeId[]` | sessions vivantes (badges, rattachement) |
