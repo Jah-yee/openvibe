@@ -9,6 +9,7 @@ import {
   setWorkspacePantheon,
   type Workspace,
 } from "@/ipc/db";
+import { nextPantheon } from "@/fleet/names";
 
 export type { Workspace };
 
@@ -30,6 +31,8 @@ export interface WorkspacesState {
   remove: (id: string) => Promise<void>;
   select: (id: string) => void;
   setPantheon: (id: string, pantheon: string) => Promise<void>;
+  /** The pantheon of the agents outside any group, chosen and saved on first use. */
+  ensurePantheon: (id: string) => Promise<string>;
 }
 
 /** "Workspace N" with the smallest N not already taken. */
@@ -102,6 +105,15 @@ export function createWorkspacesStore() {
       setPantheon: async (id, pantheon) => {
         await setWorkspacePantheon(id, pantheon);
         set((s) => ({ workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, pantheon } : w)) }));
+      },
+
+      ensurePantheon: async (id) => {
+        const workspace = get().workspaces.find((w) => w.id === id);
+        if (workspace?.pantheon) return workspace.pantheon;
+        // Groups (plan B) will pass the pantheons they already use.
+        const pantheon = nextPantheon([]);
+        await get().setPantheon(id, pantheon);
+        return pantheon;
       },
     };
   });

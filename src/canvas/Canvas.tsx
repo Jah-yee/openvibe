@@ -9,6 +9,7 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
+import { assignMissingNames, nameForNewAgent } from "@/fleet/naming";
 import { saveFiles, saveScene } from "@/ipc/db";
 import { onFlushAll } from "@/lib/flush";
 import { NodeHost } from "@/nodes/NodeHost";
@@ -23,7 +24,7 @@ import { createNodeElement, isOpenVibeLink } from "./nodeElement";
 import { DotGrid } from "./overlay/DotGrid";
 import { loadScene, rememberScene, type LoadedScene } from "./sceneCache";
 import { EXCALIDRAW_UI_OPTIONS, withSceneDefaults } from "./sceneDefaults";
-import { createSceneSync } from "./sceneSync";
+import { createSceneSync, liveNodeIds } from "./sceneSync";
 
 const reportSaveError = (error: unknown) => toast.error(`Sauvegarde impossible : ${String(error)}`);
 
@@ -90,6 +91,11 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     };
   }, [sync]);
 
+  // Terminals saved before plan A have no name yet (spec habillage §9.2).
+  useEffect(() => {
+    void assignMissingNames(workspaceId, liveNodeIds(scene.initialData.elements ?? [])).catch(reportSaveError);
+  }, [workspaceId, scene]);
+
   const trackActivation = useMemo(() => createActivationTracker(), []);
 
   const onChange = useCallback(
@@ -104,12 +110,13 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   );
 
   const launch = useCallback(
-    async (payload: TerminalPayload) => {
+    async (input: TerminalPayload) => {
       if (!api) return;
       const { scrollX, scrollY, zoom, width, height } = api.getAppState();
       const center = { x: width / 2 / zoom.value - scrollX, y: height / 2 / zoom.value - scrollY };
       const element = createNodeElement("terminal", center);
       try {
+        const payload = { ...input, name: await nameForNewAgent(workspaceId) };
         // The node row must exist before the process can save its scrollback.
         await nodesStore.getState().create(element.id, { workspaceId, kind: "terminal", payload });
       } catch (error) {

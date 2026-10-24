@@ -134,6 +134,14 @@ describe("workspaces store", () => {
     expect(db.workspaces[0].pantheon).toBe("greek");
   });
 
+  it("chooses the pantheon of a workspace once", async () => {
+    const db = fakeBackend(["A"]);
+    await state().load("p1");
+    expect(await state().ensurePantheon("w1")).toBe("egyptian");
+    expect(await state().ensurePantheon("w1")).toBe("egyptian");
+    expect(db.workspaces[0].pantheon).toBe("egyptian");
+  });
+
   it("reports a backend failure", async () => {
     mockIPC(() => {
       throw { kind: "db", message: "disk I/O error" };
