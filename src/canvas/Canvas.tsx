@@ -19,6 +19,7 @@ import { disposeTerminal, focusTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
 import { createActivationTracker } from "./activation";
 import { canvasStore, viewFrom } from "./canvasStore";
+import { framesFromScene } from "./groups";
 import { isOpenVibeLink } from "./nodeElement";
 import { classifyAddedNodes } from "./nodeCopies";
 import { DotGrid } from "./overlay/DotGrid";
@@ -64,6 +65,9 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       if (canvasStore.getState().api === api) canvasStore.getState().setApi(null);
     };
   }, [api]);
+
+  // The next workspace must not show this one's groups before its first change.
+  useEffect(() => () => canvasStore.getState().setFrames([]), []);
 
   const sync = useMemo(
     () =>
@@ -116,6 +120,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       sync.onChange(elements, appState, files, getSceneVersion(elements));
       canvasStore.getState().setView(viewFrom(appState));
+      canvasStore.getState().setFrames(framesFromScene(elements));
       const activated = trackActivation(appState.activeEmbeddable);
       // Deferred: changing the view from inside onChange would re-enter it.
       if (activated && api) requestAnimationFrame(() => showAtFullSize(api, activated));

@@ -10,3 +10,7 @@ describe("withSceneDefaults", () => {
     expect(SCENE_DEFAULTS.currentItemStrokeColor).toBe("#0b0500");
   });
 });
+
+it("lets OpenVibe draw frame outlines and group labels", () => {
+  expect(SCENE_DEFAULTS.frameRendering).toEqual({ enabled: true, name: true, outline: false, clip: true });
+});

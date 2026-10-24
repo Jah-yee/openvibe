@@ -1,5 +1,6 @@
 import { createStore, useStore } from "zustand";
 import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { sameFrames, type SceneFrame } from "./groups";
 
 /** The part of Excalidraw's state that the shell around the canvas shows. */
 export interface CanvasView {
@@ -13,6 +14,8 @@ export interface CanvasView {
   /** Excalidraw's active tool type ("selection", "rectangle", "freedraw"…). */
   tool: string;
   selectedIds: string[];
+  /** The frame whose name Excalidraw is editing (its group label hides meanwhile). */
+  editingFrame: string | null;
 }
 
 export const EMPTY_VIEW: CanvasView = {
@@ -25,6 +28,7 @@ export const EMPTY_VIEW: CanvasView = {
   offsetTop: 0,
   tool: "selection",
   selectedIds: [],
+  editingFrame: null,
 };
 
 export function viewFrom(appState: AppState): CanvasView {
@@ -40,6 +44,7 @@ export function viewFrom(appState: AppState): CanvasView {
     selectedIds: Object.keys(appState.selectedElementIds)
       .filter((id) => appState.selectedElementIds[id])
       .sort(),
+    editingFrame: appState.editingFrame ?? null,
   };
 }
 
@@ -53,6 +58,7 @@ export function sameView(a: CanvasView, b: CanvasView): boolean {
     a.offsetLeft === b.offsetLeft &&
     a.offsetTop === b.offsetTop &&
     a.tool === b.tool &&
+    a.editingFrame === b.editingFrame &&
     a.selectedIds.length === b.selectedIds.length &&
     a.selectedIds.every((id, i) => id === b.selectedIds[i])
   );
@@ -65,6 +71,9 @@ interface CanvasState {
   setApi: (api: ExcalidrawImperativeAPI | null) => void;
   /** Called on every Excalidraw onChange; listeners only hear real changes. */
   setView: (view: CanvasView) => void;
+  /** Frames and groups of the scene on screen, derived on every change (spec §11.1). */
+  frames: SceneFrame[];
+  setFrames: (frames: SceneFrame[]) => void;
 }
 
 export const canvasStore = createStore<CanvasState>()((set, get) => ({
@@ -73,6 +82,10 @@ export const canvasStore = createStore<CanvasState>()((set, get) => ({
   setApi: (api) => set({ api }),
   setView: (view) => {
     if (!sameView(get().view, view)) set({ view });
+  },
+  frames: [],
+  setFrames: (frames) => {
+    if (!sameFrames(get().frames, frames)) set({ frames });
   },
 }));
 

@@ -13,6 +13,8 @@ export const SCENE_DEFAULTS = {
   currentItemStrokeColor: toSceneColor("#EDE8DF"),
   currentItemFontFamily: COMIC_SHANNS,
   gridModeEnabled: false,
+  // Our layers draw frame outlines and group labels (spec habillage §5.7, §11.4).
+  frameRendering: { enabled: true, name: true, outline: false, clip: true },
 };
 
 export function withSceneDefaults(initial: ExcalidrawInitialDataState): ExcalidrawInitialDataState {

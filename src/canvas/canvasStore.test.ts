@@ -28,6 +28,7 @@ describe("viewFrom", () => {
       offsetTop: 0,
       tool: "rectangle",
       selectedIds: ["a", "b"],
+      editingFrame: null,
     });
   });
 });
@@ -41,5 +42,16 @@ describe("canvasStore", () => {
     expect(listener).toHaveBeenCalledTimes(1);
     expect(sameView(EMPTY_VIEW, canvasStore.getState().view)).toBe(false);
     unsubscribe();
+  });
+});
+
+describe("frames", () => {
+  it("keeps the same frames object when the scene's frames did not change", () => {
+    const frames = [{ id: "g", name: "G", x: 0, y: 0, width: 1, height: 1, group: null, memberIds: [] }];
+    canvasStore.getState().setFrames(frames);
+    canvasStore.getState().setFrames(frames.map((f) => ({ ...f })));
+    expect(canvasStore.getState().frames).toBe(frames);
+    canvasStore.getState().setFrames([]);
+    expect(canvasStore.getState().frames).toEqual([]);
   });
 });
