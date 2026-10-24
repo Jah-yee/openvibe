@@ -1448,7 +1448,7 @@ describe("pushHistory", () => {
     const next = pushHistory(full, "new");
     expect(next).toHaveLength(HISTORY_SIZE);
     expect(next[0]).toBe("c1");
-    expect(next.at(-1)).toBe("new");
+    expect(next[next.length - 1]).toBe("new");
   });
 });
 
@@ -2122,7 +2122,7 @@ function handDrawn(from: ExcalidrawElement, to: ExcalidrawElement): ExcalidrawEl
 describe("withWire / createWire", () => {
   it("adds an orange curved arrow without heads, bound at both ends", () => {
     const elements = withWire(base, orchestrator.id, frame.id);
-    const wire = elements.at(-1) as ExcalidrawArrowElement;
+    const wire = elements[elements.length - 1] as ExcalidrawArrowElement;
     expect(wire).toMatchObject({
       type: "arrow",
       strokeColor: WIRE_COLOR,
