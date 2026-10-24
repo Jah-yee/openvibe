@@ -1,3 +1,5 @@
+pub mod activity;
+
 use std::process::Command;
 
 use serde::Serialize;
