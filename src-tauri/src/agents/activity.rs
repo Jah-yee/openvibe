@@ -40,6 +40,10 @@ struct Node {
     since: Instant,
     last_output: Option<Instant>,
     hooked: bool,
+    /// When the user typed while a hooked agent worked or waited. No hook
+    /// reports the answer to a permission prompt (a refusal fires neither
+    /// `Stop` nor `PermissionDenied`), so the output decides until the next hook.
+    answered: Option<Instant>,
 }
 
 /// The activity of every running terminal.
@@ -58,6 +62,7 @@ impl Tracker {
                 since: now,
                 last_output: None,
                 hooked: false,
+                answered: None,
             },
         );
         change(node_id, Activity::Idle, now)
@@ -68,9 +73,21 @@ impl Tracker {
     pub fn output(&mut self, node_id: &str, now: Instant) -> Option<Change> {
         let node = self.nodes.get_mut(node_id)?;
         node.last_output = Some(now);
-        if node.hooked {
+        if node.hooked && node.answered.is_none() {
             return None;
         }
+        set(node_id, node, Activity::Working, now)
+    }
+
+    /// The user typed in the terminal. Answering a hooked agent that works
+    /// or waits hands it to its output until the next hook: a waiting agent
+    /// resumes, and 1.5 s of quiet makes it idle.
+    pub fn input(&mut self, node_id: &str, now: Instant) -> Option<Change> {
+        let node = self.nodes.get_mut(node_id)?;
+        if !node.hooked || node.activity == Activity::Idle {
+            return None;
+        }
+        node.answered = Some(now);
         set(node_id, node, Activity::Working, now)
     }
 
@@ -85,19 +102,23 @@ impl Tracker {
         if source == HookSource::Claude {
             node.hooked = true;
         }
+        node.answered = None;
         set(node_id, node, activity, now)
     }
 
     /// Working terminals that went quiet become idle: after 1.5 s without
-    /// hooks, after 30 s with them (safety net for a lost `Stop`).
+    /// hooks or since an answer, after 30 s with them (safety net for a lost `Stop`).
     pub fn tick(&mut self, now: Instant) -> Vec<Change> {
         let mut changes = Vec::new();
         for (node_id, node) in &mut self.nodes {
             if node.activity != Activity::Working {
                 continue;
             }
-            let last = node.last_output.map_or(node.since, |at| at.max(node.since));
-            let limit = if node.hooked {
+            let last = [node.last_output, node.answered]
+                .into_iter()
+                .flatten()
+                .fold(node.since, Instant::max);
+            let limit = if node.hooked && node.answered.is_none() {
                 HOOK_SAFETY_NET
             } else {
                 QUIET_AFTER
@@ -105,6 +126,7 @@ impl Tracker {
             if now.saturating_duration_since(last) >= limit {
                 node.activity = Activity::Idle;
                 node.since = now;
+                node.answered = None;
                 changes.push(change(node_id, Activity::Idle, now));
             }
         }
@@ -155,6 +177,15 @@ pub fn claude_activity(event: &str, notification_type: Option<&str>) -> Option<A
         },
         _ => None,
     }
+}
+
+/// What xterm sends on its own (focus changes, mouse reports) is not the
+/// user answering.
+pub fn is_keystroke(data: &[u8]) -> bool {
+    !(data == b"\x1b[I"
+        || data == b"\x1b[O"
+        || data.starts_with(b"\x1b[<")
+        || data.starts_with(b"\x1b[M"))
 }
 
 /// The type of Codex's `notify` payload that ends a turn.
@@ -226,6 +257,64 @@ mod tests {
         assert!(tracker.tick(t0 + ms(49_000)).is_empty());
         let idle = tracker.tick(t0 + ms(50_000));
         assert_eq!(idle[0].activity, Activity::Idle);
+    }
+
+    #[test]
+    fn an_answer_to_a_waiting_agent_makes_it_work_until_its_output_stops() {
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
+        let working = tracker.input("a", t0 + ms(10_000)).unwrap();
+        assert_eq!(working.activity, Activity::Working);
+        assert_eq!(tracker.output("a", t0 + ms(10_100)), None);
+        assert!(tracker.tick(t0 + ms(11_500)).is_empty());
+        let idle = tracker.tick(t0 + ms(11_600));
+        assert_eq!(idle[0].activity, Activity::Idle);
+        // Back at its prompt: typing there does not make it work.
+        assert_eq!(tracker.output("a", t0 + ms(12_000)), None);
+        assert!(tracker.tick(t0 + ms(14_000)).is_empty());
+    }
+
+    #[test]
+    fn an_answer_before_the_permission_notification_also_ends_on_quiet() {
+        // `permission_prompt` comes after about 6 s: a quick refusal finds the agent working.
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Working, t0);
+        assert_eq!(tracker.input("a", t0 + ms(3000)), None);
+        assert!(tracker.tick(t0 + ms(4400)).is_empty());
+        assert_eq!(tracker.tick(t0 + ms(4500))[0].activity, Activity::Idle);
+    }
+
+    #[test]
+    fn the_next_hook_after_an_answer_restores_the_safety_net() {
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
+        tracker.input("a", t0 + ms(1000));
+        tracker.hook("a", HookSource::Claude, Activity::Working, t0 + ms(1200));
+        assert!(tracker.tick(t0 + ms(20_000)).is_empty());
+    }
+
+    #[test]
+    fn keystrokes_at_the_prompt_or_without_hooks_change_nothing() {
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        assert_eq!(tracker.input("a", t0), None);
+        tracker.hook("a", HookSource::Claude, Activity::Idle, t0 + ms(100));
+        assert_eq!(tracker.input("a", t0 + ms(200)), None);
+        assert!(tracker.tick(t0 + ms(5000)).is_empty());
+        assert_eq!(tracker.input("zzz", t0), None);
+    }
+
+    #[test]
+    fn terminal_reports_are_not_keystrokes() {
+        for report in [&b"\x1b[I"[..], b"\x1b[O", b"\x1b[<0;10;5M", b"\x1b[M !!"] {
+            assert!(!is_keystroke(report), "{report:?}");
+        }
+        for key in [&b"1"[..], b"\r", b"\x1b", b"\x1b[B", b"no"] {
+            assert!(is_keystroke(key), "{key:?}");
+        }
     }
 
     #[test]

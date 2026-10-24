@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::agents::activity::{Activity, Change, HookSource, Tracker};
+use crate::agents::activity::{Activity, Change, HookSource, Tracker, is_keystroke};
 use crate::agents::claude_settings;
 use crate::agents::hooks_server::{self, HookHit, HookServer};
 use crate::error::AppResult;
@@ -163,6 +163,22 @@ pub fn output(app: &AppHandle, node_id: &str) {
         .lock()
         .unwrap()
         .output(node_id, Instant::now());
+    if let Some(change) = change {
+        emit(app, &change);
+    }
+}
+
+/// What the user typed: an answer hands a hooked agent back to its output.
+pub fn input(app: &AppHandle, node_id: &str, data: &[u8]) {
+    if !is_keystroke(data) {
+        return;
+    }
+    let change = app
+        .state::<AgentState>()
+        .tracker
+        .lock()
+        .unwrap()
+        .input(node_id, Instant::now());
     if let Some(change) = change {
         emit(app, &change);
     }

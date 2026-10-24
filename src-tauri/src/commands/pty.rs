@@ -90,8 +90,15 @@ pub async fn pty_attach(
 }
 
 #[tauri::command]
-pub async fn pty_write(pty: State<'_, PtyManager>, node_id: String, data: String) -> AppResult<()> {
-    pty.write(&node_id, data.as_bytes())
+pub async fn pty_write(
+    app: AppHandle,
+    pty: State<'_, PtyManager>,
+    node_id: String,
+    data: String,
+) -> AppResult<()> {
+    pty.write(&node_id, data.as_bytes())?;
+    agents::input(&app, &node_id, data.as_bytes());
+    Ok(())
 }
 
 #[tauri::command]
