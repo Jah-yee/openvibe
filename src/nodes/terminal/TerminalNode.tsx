@@ -8,6 +8,7 @@ import { useActivity } from "@/store/agentActivity";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
+import { frameStyle, WAITING_GLOW } from "./frame";
 import { layoutTerminal, mountTerminal } from "./registry";
 import { ResumeCard } from "./ResumeCard";
 import { HeaderButton, TerminalHeader } from "./TerminalHeader";
@@ -51,14 +52,11 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
     );
   }
 
-  const tint = AGENTS[payload.agent].tint;
+  const waiting = status.state === "running" && activity?.activity === "waiting";
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-xl bg-ov-terminal"
-      style={{
-        border: selected ? "1.5px solid var(--ov-accent)" : `1px solid color-mix(in srgb, ${tint} 45%, transparent)`,
-        boxShadow: selected ? "0 0 0 3px color-mix(in srgb, var(--ov-accent) 15%, transparent)" : undefined,
-      }}
+      className="relative flex h-full flex-col overflow-hidden rounded-xl bg-ov-terminal"
+      style={frameStyle(AGENTS[payload.agent].tint, selected, waiting)}
     >
       <TerminalHeader
         nodeId={nodeId}
@@ -90,6 +88,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
         <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
         <ResumeCard nodeId={nodeId} payload={payload} status={status} />
       </div>
+      {waiting && <div className="pointer-events-none absolute inset-0 z-20 rounded-xl" style={{ boxShadow: WAITING_GLOW }} />}
     </div>
   );
 }
