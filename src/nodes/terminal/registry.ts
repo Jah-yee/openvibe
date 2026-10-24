@@ -9,6 +9,7 @@ import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { createAutostart } from "./autostart";
+import { watchDevicePixelRatio } from "./dprWatch";
 import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, renderZoom, type FontMeasure } from "./crisp";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
@@ -22,6 +23,9 @@ interface Entry {
   term: Terminal;
   /** Holds xterm at screen resolution inside the zoomed host (see crisp.ts). */
   screen: HTMLDivElement;
+  /** Where it was last shown, and at which zoom: a scaling change lays it out again. */
+  host?: HTMLElement;
+  zoom: number;
   opened: boolean;
   session: SessionState;
 }
@@ -31,6 +35,7 @@ const entries = new Map<string, Entry>();
 const autostart = createAutostart();
 let livePtys = new Set<string>();
 let measure: FontMeasure | null = null;
+let watchingScale = false;
 
 /** Sessions still running in Rust after a webview reload; they are re-attached. */
 export function setLivePtys(nodeIds: string[]) {
@@ -56,7 +61,7 @@ function create(nodeId: string): Entry {
   term.loadAddon(new WebLinksAddon((_event, uri) => void openUrl(uri)));
   const screen = document.createElement("div");
   screen.style.cssText = "position:absolute;left:0;top:0;overflow:hidden;transform-origin:0 0";
-  const entry: Entry = { term, screen, opened: false, session: { replaying: false } };
+  const entry: Entry = { term, screen, zoom: 1, opened: false, session: { replaying: false } };
 
   term.attachCustomKeyEventHandler((event) => {
     const action = keyAction(event, term.hasSelection());
@@ -114,6 +119,7 @@ export function layoutTerminal(nodeId: string, host: HTMLElement, zoom: number) 
   if (!entry || box.width === 0 || box.height === 0) return;
   const dpr = window.devicePixelRatio || 1;
   measure ??= canvasMeasure(FONT_FAMILY);
+  entry.zoom = zoom;
   const { term, screen } = entry;
   const grid = gridFor(box, measure, dpr);
   if (grid.cols !== term.cols || grid.rows !== term.rows) term.resize(grid.cols, grid.rows);
@@ -133,7 +139,15 @@ export function layoutTerminal(nodeId: string, host: HTMLElement, zoom: number) 
 export function mountTerminal(nodeId: string, host: HTMLElement, payload: TerminalPayload, zoom: number) {
   const existing = entries.get(nodeId);
   const entry = existing ?? create(nodeId);
+  entry.host = host;
   if (entry.screen.parentElement !== host) host.appendChild(entry.screen);
+  if (!watchingScale) {
+    watchingScale = true;
+    // Cells are whole device pixels only for the ratio they were sized for.
+    watchDevicePixelRatio(window, () => {
+      for (const [id, shown] of entries) if (shown.host) layoutTerminal(id, shown.host, shown.zoom);
+    });
+  }
   if (!entry.opened) {
     entry.term.open(entry.screen);
     entry.opened = true;
