@@ -17,6 +17,7 @@ import {
   resumedText,
   sendToAgents,
   skippedText,
+  waitingText,
 } from "./broadcast";
 
 let calls: { cmd: string; nodeId: string; text?: string }[];
@@ -50,14 +51,21 @@ describe("sendToAgents", () => {
     await agent("isis", "claude", "running", "idle");
     await agent("thot", "claude", "stopped");
     await agent("anubis", "codex", "stopped");
-    expect(await sendToAgents(["isis", "thot", "anubis"], "lance les tests")).toEqual({ sent: 1, skipped: ["Thot", "Anubis"] });
+    expect(await sendToAgents(["isis", "thot", "anubis"], "lance les tests")).toEqual({ sent: 1, skipped: ["Thot", "Anubis"], waiting: [] });
     expect(calls).toEqual([{ cmd: "pty_send_text", nodeId: "isis", text: "lance les tests" }]);
   });
 
   it("counts an agent whose process just died as ignored", async () => {
     await agent("osiris", "claude", "running", "idle");
     dead.add("osiris");
-    expect(await sendToAgents(["osiris"], "x")).toEqual({ sent: 0, skipped: ["Osiris"] });
+    expect(await sendToAgents(["osiris"], "x")).toEqual({ sent: 0, skipped: ["Osiris"], waiting: [] });
+  });
+
+  it("leaves an agent waiting for an answer alone: Enter would approve its dialog", async () => {
+    await agent("horus", "claude", "running", "waiting");
+    await agent("seth2", "codex", "running", "working");
+    expect(await sendToAgents(["horus", "seth2"], "lance les tests")).toEqual({ sent: 1, skipped: [], waiting: ["Horus"] });
+    expect(calls.map((c) => c.nodeId)).toEqual(["seth2"]);
   });
 });
 
@@ -66,6 +74,9 @@ describe("skippedText / pausedText / resumedText", () => {
     expect(skippedText([])).toBeNull();
     expect(skippedText(["Thot"])).toBe("1 agent arrêté ignoré : Thot");
     expect(skippedText(["Thot", "Anubis"])).toBe("2 agents arrêtés ignorés : Thot, Anubis");
+    expect(waitingText([])).toBeNull();
+    expect(waitingText(["Horus"])).toBe("1 agent en attente ignoré : Horus — réponds-lui dans son terminal");
+    expect(waitingText(["Horus", "Isis"])).toBe("2 agents en attente ignorés : Horus, Isis — réponds-leur dans leur terminal");
     expect(pausedText(0)).toBe("Aucun agent en cours à mettre en pause");
     expect(pausedText(1)).toBe("1 agent mis en pause");
     expect(pausedText(5)).toBe("5 agents mis en pause");

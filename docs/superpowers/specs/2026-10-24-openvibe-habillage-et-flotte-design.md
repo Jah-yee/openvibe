@@ -413,7 +413,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
   - Sans cible ni sélection : bouton Envoyer grisé, indice « Sélectionne des agents ou tape @ ».
   - Prénom ambigu (deux agents portant le même) : les deux apparaissent dans la liste avec leur groupe.
   - Un `@nom` tapé sans passer par la liste (« @tous lance les tests ») devient une cible à l'envoi s'il désigne exactement une cible ; un prénom ambigu ou inconnu reste dans le texte. Une adresse `a@b.fr` n'est pas une cible (le `@` doit commencer un mot).
-- Envoi (Entrée ; Maj+Entrée = nouvelle ligne) : pour chaque terminal ciblé dont le processus vit, `pty_send_text` (§15.3). Les terminaux arrêtés sont ignorés : toast « 2 agents arrêtés ignorés : Thot, Anubis ».
+- Envoi (Entrée ; Maj+Entrée = nouvelle ligne) : pour chaque terminal ciblé dont le processus vit, `pty_send_text` (§15.3). Les terminaux arrêtés sont ignorés : toast « 2 agents arrêtés ignorés : Thot, Anubis ». Un agent en ATTEND est ignoré lui aussi, car l'Entrée qui suit le texte validerait le choix en surbrillance de sa boîte de dialogue (souvent « Oui ») : toast « 1 agent en attente ignoré : Horus — réponds-lui dans son terminal ». Limite : `permission_prompt` n'arrive qu'environ 6 s après l'ouverture de la boîte ; une boîte plus récente n'est pas encore connue.
 - Après l'envoi, le champ se vide et les cibles `@` restent (pour enchaîner) ; ↑ et ↓ parcourent les 50 dernières consignes (mémorisées par projet dans `settings`).
 - Indice ponctuel au-dessus des puces, à la première ouverture : « Essaie « @tous lance les tests » » (×, ne revient plus).
 

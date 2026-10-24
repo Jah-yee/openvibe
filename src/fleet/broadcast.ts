@@ -66,13 +66,23 @@ function nameOf(id: string): string {
 /**
  * Types `text` into each running terminal of `ids` (spec §12). Stopped ones,
  * and those whose process dies meanwhile, are ignored and named (spec §17).
+ * An agent waiting for an answer is left alone: the Enter after the text
+ * would confirm its dialog's highlighted choice (spec §12).
  */
-export async function sendToAgents(ids: readonly string[], text: string): Promise<{ sent: number; skipped: string[] }> {
+export async function sendToAgents(
+  ids: readonly string[],
+  text: string,
+): Promise<{ sent: number; skipped: string[]; waiting: string[] }> {
+  const waiting: string[] = [];
   const results = await Promise.all(
     ids.map(async (id) => {
       const facts = factsOf(id);
       if (!facts) return null;
       if (!facts.running) return nameOf(id);
+      if (facts.activity === "waiting") {
+        waiting.push(nameOf(id));
+        return null;
+      }
       try {
         await ptySendText(id, text);
         return true;
@@ -84,6 +94,7 @@ export async function sendToAgents(ids: readonly string[], text: string): Promis
   return {
     sent: results.filter((result) => result === true).length,
     skipped: results.filter((result): result is string => typeof result === "string"),
+    waiting,
   };
 }
 
@@ -129,6 +140,13 @@ export function skippedText(names: readonly string[]): string | null {
   return `${names.length} agents arrêtés ignorés : ${names.join(", ")}`;
 }
 
+/** "1 agent en attente ignoré : Horus — réponds-lui dans son terminal" (spec §12). */
+export function waitingText(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  if (names.length === 1) return `1 agent en attente ignoré : ${names[0]} — réponds-lui dans son terminal`;
+  return `${names.length} agents en attente ignorés : ${names.join(", ")} — réponds-leur dans leur terminal`;
+}
+
 export function pausedText(count: number): string {
   if (count === 0) return "Aucun agent en cours à mettre en pause";
   return count === 1 ? "1 agent mis en pause" : `${count} agents mis en pause`;
@@ -139,11 +157,12 @@ export function resumedText(count: number): string {
   return count === 1 ? "1 agent repris" : `${count} agents repris`;
 }
 
-/** The command bar's and the orchestrator's send, with the toast of ignored agents. */
+/** The command bar's and the orchestrator's send, with the toasts of ignored agents. */
 export async function sendCommand(ids: readonly string[], text: string) {
-  const { skipped } = await sendToAgents(ids, text);
-  const warning = skippedText(skipped);
-  if (warning) toast.warning(warning);
+  const { skipped, waiting } = await sendToAgents(ids, text);
+  for (const warning of [skippedText(skipped), waitingText(waiting)]) {
+    if (warning) toast.warning(warning);
+  }
 }
 
 /** "Tout mettre en pause" of the chips, a group or an orchestrator. */
