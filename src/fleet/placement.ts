@@ -34,3 +34,9 @@ export function screenRectOf(rect: Rect, view: Viewport): Rect {
     height: rect.height * view.zoom,
   };
 }
+
+/** Window rectangle of a scene rectangle: the ghost of a terminal snapped into a group cell. */
+export function clientRectOf(rect: Rect, view: Viewport) {
+  const screen = screenRectOf(rect, view);
+  return { left: screen.x + view.offsetLeft, top: screen.y + view.offsetTop, width: screen.width, height: screen.height };
+}

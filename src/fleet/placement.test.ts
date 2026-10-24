@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ghostRect, sceneOf, screenRectOf, viewportCenter } from "./placement";
+import { clientRectOf, ghostRect, sceneOf, screenRectOf, viewportCenter } from "./placement";
 
 const view = { scrollX: -100, scrollY: 50, zoom: 0.5, offsetLeft: 10, offsetTop: 20, width: 1000, height: 800 };
 
@@ -26,5 +26,11 @@ describe("ghostRect", () => {
 describe("screenRectOf", () => {
   it("maps a scene rectangle into the canvas like Excalidraw does", () => {
     expect(screenRectOf({ x: 300, y: -40, width: 100, height: 50 }, view)).toEqual({ x: 100, y: 5, width: 50, height: 25 });
+  });
+});
+
+describe("clientRectOf", () => {
+  it("adds the canvas offset: where the ghost of a terminal snapped into a group shows", () => {
+    expect(clientRectOf({ x: 300, y: -40, width: 100, height: 50 }, view)).toEqual({ left: 110, top: 25, width: 50, height: 25 });
   });
 });
