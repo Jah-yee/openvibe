@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import { Copy, X } from "lucide-react";
 import { toast } from "sonner";
-import { useCanvas } from "@/canvas/canvasStore";
+import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { AGENTS } from "@/fleet/catalog";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
-import { createFitScheduler } from "./fitScheduler";
-import { fitTerminal, mountTerminal } from "./registry";
+import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
+import { layoutTerminal, mountTerminal } from "./registry";
 import { ResumeCard } from "./ResumeCard";
 import { HeaderButton, TerminalHeader } from "./TerminalHeader";
 
@@ -23,13 +23,21 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
     const host = hostRef.current;
     const current = nodesStore.getState().nodes[nodeId]?.payload;
     if (!host || !current) return;
-    mountTerminal(nodeId, host, current);
-    const fit = createFitScheduler(() => fitTerminal(nodeId, host));
-    const observer = new ResizeObserver(fit.schedule);
+    const zoom = () => canvasStore.getState().view.zoom;
+    mountTerminal(nodeId, host, current, zoom());
+    const layout = () => layoutTerminal(nodeId, host, zoom());
+    const onResize = createFitScheduler(layout);
+    const onZoom = createFitScheduler(layout, ZOOM_SETTLE_MS);
+    const observer = new ResizeObserver(onResize.schedule);
     observer.observe(host);
+    const unsubscribe = canvasStore.subscribe((state, previous) => {
+      if (state.view.zoom !== previous.view.zoom) onZoom.schedule();
+    });
     return () => {
       observer.disconnect();
-      fit.cancel();
+      unsubscribe();
+      onResize.cancel();
+      onZoom.cancel();
     };
   }, [nodeId, hasPayload]);
 
@@ -73,10 +81,10 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
           </>
         }
       />
-      {/* The padding sits on a wrapper: FitAddon measures the host's border-box
-          height, so padding on the host itself would clip the last row. */}
+      {/* The padding sits on a wrapper: the grid is sized from the host's
+          client size, which would include padding set on the host itself. */}
       <div className="relative min-h-0 flex-1 px-1 pt-1">
-        <div ref={hostRef} className="h-full w-full" />
+        <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
         <ResumeCard nodeId={nodeId} payload={payload} status={status} />
       </div>
     </div>

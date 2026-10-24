@@ -1,5 +1,4 @@
 import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -9,6 +8,7 @@ import { ptyKill, ptyResize, ptyWrite } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
+import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, type FontMeasure } from "./crisp";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
 import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
@@ -19,14 +19,17 @@ import { acceptsInput, attachSession, relaunchSession, restoreSession, startSess
 // existing DOM element into the new host instead of creating a new terminal.
 interface Entry {
   term: Terminal;
-  fit: FitAddon;
+  /** Holds xterm at screen resolution inside the zoomed host (see crisp.ts). */
+  screen: HTMLDivElement;
   opened: boolean;
   session: SessionState;
 }
 
+const FONT_FAMILY = "'Cascadia Code', Consolas, monospace";
 const entries = new Map<string, Entry>();
 const autostart = new Set<string>();
 let livePtys = new Set<string>();
+let measure: FontMeasure | null = null;
 
 /** Sessions still running in Rust after a webview reload; they are re-attached. */
 export function setLivePtys(nodeIds: string[]) {
@@ -42,17 +45,17 @@ function create(nodeId: string): Entry {
   const term = new Terminal({
     allowProposedApi: true, // needed by the unicode11 addon
     cursorBlink: true,
-    fontFamily: "'Cascadia Code', Consolas, monospace",
-    fontSize: 13,
+    fontFamily: FONT_FAMILY,
+    fontSize: BASE_FONT_SIZE,
     theme: { background: "#161712", cursor: "#f4602e", selectionBackground: "#f4602e55" },
     windowsPty: { backend: "conpty" },
   });
-  const fit = new FitAddon();
-  term.loadAddon(fit);
   term.loadAddon(new Unicode11Addon());
   term.unicode.activeVersion = "11";
   term.loadAddon(new WebLinksAddon((_event, uri) => void openUrl(uri)));
-  const entry: Entry = { term, fit, opened: false, session: { replaying: false } };
+  const screen = document.createElement("div");
+  screen.style.cssText = "position:absolute;left:0;top:0;overflow:hidden;transform-origin:0 0";
+  const entry: Entry = { term, screen, opened: false, session: { replaying: false } };
 
   term.attachCustomKeyEventHandler((event) => {
     const action = keyAction(event, term.hasSelection());
@@ -97,10 +100,26 @@ function loadWebgl(term: Terminal) {
   }
 }
 
-/** Skips hidden or not-yet-laid-out hosts: fit() would shrink the PTY to 2x1. */
-export function fitTerminal(nodeId: string, host: HTMLElement) {
-  if (host.clientWidth === 0 || host.clientHeight === 0) return;
-  entries.get(nodeId)?.fit.fit();
+/**
+ * Sizes the grid from the host's CSS size, then draws it at the screen
+ * resolution of `zoom`: the screen box is `zoom` times larger and scaled back
+ * by 1 / zoom, which Excalidraw's own scale cancels out. Skips hidden or
+ * not-yet-laid-out hosts, which would shrink the PTY to 2x1.
+ */
+export function layoutTerminal(nodeId: string, host: HTMLElement, zoom: number) {
+  const entry = entries.get(nodeId);
+  const box = { width: host.clientWidth, height: host.clientHeight };
+  if (!entry || box.width === 0 || box.height === 0) return;
+  const dpr = window.devicePixelRatio || 1;
+  measure ??= canvasMeasure(FONT_FAMILY);
+  const { term, screen } = entry;
+  const grid = gridFor(box, measure, dpr);
+  if (grid.cols !== term.cols || grid.rows !== term.rows) term.resize(grid.cols, grid.rows);
+  const fontSize = fontFor(grid, box, zoom, measure, dpr);
+  if (term.options.fontSize !== fontSize) term.options.fontSize = fontSize;
+  screen.style.width = `${box.width * zoom}px`;
+  screen.style.height = `${box.height * zoom}px`;
+  screen.style.transform = `scale(${1 / zoom})`;
 }
 
 /**
@@ -108,17 +127,16 @@ export function fitTerminal(nodeId: string, host: HTMLElement) {
  * session, its process is started (new node), re-attached (still running after a
  * webview reload) or restored as stopped with its saved output (spec §6.5).
  */
-export function mountTerminal(nodeId: string, host: HTMLElement, payload: TerminalPayload) {
+export function mountTerminal(nodeId: string, host: HTMLElement, payload: TerminalPayload, zoom: number) {
   const existing = entries.get(nodeId);
   const entry = existing ?? create(nodeId);
+  if (entry.screen.parentElement !== host) host.appendChild(entry.screen);
   if (!entry.opened) {
-    entry.term.open(host);
+    entry.term.open(entry.screen);
     entry.opened = true;
     loadWebgl(entry.term);
-  } else if (entry.term.element && entry.term.element.parentElement !== host) {
-    host.appendChild(entry.term.element);
   }
-  fitTerminal(nodeId, host);
+  layoutTerminal(nodeId, host, zoom);
   if (existing) return;
   if (autostart.delete(nodeId)) void startSession(nodeId, entry.term, payload, "new");
   else if (livePtys.delete(nodeId)) void attachSession(nodeId, entry.term, entry.session);
