@@ -8,13 +8,17 @@ use crate::error::AppResult;
 use crate::pty::PtyManager;
 
 #[tauri::command]
-pub async fn list_workspaces(db: State<'_, Db>) -> AppResult<Vec<Workspace>> {
-    db.with(|conn| workspaces::list(conn))
+pub async fn list_workspaces(db: State<'_, Db>, project_id: String) -> AppResult<Vec<Workspace>> {
+    db.with(|conn| workspaces::list(conn, &project_id))
 }
 
 #[tauri::command]
-pub async fn create_workspace(db: State<'_, Db>, name: String) -> AppResult<Workspace> {
-    db.with(|conn| workspaces::create(conn, &name))
+pub async fn create_workspace(
+    db: State<'_, Db>,
+    project_id: String,
+    name: String,
+) -> AppResult<Workspace> {
+    db.with(|conn| workspaces::create(conn, &project_id, &name))
 }
 
 #[tauri::command]
@@ -139,8 +143,11 @@ mod tests {
     #[test]
     fn deleting_a_workspace_stops_its_terminals_even_if_the_front_never_loaded_them() {
         let db = Db::open_in_memory().unwrap();
-        let a = db.with(|conn| workspaces::create(conn, "A")).unwrap();
-        db.with(|conn| workspaces::create(conn, "B")).unwrap();
+        let a = db
+            .with(|conn| crate::db::test_workspace(conn, "A"))
+            .unwrap();
+        db.with(|conn| crate::db::test_workspace(conn, "B"))
+            .unwrap();
         db.with(|conn| nodes::save(conn, "t", &a.id, NodeKind::Terminal, "{}"))
             .unwrap();
         let pty = PtyManager::default();
@@ -154,7 +161,9 @@ mod tests {
     #[test]
     fn a_refused_deletion_leaves_terminals_running() {
         let db = Db::open_in_memory().unwrap();
-        let only = db.with(|conn| workspaces::create(conn, "Seul")).unwrap();
+        let only = db
+            .with(|conn| crate::db::test_workspace(conn, "Seul"))
+            .unwrap();
         db.with(|conn| nodes::save(conn, "t", &only.id, NodeKind::Terminal, "{}"))
             .unwrap();
         let pty = PtyManager::default();

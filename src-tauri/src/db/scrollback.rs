@@ -29,14 +29,14 @@ pub fn load(conn: &Connection, node_id: &str) -> AppResult<Option<Vec<u8>>> {
 mod tests {
     use super::*;
     use crate::db::nodes::{self, NodeKind};
-    use crate::db::{Db, workspaces};
+    use crate::db::{Db, test_workspace};
 
     #[test]
     fn saves_and_replaces_the_scrollback_of_a_known_node() {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let w = workspaces::create(conn, "A")?;
+                let w = test_workspace(conn, "A")?;
                 nodes::save(conn, "t1", &w.id, NodeKind::Terminal, "{}")?;
                 assert!(save(conn, "t1", b"first")?);
                 assert!(save(conn, "t1", b"second\x1b[0m")?);

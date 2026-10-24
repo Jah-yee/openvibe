@@ -50,14 +50,14 @@ pub fn ids_of_workspace(conn: &Connection, workspace_id: &str) -> AppResult<Vec<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{Db, workspaces};
+    use crate::db::{Db, test_workspace};
 
     #[test]
     fn upserts_the_payload() {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let w = workspaces::create(conn, "A")?;
+                let w = test_workspace(conn, "A")?;
                 save(conn, "n1", &w.id, NodeKind::Terminal, r#"{"title":"a"}"#)?;
                 save(conn, "n1", &w.id, NodeKind::Terminal, r#"{"title":"b"}"#)?;
                 let payload: String =
@@ -75,8 +75,8 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let a = workspaces::create(conn, "A")?;
-                let b = workspaces::create(conn, "B")?;
+                let a = test_workspace(conn, "A")?;
+                let b = test_workspace(conn, "B")?;
                 save(conn, "a1", &a.id, NodeKind::Terminal, "{}")?;
                 save(conn, "b1", &b.id, NodeKind::Note, "{}")?;
                 assert_eq!(ids_of_workspace(conn, &a.id)?, vec!["a1".to_string()]);

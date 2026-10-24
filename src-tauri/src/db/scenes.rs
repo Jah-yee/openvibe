@@ -110,7 +110,7 @@ pub fn save_files(conn: &mut Connection, workspace_id: &str, files: &[SceneFile]
 mod tests {
     use super::*;
     use crate::db::nodes::{self, NodeKind};
-    use crate::db::{Db, scrollback, workspaces};
+    use crate::db::{Db, scrollback, test_workspace, workspaces};
 
     fn file(id: &str, data_url: &str) -> SceneFile {
         SceneFile {
@@ -126,7 +126,7 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let w = workspaces::create(conn, "A")?;
+                let w = test_workspace(conn, "A")?;
                 let data = load(conn, &w.id)?;
                 assert_eq!(
                     data,
@@ -147,7 +147,7 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let w = workspaces::create(conn, "A")?;
+                let w = test_workspace(conn, "A")?;
                 nodes::save(conn, "kept", &w.id, NodeKind::Terminal, "{}")?;
                 nodes::save(conn, "gone", &w.id, NodeKind::Terminal, "{}")?;
                 scrollback::save(conn, "gone", b"old output")?;
@@ -169,8 +169,8 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let a = workspaces::create(conn, "A")?;
-                let b = workspaces::create(conn, "B")?;
+                let a = test_workspace(conn, "A")?;
+                let b = test_workspace(conn, "B")?;
                 nodes::save(conn, "in-b", &b.id, NodeKind::Note, "{}")?;
                 save(conn, &a.id, "[]", "{}", &[])?;
                 assert_eq!(load(conn, &b.id)?.nodes.len(), 1);
@@ -184,7 +184,7 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let w = workspaces::create(conn, "A")?;
+                let w = test_workspace(conn, "A")?;
                 save_files(conn, &w.id, &[file("f1", "data:a")])?;
                 save_files(conn, &w.id, &[file("f1", "data:b"), file("f2", "data:c")])?;
                 let files = load(conn, &w.id)?.files;
@@ -203,8 +203,8 @@ mod tests {
         Db::open_in_memory()
             .unwrap()
             .with(|conn| {
-                let a = workspaces::create(conn, "A")?;
-                workspaces::create(conn, "B")?;
+                let a = test_workspace(conn, "A")?;
+                test_workspace(conn, "B")?;
                 nodes::save(conn, "t", &a.id, NodeKind::Terminal, "{}")?;
                 scrollback::save(conn, "t", b"x")?;
                 save(conn, &a.id, "[]", "{}", &["t".to_string()])?;
