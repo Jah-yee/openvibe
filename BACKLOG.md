@@ -89,3 +89,15 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Entrée dans le champ nom de « Composer un groupe » ne lance pas le groupe.
 - Aucune limite d'erreur React : une erreur de rendu efface toute l'interface jusqu'au rechargement.
 - Développement : modifier `Canvas.tsx` pendant que l'application tourne fait remonter `LoadedCanvas` avec sa scène d'origine (Fast Refresh), qui est alors enregistrée par-dessus la scène courante (nœuds purgés) ; l'observateur de Vite manque parfois des modifications rapprochées (toucher le fichier).
+
+## Constats du plan B2 (états des agents, relecture finale)
+
+- Une relance refusée pour un nœud qui tourne déjà (« tourne déjà ») efface quand même son suivi d'activité et son fichier de réglages : `pty_spawn` appelle `started`, puis `ended` sur l'erreur, avant le contrôle. Piste : sortir tôt quand le nœud tourne.
+- L'instantané chargé au démarrage peut écraser un événement plus récent, et deux fils peuvent émettre dans le désordre (émission après relâche du verrou) : une pastille périmée jusqu'à la transition suivante. Piste : garder l'entrée la plus récente dans `load`, ou numéroter les changements.
+- `is_keystroke` n'écarte que le focus et la souris : les réponses du terminal (position du curseur, attributs, OSC, DECRQM) comptent comme des frappes.
+- Terminaux sans hooks (Shell, Codex, Gemini…) : l'écho de la frappe et les redessins au redimensionnement comptent comme du travail ; taper dans un Shell allume EN COURS 1,5 s. Piste : ignorer la sortie qui suit une frappe de moins de 200 ms.
+- Le dialogue de fermeture dit toujours « tourne encore » ; la spec (§7.5) veut « est en cours » ou « est prête » selon l'activité.
+- Le clic sur une ligne du panneau Flotte centre et donne le clavier mais n'active pas l'élément (spec §5.5 « l'active ») : le menu de l'en-tête demande un clic de plus.
+- Les compteurs de groupe ne vérifient pas que le processus tourne ; `fleetStateOf` range « en marche sans activité connue » dans Inactifs alors que la pastille dit ACTIF.
+- Le verrou du suivi d'activité se prend avec `lock().unwrap()` : un verrou empoisonné figerait tous les terminaux. Piste : `unwrap_or_else(PoisonError::into_inner)`.
+- Non traités : un proxy HTTP qui intercepterait `127.0.0.1` (les hooks échouent, l'activité du terminal prend le relais) ; les marqueurs de session Claude Code au-delà des 8 de la spec (`CLAUDE_CODE_SSE_PORT`…) ; un dialogue d'autorisation répondu hors du terminal (IDE, à distance) laisse ATTEND jusqu'au hook suivant.
