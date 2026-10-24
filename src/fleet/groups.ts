@@ -10,7 +10,7 @@ import { nodesStore } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
-import { groupGrid } from "./groupLayout";
+import { clearSpot, groupGrid } from "./groupLayout";
 import { defaultLaunchOptions, type LaunchOptions } from "./launchAgent";
 import { nextName } from "./names";
 import { nameForNewAgent, namesInWorkspace, pantheonForNewGroup } from "./naming";
@@ -39,7 +39,11 @@ export async function launchGroup(plan: GroupPlan, options: LaunchOptions = defa
   const pantheon = pantheonForNewGroup(workspaceId);
   const grid = groupGrid(plan.agents.length);
   const center = viewportCenter(view);
-  const origin = { x: center.x - grid.width / 2, y: center.y - grid.height / 2 };
+  const obstacles = api.getSceneElements().map(({ x, y, width, height }) => ({ x, y, width, height }));
+  const origin = clearSpot(
+    { x: center.x - grid.width / 2, y: center.y - grid.height / 2, width: grid.width, height: grid.height },
+    obstacles,
+  );
   const name = plan.name.trim() || ROLES[plan.role].label;
   const frame = createGroupFrame({ ...origin, width: grid.width, height: grid.height }, name, { role: plan.role, pantheon });
   const taken = namesInWorkspace(workspaceId);

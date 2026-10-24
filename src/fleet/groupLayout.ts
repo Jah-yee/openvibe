@@ -79,3 +79,20 @@ export function arrangeInFrame(frame: Rect, members: readonly Rect[], count: num
   }
   return { cells, frame: current };
 }
+
+/** Space kept between a new group and the content it was moved past. */
+export const GROUP_GAP = 96;
+
+/**
+ * Where a new group goes: `spot` (centered on the view) when it covers
+ * nothing, else moved down past what it would cover, so a group never lands
+ * on top of another one.
+ */
+export function clearSpot(spot: Rect, obstacles: readonly Rect[]): Rect {
+  let current = spot;
+  for (;;) {
+    const covered = obstacles.filter((o) => overlap(current, o) > 0);
+    if (covered.length === 0) return current;
+    current = { ...current, y: Math.max(...covered.map((o) => o.y + o.height)) + GROUP_GAP };
+  }
+}

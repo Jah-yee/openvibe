@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "@/canvas/groups";
-import { arrangeInFrame, cellAt, freeCell, groupGrid } from "./groupLayout";
+import { arrangeInFrame, cellAt, clearSpot, freeCell, GROUP_GAP, groupGrid } from "./groupLayout";
 
 const at = (x: number, y: number, size: { width: number; height: number }): Rect => ({ x, y, width: size.width, height: size.height });
 
@@ -67,5 +67,25 @@ describe("arrangeInFrame", () => {
     const placed = arrangeInFrame(at(0, 0, groupGrid(2)), members, 3);
     expect(placed.cells).toEqual([cellAt(origin, 2, 0), cellAt(origin, 3, 0), cellAt(origin, 0, 1)]);
     expect(placed.frame).toEqual(at(0, 0, groupGrid(5)));
+  });
+});
+
+describe("clearSpot", () => {
+  const spot = { x: 100, y: 100, width: 400, height: 300 };
+
+  it("keeps a spot that covers nothing", () => {
+    expect(clearSpot(spot, [{ x: 600, y: 0, width: 100, height: 100 }])).toEqual(spot);
+  });
+
+  it("moves a new group below what it would cover", () => {
+    expect(clearSpot(spot, [{ x: 0, y: 0, width: 1000, height: 500 }])).toEqual({ ...spot, y: 500 + GROUP_GAP });
+  });
+
+  it("keeps moving down past content stacked below", () => {
+    const obstacles = [
+      { x: 0, y: 0, width: 1000, height: 500 },
+      { x: 300, y: 650, width: 200, height: 200 },
+    ];
+    expect(clearSpot(spot, obstacles)).toEqual({ ...spot, y: 850 + GROUP_GAP });
   });
 });
