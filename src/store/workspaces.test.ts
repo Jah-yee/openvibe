@@ -4,20 +4,27 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { Workspace } from "@/ipc/db";
 import { createWorkspacesStore, nextDefaultName } from "./workspaces";
 
-/** In-memory stand-in for the Rust workspace commands. */
+/** In-memory stand-in for the Rust workspace commands of project "p1". */
 function fakeBackend(initial: string[] = [], activeSetting: string | null = null) {
   let counter = 0;
+  const make = (name: string, position: number): Workspace => ({
+    id: `w${++counter}`,
+    projectId: "p1",
+    name,
+    position,
+    pantheon: null,
+  });
   const db = {
-    workspaces: initial.map((name, position) => ({ id: `w${++counter}`, name, position })) as Workspace[],
-    settings: new Map<string, unknown>(activeSetting ? [["ui.activeWorkspaceId", activeSetting]] : []),
+    workspaces: initial.map(make),
+    settings: new Map<string, unknown>(activeSetting ? [["ui.activeWorkspaceId.p1", activeSetting]] : []),
   };
   mockIPC((cmd, raw) => {
     const args = raw as Record<string, string>;
     switch (cmd) {
       case "list_workspaces":
-        return [...db.workspaces]; // real IPC hands out copies, never the backend's array
+        return db.workspaces.filter((w) => w.projectId === args.projectId).map((w) => ({ ...w }));
       case "create_workspace": {
-        const w = { id: `w${++counter}`, name: args.name, position: db.workspaces.length };
+        const w = make(args.name, db.workspaces.length);
         db.workspaces.push(w);
         return w;
       }
@@ -26,6 +33,9 @@ function fakeBackend(initial: string[] = [], activeSetting: string | null = null
         return;
       case "delete_workspace":
         db.workspaces = db.workspaces.filter((w) => w.id !== args.id);
+        return;
+      case "set_workspace_pantheon":
+        db.workspaces = db.workspaces.map((w) => (w.id === args.id ? { ...w, pantheon: args.pantheon } : w));
         return;
       case "get_setting":
         return db.settings.get(args.key) ?? null;
@@ -49,7 +59,8 @@ afterEach(() => clearMocks());
 
 describe("nextDefaultName", () => {
   it("uses the smallest free number", () => {
-    const ws = (...n: string[]) => n.map((name, i) => ({ id: String(i), name, position: i }));
+    const ws = (...n: string[]) =>
+      n.map((name, i) => ({ id: String(i), projectId: "p1", name, position: i, pantheon: null }));
     expect(nextDefaultName([])).toBe("Workspace 1");
     expect(nextDefaultName(ws("Workspace 2"))).toBe("Workspace 1");
     expect(nextDefaultName(ws("Workspace 1", "Workspace 2"))).toBe("Workspace 3");
@@ -57,38 +68,40 @@ describe("nextDefaultName", () => {
 });
 
 describe("workspaces store", () => {
-  it("creates the first workspace on a fresh install", async () => {
+  it("creates a first workspace when a project has none", async () => {
     const db = fakeBackend();
-    await state().init();
+    await state().load("p1");
     expect(names()).toEqual(["Workspace 1"]);
     expect(db.workspaces).toHaveLength(1);
     expect(state().status).toBe("ready");
+    expect(state().projectId).toBe("p1");
   });
 
-  it("reopens the workspace that was active last time", async () => {
+  it("reopens the workspace that was active last time in this project", async () => {
     fakeBackend(["A", "B"], "w2");
-    await state().init();
+    await state().load("p1");
     expect(state().activeId).toBe("w2");
   });
 
   it("falls back to the first workspace when the saved one is gone", async () => {
     fakeBackend(["A"], "deleted");
-    await state().init();
+    await state().load("p1");
     expect(state().activeId).toBe("w1");
   });
 
-  it("creates a workspace, makes it active and remembers it", async () => {
+  it("creates a workspace in the project, makes it active and remembers it", async () => {
     const db = fakeBackend(["Workspace 1"]);
-    await state().init();
+    await state().load("p1");
     await state().create();
     await settled();
     expect(names()).toEqual(["Workspace 1", "Workspace 2"]);
-    expect(db.settings.get("ui.activeWorkspaceId")).toBe(state().activeId);
+    expect(db.workspaces[1].projectId).toBe("p1");
+    expect(db.settings.get("ui.activeWorkspaceId.p1")).toBe(state().activeId);
   });
 
   it("renames with trimming and ignores blank names", async () => {
     const db = fakeBackend(["A"]);
-    await state().init();
+    await state().load("p1");
     await state().rename("w1", "  Front  ");
     await state().rename("w1", "   ");
     expect(names()).toEqual(["Front"]);
@@ -97,7 +110,7 @@ describe("workspaces store", () => {
 
   it("never removes the last workspace", async () => {
     const db = fakeBackend(["A"]);
-    await state().init();
+    await state().load("p1");
     await state().remove("w1");
     expect(names()).toEqual(["A"]);
     expect(db.workspaces).toHaveLength(1);
@@ -105,7 +118,7 @@ describe("workspaces store", () => {
 
   it("selects the next workspace when the active one is removed, or the previous when it was last", async () => {
     fakeBackend(["A", "B", "C"]);
-    await state().init();
+    await state().load("p1");
     state().select("w2");
     await state().remove("w2");
     expect(state().activeId).toBe("w3");
@@ -113,11 +126,19 @@ describe("workspaces store", () => {
     expect(state().activeId).toBe("w1");
   });
 
-  it("reports a backend failure at startup", async () => {
+  it("saves the pantheon of a workspace", async () => {
+    const db = fakeBackend(["A"]);
+    await state().load("p1");
+    await state().setPantheon("w1", "greek");
+    expect(state().workspaces[0].pantheon).toBe("greek");
+    expect(db.workspaces[0].pantheon).toBe("greek");
+  });
+
+  it("reports a backend failure", async () => {
     mockIPC(() => {
       throw { kind: "db", message: "disk I/O error" };
     });
-    await state().init();
+    await state().load("p1");
     expect(state().status).toBe("error");
     expect(state().error).toContain("disk I/O error");
   });

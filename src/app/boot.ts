@@ -2,8 +2,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onPtyExit, ptyList } from "@/ipc/pty";
 import { setLivePtys } from "@/nodes/terminal/registry";
 import { terminalStatusStore } from "@/store/terminalStatus";
-import { workspacesStore } from "@/store/workspaces";
+import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
+import { forgetWorkspaces } from "./forget";
 
 let booting: Promise<void> | undefined;
 
@@ -19,7 +20,8 @@ export function boot(): Promise<void> {
     );
     setLivePtys(await ptyList());
     await getCurrentWindow().onCloseRequested(saveBeforeClose);
-    await workspacesStore.getState().init();
+    setForgetWorkspaces(forgetWorkspaces);
+    await projectsStore.getState().init();
   })();
   return booting;
 }
