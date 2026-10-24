@@ -91,17 +91,20 @@ export function withoutMention(text: string, start: number, end: number): { text
 
 /**
  * Typed `@names` that match exactly one option become targets and leave the
- * text ("@tous lance les tests"); ambiguous or unknown ones stay as typed.
+ * text ("@tous lance les tests", "@tous, lancez…") with the punctuation and
+ * the space that follow them; ambiguous or unknown ones stay as typed. The
+ * rest of the command keeps its spaces (indented code, tabs).
  */
 export function extractMentions(text: string, options: readonly TargetOption[]): { targets: Target[]; text: string } {
   const targets: Target[] = [];
-  const rest = text.replace(/(^|\s)@([^\s@]+)/g, (whole: string, space: string, word: string) => {
+  const mention = /(^|\s)@([^\s@,;:.!?…]+)[,;:.!?…]*(?=\s|$) ?/g;
+  const rest = text.replace(mention, (whole: string, before: string, word: string) => {
     const found = options.filter((o) => o.label === `@${slug(word)}`);
     if (found.length !== 1) return whole;
     targets.push(found[0].target);
-    return space;
+    return before;
   });
-  return { targets, text: rest.replace(/[ \t]{2,}/g, " ").trim() };
+  return { targets, text: rest.trim() };
 }
 
 /**

@@ -109,6 +109,17 @@ describe("extractMentions", () => {
   it("keeps the line breaks of the command", () => {
     expect(extractMentions("@tous un\ndeux", options).text).toBe("un\ndeux");
   });
+
+  it("keeps the indentation, tabs and inner spaces of the command", () => {
+    expect(extractMentions("@tous corrige :\n    if x:\n\treturn 1", options).text).toBe("corrige :\n    if x:\n\treturn 1");
+    expect(extractMentions("  garde  ces  espaces  ", options).text).toBe("garde  ces  espaces");
+  });
+
+  it("reads a mention followed by punctuation", () => {
+    expect(extractMentions("@tous, lancez les tests", options)).toEqual({ targets: [{ kind: "all" }], text: "lancez les tests" });
+    expect(extractMentions("dis à @zeus: bonjour", options)).toEqual({ targets: [{ kind: "agent", id: "d" }], text: "dis à bonjour" });
+    expect(extractMentions("voir @a.b", options).text).toBe("voir @a.b");
+  });
 });
 
 describe("resolveTargets", () => {
