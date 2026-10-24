@@ -8,7 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useCanvas } from "@/canvas/canvasStore";
+import { groupOf } from "@/canvas/groups";
 import { AGENT_ORDER, AGENTS } from "@/fleet/catalog";
+import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
@@ -94,6 +97,7 @@ export function TerminalHeader(props: {
   const [editing, setEditing] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const meta = AGENTS[payload.agent];
+  const role = useCanvas((s) => groupOf(s.frames, nodeId)?.group.role);
 
   return (
     <header
@@ -121,7 +125,11 @@ export function TerminalHeader(props: {
           <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ov-idle" />
+      <span
+        aria-hidden
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: role ? ROLES[role].color : "var(--ov-idle)" }}
+      />
       {editing ? (
         <Input
           autoFocus

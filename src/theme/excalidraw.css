@@ -115,3 +115,19 @@
 .excalidraw .excalidraw__embeddable-container canvas {
   filter: none !important;
 }
+
+/* Frame names (spec habillage §11.4). Excalidraw's name stays the handle that
+   selects, drags and renames a frame; it takes the font and the place of our
+   group label (a 28 px room for the dot, 16 px from the corner, on the top
+   edge) so that what you grab is what you see. GroupLabels makes the names of
+   groups transparent and draws its label over them. */
+.excalidraw [id*="-frame-name-"] {
+  padding-left: 28px;
+  font-family: "Geist Variable", sans-serif;
+  font-size: 11px !important;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 24px !important;
+  text-transform: uppercase;
+  transform: translate(16px, 3px);
+}

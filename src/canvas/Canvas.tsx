@@ -23,6 +23,8 @@ import { framesFromScene } from "./groups";
 import { isOpenVibeLink } from "./nodeElement";
 import { classifyAddedNodes } from "./nodeCopies";
 import { DotGrid } from "./overlay/DotGrid";
+import { GroupBackdrops } from "./overlay/GroupBackdrops";
+import { GroupLabels } from "./overlay/GroupLabels";
 import { loadScene, rememberScene, type LoadedScene } from "./sceneCache";
 import { EXCALIDRAW_UI_OPTIONS, withSceneDefaults } from "./sceneDefaults";
 import { createSceneSync, liveNodeIds } from "./sceneSync";
@@ -131,6 +133,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   return (
     <div className="absolute inset-0">
       <DotGrid />
+      <GroupBackdrops />
       <div className="absolute inset-0">
         <Excalidraw
           theme="dark"
@@ -143,6 +146,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
           renderEmbeddable={(element) => <NodeHost element={element} />}
         />
       </div>
+      <GroupLabels />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { CanvasView } from "@/canvas/canvasStore";
+import type { Rect } from "@/canvas/groups";
 import { NODE_SIZE } from "@/canvas/nodeElement";
 import type { Point } from "./terminals";
 
@@ -22,4 +23,14 @@ export function ghostRect(pointer: Point, zoom: number) {
   const width = NODE_SIZE.terminal.width * zoom;
   const height = NODE_SIZE.terminal.height * zoom;
   return { left: pointer.x - width / 2, top: pointer.y - height / 2, width, height };
+}
+
+/** Where a scene rectangle shows inside the canvas (Excalidraw's mapping, without the canvas offset). */
+export function screenRectOf(rect: Rect, view: Viewport): Rect {
+  return {
+    x: (rect.x + view.scrollX) * view.zoom,
+    y: (rect.y + view.scrollY) * view.zoom,
+    width: rect.width * view.zoom,
+    height: rect.height * view.zoom,
+  };
 }
