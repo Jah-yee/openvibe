@@ -1,7 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { useStore } from "zustand";
 import type { SceneFrame } from "@/canvas/groups";
+import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
 import { cn } from "@/lib/utils";
 import { sendCommand } from "./broadcast";
 import { browseHistory, historyStore } from "./history";
@@ -97,7 +98,7 @@ export function CommandInput(props: {
     setBrowsing(index === null ? null : { index, draft });
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     if (matches.length > 0 && mention) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -116,7 +117,7 @@ export function CommandInput(props: {
         return;
       }
     }
-    const element = e.currentTarget;
+    const element = e.currentTarget as HTMLTextAreaElement;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -130,6 +131,8 @@ export function CommandInput(props: {
       setTargets(chips.slice(0, -1));
     }
   };
+  // In an orchestrator the field sits inside the canvas, which must not see its keys.
+  useNativeKeyDown(field, onKeyDown);
 
   return (
     <div className="relative flex min-w-0 flex-1 items-end gap-2">
@@ -184,7 +187,6 @@ export function CommandInput(props: {
             placeholder={chips.length > 0 ? "" : placeholder}
             onChange={(e) => edit(e.target.value, e.target.selectionStart)}
             onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
-            onKeyDown={onKeyDown}
             className={cn(
               "min-w-[8rem] flex-1 resize-none bg-transparent py-1 text-ov-text outline-none placeholder:text-ov-text-2",
               compact ? "text-xs" : "text-[13px]",

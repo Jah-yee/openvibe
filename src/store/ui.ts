@@ -23,6 +23,9 @@ interface UiState {
   /** The fleet panel of the right rail is open. */
   fleetOpen: boolean;
   setFleetOpen: (open: boolean) => void;
+  /** The orchestrator in "Relier" mode: each click wires a group or a terminal to it. */
+  linking: string | null;
+  setLinking: (orchestratorId: string | null) => void;
 }
 
 export const uiStore = createStore<UiState>()((set) => ({
@@ -36,6 +39,8 @@ export const uiStore = createStore<UiState>()((set) => ({
   setRenamingGroup: (renamingGroup) => set({ renamingGroup }),
   fleetOpen: false,
   setFleetOpen: (fleetOpen) => set({ fleetOpen }),
+  linking: null,
+  setLinking: (linking) => set({ linking }),
 }));
 
 export function useUi<T>(selector: (state: UiState) => T): T {

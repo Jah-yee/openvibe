@@ -15,8 +15,9 @@ import { useAgents } from "./agentsStore";
 import { pauseAll, resumeAll } from "./broadcast";
 import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
 import { addAgentToGroup, groupMembers, requestCloseGroup, ungroup } from "./groups";
+import { orchestrateGroup } from "./orchestrators";
 
-/** The `⌄` of a group label (spec habillage §11.4); J5 adds the orchestrator, pause and resume. */
+/** The `⌄` of a group label (spec habillage §11.4). */
 export function GroupMenu({ groupId }: { groupId: string }) {
   const agents = useAgents((s) => s.agents);
   const available = (id: string) => agents.some((agent) => agent.id === id && agent.available);
@@ -58,6 +59,13 @@ export function GroupMenu({ groupId }: { groupId: string }) {
             })}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem
+          onSelect={() =>
+            void orchestrateGroup(groupId).catch((error: unknown) => toast.error(`Orchestrateur impossible : ${String(error)}`))
+          }
+        >
+          Relier un orchestrateur
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void pauseAll(groupMembers(groupId))}>Tout mettre en pause</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void resumeAll(groupMembers(groupId))}>Tout reprendre</DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Canvas } from "@/canvas/Canvas";
 import { AgentMenu } from "@/fleet/AgentMenu";
 import { agentsStore } from "@/fleet/agentsStore";
+import { LinkMode } from "@/fleet/LinkMode";
 import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
 import { ActionChips } from "./ActionChips";
@@ -45,6 +46,7 @@ export function ProjectView() {
             </div>
           </div>
           <PlacementGhost />
+          <LinkMode />
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">
