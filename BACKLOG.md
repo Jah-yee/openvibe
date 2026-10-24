@@ -62,3 +62,18 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `tauri-plugin-log` (logs Rust dans un fichier).
 - CSP de la webview à `null` : à corriger avant d'afficher du contenu externe (tuile web, studios).
 - Noms de workspace en double autorisés.
+
+## Constats du plan A (relecture finale)
+
+- Les agents lancés depuis un OpenVibe démarré dans une session Claude Code héritent de son marqueur de session enfant (`CLAUDE_CODE_CHILD_SESSION`…) : Claude n'enregistre pas les conversations et « Reprendre » échoue. Retirer ces marqueurs de l'environnement des terminaux (la spec V1 dit que les terminaux héritent de l'environnement).
+- `restoreSession` ne pose pas la garde `replaying` : une relance pendant la restauration d'un long écran peut envoyer au nouveau processus les réponses de xterm aux anciennes requêtes.
+- `list_projects` teste l'existence des dossiers en tenant le verrou de la base (un lecteur réseau hors ligne bloquerait toutes les commandes).
+- Restes de « Terminal introuvable » : copie d'un terminal dont la source n'est plus en mémoire ; copie pendant son adoption ; une image « ARRÊTÉ » avant le montage d'un nouveau terminal.
+- La couleur de sélection passe par le filtre sombre (≈ `#ea6b40` au lieu de `#f4602e`).
+- Les modes zen et lecture (Alt+Z, Alt+R) n'ont plus de bouton de sortie visible.
+- Carte d'un projet introuvable : « Renommer » reste proposé ; la confirmation de suppression d'un workspace donne un nombre d'agents, pas leur liste ; le bouton Formes ne garde pas la dernière forme comme outil.
+- Le sélecteur de projet rouvre le projet déjà actif, sans gestion d'erreur.
+- « Nouvelle console » lance un Shell si on clique avant que la liste des agents soit chargée.
+- Ouvrir le menu Stylo réécrit la couleur et l'épaisseur courantes partagées avec les formes.
+- Les prénoms des terminaux fermés (encore en mémoire pour Ctrl+Z) ne sont réutilisés qu'au redémarrage.
+- Sauvegarde automatique de la base (`openvibe.vN-backup.db`) avant chaque migration (à faire avec la migration du plan B).
