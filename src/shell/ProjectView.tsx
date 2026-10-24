@@ -1,5 +1,10 @@
+import { useEffect } from "react";
 import { Canvas } from "@/canvas/Canvas";
+import { AgentMenu } from "@/fleet/AgentMenu";
+import { agentsStore } from "@/fleet/agentsStore";
+import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
+import { ActionChips } from "./ActionChips";
 import { CloseAgentDialog } from "./CloseAgentDialog";
 import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
@@ -12,16 +17,26 @@ export function ProjectView() {
   const error = useWorkspaces((s) => s.error);
   const activeId = useWorkspaces((s) => s.activeId);
 
+  useEffect(() => {
+    void agentsStore.getState().load();
+  }, []);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-ov-canvas">
       {status === "ready" && activeId ? (
         <>
           <Canvas key={activeId} workspaceId={activeId} />
-          <LeftRail />
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 flex items-end justify-between gap-4">
-            <GitChip />
-            <ZoomControl />
+          <LeftRail agentButton={<AgentMenu />} />
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-4">
+            <div className="justify-self-start">
+              <GitChip />
+            </div>
+            <ActionChips />
+            <div className="justify-self-end">
+              <ZoomControl />
+            </div>
           </div>
+          <PlacementGhost />
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">

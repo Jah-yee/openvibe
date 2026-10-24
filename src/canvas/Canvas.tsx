@@ -9,17 +9,14 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
-import { assignMissingNames, nameForNewAgent } from "@/fleet/naming";
+import { assignMissingNames } from "@/fleet/naming";
 import { dismissResumeOffer, offerResumeAll } from "@/fleet/ResumeAllToast";
-import { addTerminal, adoptCopies } from "@/fleet/terminals";
+import { adoptCopies } from "@/fleet/terminals";
 import { saveFiles, saveScene } from "@/ipc/db";
 import { onFlushAll } from "@/lib/flush";
 import { NodeHost } from "@/nodes/NodeHost";
-import { LaunchDialog } from "@/nodes/terminal/LaunchDialog";
 import { disposeTerminal, focusTerminal } from "@/nodes/terminal/registry";
-import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
-import { uiStore, useUi } from "@/store/ui";
 import { createActivationTracker } from "./activation";
 import { canvasStore, viewFrom } from "./canvasStore";
 import { isOpenVibeLink } from "./nodeElement";
@@ -58,7 +55,6 @@ function Centered({ children }: { children: ReactNode }) {
 
 function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: LoadedScene }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
-  const launchOpen = useUi((s) => s.launchOpen);
   const initialData = useMemo(() => withSceneDefaults(scene.initialData), [scene]);
 
   // The shell (rails, zoom, panels) drives the Excalidraw instance on screen.
@@ -127,21 +123,6 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     [sync, trackActivation, api],
   );
 
-  const launch = useCallback(
-    async (input: TerminalPayload) => {
-      if (!api) return;
-      const { scrollX, scrollY, zoom, width, height } = api.getAppState();
-      const center = { x: width / 2 / zoom.value - scrollX, y: height / 2 / zoom.value - scrollY };
-      try {
-        const payload = { ...input, name: await nameForNewAgent(workspaceId) };
-        await addTerminal(workspaceId, payload, center);
-      } catch (error) {
-        reportSaveError(error);
-      }
-    },
-    [api, workspaceId],
-  );
-
   return (
     <div className="absolute inset-0">
       <DotGrid />
@@ -157,11 +138,6 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
           renderEmbeddable={(element) => <NodeHost element={element} />}
         />
       </div>
-      <LaunchDialog
-        open={launchOpen}
-        onOpenChange={uiStore.getState().setLaunchOpen}
-        onLaunch={(payload) => void launch(payload)}
-      />
     </div>
   );
 }

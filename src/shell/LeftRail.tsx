@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { Asterisk, Eraser, Image as ImageIcon, Maximize, MousePointer2, Type } from "lucide-react";
+import { Eraser, Image as ImageIcon, Maximize, MousePointer2, Type } from "lucide-react";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
-import { uiStore } from "@/store/ui";
 import { PenMenu } from "./PenMenu";
 import { ShapesMenu } from "./ShapesMenu";
 import { railToolOf, type ShapeTool } from "./tools";
@@ -25,7 +24,7 @@ const Separator = () => <span aria-hidden className="my-1 h-px w-5 bg-ov-line" /
  * The vertical tool pill on the left (spec habillage §5.3). It replaces
  * Excalidraw's toolbar and follows its active tool, keyboard shortcuts included.
  */
-export function LeftRail({ agentButton }: { agentButton?: ReactNode }) {
+export function LeftRail({ agentButton }: { agentButton: ReactNode }) {
   const tool = useCanvas((s) => s.view.tool);
   const active = railToolOf(tool);
 
@@ -34,11 +33,7 @@ export function LeftRail({ agentButton }: { agentButton?: ReactNode }) {
       <RoundButton label="Sélection (V)" active={active === "selection"} onClick={() => setTool("selection")}>
         <MousePointer2 />
       </RoundButton>
-      {agentButton ?? (
-        <RoundButton label="Lancer un agent" onClick={() => uiStore.getState().setLaunchOpen(true)}>
-          <Asterisk className="text-ov-accent" />
-        </RoundButton>
-      )}
+      {agentButton}
       <ShapesMenu active={active === "shapes"} current={tool} onPick={setTool} />
       <RoundButton label="Texte (T)" active={active === "text"} onClick={() => setTool("text")}>
         <Type />

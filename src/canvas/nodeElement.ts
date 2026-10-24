@@ -4,7 +4,7 @@ export type NodeKind = "terminal" | "note" | "kanban" | "git";
 
 const NODE_KINDS: readonly NodeKind[] = ["terminal", "note", "kanban", "git"];
 
-const DEFAULT_SIZE: Record<NodeKind, { width: number; height: number }> = {
+export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   terminal: { width: 720, height: 440 },
   note: { width: 320, height: 240 },
   kanban: { width: 640, height: 400 },
@@ -30,7 +30,7 @@ export function nodeKindOf(element: ExcalidrawElement): NodeKind | null {
  */
 export function createNodeElement(kind: NodeKind, center: { x: number; y: number }): ExcalidrawEmbeddableElement {
   const id = crypto.randomUUID();
-  const { width, height } = DEFAULT_SIZE[kind];
+  const { width, height } = NODE_SIZE[kind];
   const random = () => Math.floor(Math.random() * 2 ** 31);
   return {
     id,

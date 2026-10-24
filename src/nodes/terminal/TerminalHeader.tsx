@@ -16,6 +16,7 @@ import type { TerminalStatus } from "@/store/terminalStatus";
 import type { LaunchMode } from "./launch";
 import { relaunchTerminal, stopTerminal } from "./registry";
 import { StatusPill } from "./StatusPill";
+import { TerminalOptionsDialog } from "./TerminalOptionsDialog";
 
 /** Agents that need no options can be switched to from the header. */
 const SWITCHABLE = AGENT_ORDER.filter((id) => id !== "ollama" && id !== "custom");
@@ -91,6 +92,7 @@ export function TerminalHeader(props: {
 }) {
   const { nodeId, payload, status, actions } = props;
   const [editing, setEditing] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const meta = AGENTS[payload.agent];
 
   return (
@@ -115,6 +117,8 @@ export function TerminalHeader(props: {
               </DropdownMenuItem>
             );
           })}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-ov-idle" />
@@ -147,6 +151,7 @@ export function TerminalHeader(props: {
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
         {actions}
       </div>
+      {optionsOpen && <TerminalOptionsDialog nodeId={nodeId} payload={payload} onClose={() => setOptionsOpen(false)} />}
     </header>
   );
 }
