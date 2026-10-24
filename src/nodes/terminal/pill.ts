@@ -9,6 +9,8 @@ export type PillTone = "live" | "stopped" | "done" | "failed";
  */
 export function pillOf(status: TerminalStatus): { label: string; tone: PillTone } {
   switch (status.state) {
+    case "starting":
+      return { label: "DÉMARRAGE", tone: "stopped" };
     case "running":
       return { label: "ACTIF", tone: "live" };
     case "stopped":
@@ -25,7 +27,7 @@ export function pillOf(status: TerminalStatus): { label: string; tone: PillTone 
 
 /** What the card over a stopped terminal offers (spec habillage §7.3). */
 export function resumeOfferOf(status: TerminalStatus, agent: AgentId, hasSession: boolean): "resume" | "relaunch" | null {
-  if (status.state === "running") return null;
+  if (status.state === "running" || status.state === "starting") return null;
   return agent === "claude" && hasSession ? "resume" : "relaunch";
 }
 
@@ -34,7 +36,7 @@ export function resumeOfferOf(status: TerminalStatus, agent: AgentId, hasSession
  * count: a restored screen makes xterm answer old terminal queries by itself.
  */
 export function startsOnKeystroke(status: TerminalStatus): boolean {
-  return status.state !== "running";
+  return status.state !== "running" && status.state !== "starting";
 }
 
 /**

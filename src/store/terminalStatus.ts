@@ -1,6 +1,8 @@
 import { createStore, useStore } from "zustand";
 
 export type TerminalStatus =
+  /** Created, waiting for its staggered start (groups start one agent every 300 ms). */
+  | { state: "starting" }
   | { state: "running" }
   | { state: "stopped" }
   | { state: "exited"; code: number | null }

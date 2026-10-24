@@ -42,9 +42,13 @@ export function setLivePtys(nodeIds: string[]) {
   livePtys = new Set(nodeIds);
 }
 
-/** A terminal just created starts on its first mount, `delayMs` later (groups stagger their agents). */
+/**
+ * A terminal just created starts on its first mount, `delayMs` later (groups
+ * stagger their agents). Until then it reads DÉMARRAGE, not ARRÊTÉ.
+ */
 export function markForAutostart(nodeId: string, delayMs = 0) {
   autostart.mark(nodeId, delayMs);
+  terminalStatusStore.getState().set(nodeId, { state: "starting" });
 }
 
 function create(nodeId: string): Entry {
@@ -156,6 +160,8 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
   layoutTerminal(nodeId, host, zoom);
   if (existing) return;
   const started = autostart.run(nodeId, () => {
+    // Started by hand meanwhile ("Relancer"): it must not be spawned twice.
+    if (statusOf(nodeId).state !== "starting") return;
     // The node may have been edited while it waited for its turn.
     const latest = nodesStore.getState().nodes[nodeId]?.payload ?? payload;
     void startSession(nodeId, entry.term, latest, "new");
@@ -175,6 +181,7 @@ async function startFresh(nodeId: string, entry: Entry) {
     nodesStore.getState().update(nodeId, { claudeSessionId });
     payload = { ...payload, claudeSessionId };
   }
+  autostart.cancel(nodeId);
   // Set before the first await: xterm sends the triggering key to onData right
   // after onKey, and it would reach the shell before the agent starts.
   entry.session.restarting = true;
@@ -199,12 +206,14 @@ export function resumeTerminal(nodeId: string) {
   const payload = nodesStore.getState().nodes[nodeId]?.payload;
   if (!payload) return;
   const entry = entries.get(nodeId) ?? create(nodeId);
+  autostart.cancel(nodeId);
   const mode = payload.agent === "claude" && payload.claudeSessionId ? "resume" : "new";
   void relaunchSession(nodeId, entry.term, payload, mode);
 }
 
 export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode) {
   const entry = entries.get(nodeId);
+  autostart.cancel(nodeId);
   if (entry) void relaunchSession(nodeId, entry.term, payload, mode);
 }
 

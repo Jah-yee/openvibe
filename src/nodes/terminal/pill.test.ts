@@ -62,3 +62,19 @@ describe("startsNewConversation", () => {
     expect(startsNewConversation({ state: "error", message: "dossier introuvable" })).toBe(false);
   });
 });
+
+describe("a terminal waiting for its staggered start", () => {
+  const starting = { state: "starting" } as const;
+
+  it("reads DÉMARRAGE, not ARRÊTÉ", () => {
+    expect(pillOf(starting)).toEqual({ label: "DÉMARRAGE", tone: "stopped" });
+  });
+
+  it("offers neither to resume nor to relaunch", () => {
+    expect(resumeOfferOf(starting, "claude", true)).toBeNull();
+  });
+
+  it("is not started a second time by a keystroke", () => {
+    expect(startsOnKeystroke(starting)).toBe(false);
+  });
+});
