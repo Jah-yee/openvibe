@@ -91,7 +91,7 @@ Définis comme variables CSS sur `:root` (thème sombre unique) ; les variables 
 
 ### 4.3 Couleurs dans le canvas Excalidraw
 
-En thème sombre, Excalidraw applique au canvas le filtre `invert(93%) hue-rotate(180deg)`. Les palettes de nos menus (Stylo, panneau de propriétés) stockent donc la couleur qui, après ce filtre, s'affiche avec la valeur voulue. Une fonction pure `toSceneColor(displayHex)` calcule cette couleur et sa réciproque `toDisplayColor(sceneHex)` sert à afficher la pastille sélectionnée. Le filtre ne peut pas produire une composante au-delà de 93 % ni en deçà de 7 % : les couleurs hors de cette plage sont approchées au plus près. Les deux fonctions sont testées aller-retour sur toute la palette, avec une tolérance de 3 unités par composante.
+En thème sombre, Excalidraw applique au canvas le filtre `invert(93%) hue-rotate(180deg)`. La palette de notre menu Stylo stocke donc la couleur qui, après ce filtre, s'affiche avec la valeur voulue. Une fonction pure `toSceneColor(displayHex)` calcule cette couleur et sa réciproque `toDisplayColor(sceneHex)` sert à afficher la pastille sélectionnée. Le filtre ne peut pas tout afficher : les couleurs très saturées (rouge vif, cyan) ressortent plus ternes. Les pastilles du menu montrent donc la couleur réellement obtenue (`toDisplayColor(toSceneColor(c))`), jamais une couleur promise. Les deux fonctions sont testées sur des valeurs de référence calculées (par exemple, le trait par défaut d'Excalidraw `#1e1e1e` s'affiche `#d3d3d3`, et `#5E9A55` se stocke `#448a3a`) et en aller-retour exact sur les couleurs atteignables.
 
 Palette affichée (traits et texte) : crème `#EDE8DF`, orange `#F2612E`, vert `#5E9A55`, or `#C9A34E`, rouge `#EF4444`, cyan `#5CC8F0`, lavande `#A47CF0`, ardoise `#4B5675`, plus une couleur personnalisée. Fonds : transparent, orange, vert, bleu, sable, rouge, violet, personnalisé. Trait par défaut des nouvelles formes : crème.
 
@@ -141,13 +141,14 @@ Les menus s'ouvrent à droite du rail (popover `--ov-surface-2`, rayon 12, libel
 
 ### 5.4 Panneau de propriétés
 
-Remplace le panneau d'origine d'Excalidraw (masqué). Accolé à droite du rail, il apparaît quand un outil de dessin est actif ou que des éléments dessinés sont sélectionnés (jamais pour une sélection composée uniquement de nœuds).
+Le panneau d'origine d'Excalidraw (`.App-menu__left`) est conservé pour son fonctionnement — il gère seul les changements de police et de taille de texte, qui imposent de remesurer les éléments — et entièrement restylé et repositionné par CSS :
 
-- Formes, lignes, flèches : TRAIT (palette §4.3), FOND, ÉPAISSEUR (3), STYLE (plein, tirets, pointillés), TRACÉ (3 niveaux de « sloppiness »), ANGLES (vifs, arrondis), et pour les flèches TÊTES (début, fin) ; OPACITÉ (curseur orange, 0 à 100 %).
-- Texte : COULEUR, POLICE (les polices d'Excalidraw, aperçu « Ag »), TAILLE (S, M, L, XL), ALIGNEMENT (gauche, centre, droite), OPACITÉ.
-- Pied : Arrière-plan, Premier plan, Dupliquer, Supprimer.
-- Option active : tuile à bord orange sur `--ov-accent-soft`.
-- Mise en œuvre : sur sélection, `updateScene` des éléments sélectionnés ; sans sélection, mise à jour des valeurs `currentItem*` de l'`appState` pour les prochains éléments.
+- accolé à droite du rail gauche, centré verticalement, fond `--ov-surface-2`, bord `--ov-line`, rayon 12, ombre douce ;
+- titres de section en majuscules interlettrées 11 px `--ov-text-2` ;
+- boutons d'option en tuiles sombres (`--ov-card`), option active à bord orange sur `--ov-accent-soft` ; curseur d'opacité orange ;
+- il apparaît, comme dans Excalidraw, quand un outil de dessin est actif ou que des éléments dessinés sont sélectionnés.
+
+Sa palette de couleurs reste celle d'Excalidraw (Excalidraw 0.18.1 ne permet pas de la remplacer) ; la palette Symvibe (§4.3) s'applique au menu Stylo.
 
 ### 5.5 Rail droit et panneau Flotte
 
@@ -176,7 +177,7 @@ Le panneau Flotte s'ouvre à gauche du rail (largeur 300 px, hauteur jusqu'à 70
 
 - Fond : `viewBackgroundColor: "transparent"` ; une couche CSS sous le canvas dessine `--ov-canvas` et la grille de points (points de 1,5 px, pas de 32 px à 100 %, mis à l'échelle et décalés selon `scrollX`, `scrollY` et `zoom`, reçus par `onScrollChange`). La grille d'Excalidraw (`gridModeEnabled`) reste désactivée.
 - Sélection : `--color-selection` d'Excalidraw = `--ov-accent` (bordure et poignées de sélection orange).
-- Interface d'origine d'Excalidraw masquée : barre d'outils, menu principal, aide, pied de page (zoom, annuler), bibliothèque, statistiques, panneau de propriétés, écran d'accueil. Par `UIOptions` quand c'est possible, sinon par CSS ciblant les classes d'Excalidraw 0.18.1 (version figée ; une montée de version impose de revérifier cette liste).
+- Interface d'origine d'Excalidraw masquée : barre d'outils, menu principal, aide, pied de page (zoom, annuler), bibliothèque, statistiques, écran d'accueil (le panneau de propriétés est conservé et restylé, §5.4). Par `UIOptions` quand c'est possible, sinon par CSS ciblant les classes d'Excalidraw 0.18.1 (version figée ; une montée de version impose de revérifier cette liste).
 - Conservés : menu contextuel du clic droit (restylé par CSS), raccourcis clavier, annuler et rétablir (Ctrl+Z, Ctrl+Y), dialogues d'Excalidraw restylés.
 - Cadres : `frameRendering = { enabled: true, name: true, outline: false, clip: true }`. Le nom natif reste en place pour la sélection, le glisser et le renommage, mais devient transparent ; notre étiquette (§11.4) est dessinée exactement par-dessus.
 
@@ -227,13 +228,15 @@ Pastille en Geist Mono majuscules 10 px, point de 5 px + libellé :
 | terminé | TERMINÉ · code | vert `#6A8E51` si code 0, rouge sinon |
 | erreur de lancement | ERREUR | rouge |
 
+Avant le jalon J3 (états des agents), un processus vivant affiche ACTIF (fond `#322F28`, point vert `#4CAF6A`) : PRÊT, EN COURS et ATTEND n'apparaissent qu'avec la détection d'activité.
+
 ### 7.3 Corps et bordure
 
 - Corps `--ov-terminal`, marge intérieure de 4 px (sur un conteneur, pas sur l'hôte xterm).
 - Bordure 1 px à la teinte de l'agent, rayon 12 (l'en-tête et le corps sont rognés dans ce rayon). Nœud sélectionné : bordure de 1,5 px en `--ov-accent` et légère lueur (`0 0 0 3px` de l'accent à 15 %). Nœud qui attend : lueur ambre.
 - Pour un terminal arrêté, le bandeau actuel est remplacé par un encart flottant en haut du corps : icône horloge orange, « Reprendre la dernière conversation ? », « Cliquer pour reprendre · taper démarre à neuf », ×. Agents sans session (tout sauf Claude) : « Relancer · taper démarre à neuf ».
   - Clic : relance en mode reprise (Claude) ou nouveau lancement (autres).
-  - Frappe au clavier dans le terminal arrêté : nouveau lancement (Claude : nouvelle session), la frappe est ensuite transmise.
+  - Frappe au clavier dans le terminal arrêté : nouveau lancement (Claude : nouvelle session). La touche frappée n'est pas transmise : elle arriverait au shell avant que l'agent ne démarre.
   - × : masque l'encart ; le terminal reste arrêté.
 
 ### 7.4 Reprise globale au lancement
@@ -512,7 +515,7 @@ Les charges utiles existantes sont lues avec rétrocompatibilité : `preset` dev
 ## 16. Architecture front
 
 - `src/theme/` : jetons (`tokens.css`), surcharges d'Excalidraw (`excalidraw.css`), couleurs de scène (`sceneColors.ts`).
-- `src/shell/` : `AppShell.tsx` (agencement), `TopBar.tsx`, `ProjectPicker.tsx`, `WorkspaceTabs.tsx`, `LeftRail.tsx`, `ShapesMenu.tsx`, `PenMenu.tsx`, `PropertiesPanel.tsx`, `RightRail.tsx`, `FleetPanel.tsx`, `BottomBar.tsx`, `ActionChips.tsx`, `CommandBar.tsx`, `GitChip.tsx`, `ZoomControl.tsx`.
+- `src/shell/` : `AppShell.tsx` (agencement), `TopBar.tsx`, `ProjectPicker.tsx`, `WorkspaceTabs.tsx`, `LeftRail.tsx`, `ShapesMenu.tsx`, `PenMenu.tsx`, `RightRail.tsx`, `FleetPanel.tsx`, `BottomBar.tsx`, `ActionChips.tsx`, `CommandBar.tsx`, `GitChip.tsx`, `ZoomControl.tsx`.
 - `src/home/HomeScreen.tsx` : accueil.
 - `src/canvas/overlay/` : couche d'habillage synchronisée avec la vue (`useViewport` via `onScrollChange`) : `DotGrid.tsx`, `GroupFrames.tsx` (contours et étiquettes), `PlacementGhost.tsx` (rectangle pointillé).
 - `src/fleet/` : `catalog.ts` (libellés, logos, teintes), `names.ts` (panthéons et attribution), `groups.ts` (`groupsFromScene`, placement en grille), `targets.ts` (analyse des `@`, résolution des cibles), `wires.ts` (`orchestratorTargets`), `ComposeGroup.tsx`, `AgentMenu.tsx`.
@@ -537,7 +540,7 @@ Les fonctions de calcul (couleurs de scène, prénoms, groupes, placement, cible
 
 | Plan | Jalon | Contenu | Visible |
 |---|---|---|---|
-| A | J1 — Thème et coquille | jetons et polices, couleurs de scène, interface d'Excalidraw masquée, grille de points, sélection orange, rail gauche et menus Formes et Stylo, panneau de propriétés, barre du haut avec projets et onglets, accueil, migration 002 (projets), puce git, zoom, réglages | le nouveau look complet autour du canvas |
+| A | J1 — Thème et coquille | jetons et polices, couleurs de scène, interface d'Excalidraw masquée, grille de points, sélection orange, rail gauche et menus Formes et Stylo, panneau de propriétés restylé, barre du haut avec projets et onglets, accueil, migration 002 (projets), puce git, zoom, réglages | le nouveau look complet autour du canvas |
 | A | J2 — Terminal et catalogue | en-tête et pastilles, bordures teintées, encart et toast de reprise, fermeture confirmée, duplication réelle, catalogue d'agents et menu Agent avec placement, Ollama, prénoms mythologiques, puce « Nouvelle console » | les terminaux à la Symvibe |
 | B | J3 — États des agents | serveur local des hooks, réglages Claude, `notify` Codex, activité du terminal, événement `agent-activity`, pastilles vivantes, compteurs | EN COURS / ATTEND / PRÊT en direct |
 | B | J4 — Groupes | cadres de groupe, étiquettes et contours, Composer un groupe, Lancer 4, placement en grille, menu de groupe, panneau Flotte | les équipes |
