@@ -1,4 +1,5 @@
 import { useStore } from "zustand";
+import { GroupMenu } from "@/fleet/GroupMenu";
 import { countsText } from "@/fleet/groupSummary";
 import { screenRectOf } from "@/fleet/placement";
 import { ROLES } from "@/fleet/roles";
@@ -60,6 +61,7 @@ function GroupLabel({ group, view, working }: { group: SceneGroup; view: CanvasV
       </span>
       <span className="font-semibold tracking-[0.08em] text-ov-text uppercase">{group.name}</span>
       <span className="ml-2 font-mono text-ov-text-2">{countsText(group.memberIds.length, working)}</span>
+      <GroupMenu groupId={group.id} />
     </div>
   );
 }

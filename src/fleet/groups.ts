@@ -1,4 +1,4 @@
-import { CaptureUpdateAction } from "@excalidraw/excalidraw";
+import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { createGroupFrame, isGroup } from "@/canvas/groups";
@@ -7,6 +7,8 @@ import type { AgentId } from "@/ipc/pty";
 import { newTerminalPayload } from "@/nodes/terminal/launch";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
+import { isRunning } from "@/store/terminalStatus";
+import { uiStore } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
 import { groupGrid } from "./groupLayout";
 import { defaultLaunchOptions, type LaunchOptions } from "./launchAgent";
@@ -70,4 +72,42 @@ export async function addAgentToGroup(groupId: string, agent: AgentId) {
   const name = await nameForNewAgent(workspaceId, group.group.pantheon);
   const center = { x: group.x + group.width / 2, y: group.y + group.height / 2 };
   await addTerminal(workspaceId, newTerminalPayload({ ...defaultLaunchOptions(), agent }, name), center, groupId);
+}
+
+/** "Renommer": Excalidraw's own frame name editor opens over the label. */
+export function renameGroup(groupId: string) {
+  canvasStore.getState().api?.updateScene({ appState: { editingFrame: groupId } });
+}
+
+/** "Dégrouper": the frame goes, its terminals stay where they are (spec §11.4). */
+export function ungroup(groupId: string) {
+  const api = canvasStore.getState().api;
+  if (!api) return;
+  api.updateScene({
+    elements: api.getSceneElementsIncludingDeleted().map((e) => {
+      if (e.id === groupId) return newElementWith(e, { isDeleted: true });
+      if (e.frameId === groupId) return newElementWith(e, { frameId: null });
+      return e;
+    }),
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** "Fermer le groupe": the frame and its terminals go; one undo brings them back, stopped. */
+export function closeGroup(groupId: string) {
+  const api = canvasStore.getState().api;
+  if (!api) return;
+  api.updateScene({
+    elements: api
+      .getSceneElementsIncludingDeleted()
+      .map((e) => (!e.isDeleted && (e.id === groupId || e.frameId === groupId) ? newElementWith(e, { isDeleted: true }) : e)),
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** Asks first when agents of the group are still running (spec §11.4). */
+export function requestCloseGroup(groupId: string) {
+  const group = canvasStore.getState().frames.find((f) => f.id === groupId);
+  if (group?.memberIds.some(isRunning)) uiStore.getState().setClosingGroup(groupId);
+  else closeGroup(groupId);
 }

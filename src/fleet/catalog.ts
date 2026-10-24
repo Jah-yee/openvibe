@@ -38,6 +38,9 @@ export const AGENTS: Record<AgentId, AgentMeta> = {
 
 export const AGENT_ORDER: AgentId[] = [...AGENT_IDS];
 
+/** Agents that start without options: Ollama needs a model, Personnalisé a command. */
+export const AGENTS_WITHOUT_OPTIONS = AGENT_ORDER.filter((id) => id !== "ollama" && id !== "custom");
+
 /** The agent of "Nouvelle console": the first available of Claude, Codex, Shell. */
 export function defaultAgent(agents: readonly AgentInfo[]): AgentId {
   for (const id of ["claude", "codex"] as const) {

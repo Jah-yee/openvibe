@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
-import { AGENT_ORDER, AGENTS } from "@/fleet/catalog";
+import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "@/fleet/catalog";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
@@ -21,8 +21,6 @@ import { relaunchTerminal, stopTerminal } from "./registry";
 import { StatusPill } from "./StatusPill";
 import { TerminalOptionsDialog } from "./TerminalOptionsDialog";
 
-/** Agents that need no options can be switched to from the header. */
-const SWITCHABLE = AGENT_ORDER.filter((id) => id !== "ollama" && id !== "custom");
 
 export function HeaderButton(props: { label: string; onClick: () => void; children: ReactNode }) {
   return (
@@ -112,7 +110,8 @@ export function TerminalHeader(props: {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {SWITCHABLE.map((id) => {
+          {/* Only agents that start without options can be switched to from the header. */}
+          {AGENTS_WITHOUT_OPTIONS.map((id) => {
             const Icon = AGENTS[id].Icon;
             return (
               <DropdownMenuItem key={id} onSelect={() => switchAgent(nodeId, payload, id)}>

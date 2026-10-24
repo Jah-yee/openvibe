@@ -6,6 +6,7 @@ import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
 import { ActionChips } from "./ActionChips";
 import { CloseAgentDialog } from "./CloseAgentDialog";
+import { CloseGroupDialog } from "./CloseGroupDialog";
 import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
 import { TopBar } from "./TopBar";
@@ -45,6 +46,7 @@ export function ProjectView() {
       )}
       <TopBar />
       <CloseAgentDialog />
+      <CloseGroupDialog />
     </div>
   );
 }

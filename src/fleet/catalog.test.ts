@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_IDS } from "@/ipc/pty";
-import { AGENT_ORDER, AGENTS, defaultAgent } from "./catalog";
+import { AGENT_ORDER, AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
 
 describe("agent catalog", () => {
   it("describes every agent, in menu order", () => {
@@ -16,4 +16,8 @@ describe("agent catalog", () => {
     expect(defaultAgent(info())).toBe("shell");
     expect(defaultAgent([])).toBe("shell");
   });
+});
+
+it("lists the agents that start without options, in catalog order", () => {
+  expect(AGENTS_WITHOUT_OPTIONS).toEqual(["claude", "codex", "gemini", "qwen", "cursor", "opencode", "aider", "shell"]);
 });
