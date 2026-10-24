@@ -1,5 +1,6 @@
 import { Canvas } from "@/canvas/Canvas";
 import { useWorkspaces } from "@/store/workspaces";
+import { CloseAgentDialog } from "./CloseAgentDialog";
 import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
 import { TopBar } from "./TopBar";
@@ -28,6 +29,7 @@ export function ProjectView() {
         </div>
       )}
       <TopBar />
+      <CloseAgentDialog />
     </div>
   );
 }

@@ -1,16 +1,20 @@
 import { useEffect, useRef } from "react";
+import { Copy, X } from "lucide-react";
+import { toast } from "sonner";
 import { useCanvas } from "@/canvas/canvasStore";
 import { AGENTS } from "@/fleet/catalog";
+import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { createFitScheduler } from "./fitScheduler";
 import { fitTerminal, mountTerminal } from "./registry";
 import { ResumeCard } from "./ResumeCard";
-import { TerminalHeader } from "./TerminalHeader";
+import { HeaderButton, TerminalHeader } from "./TerminalHeader";
 
 export function TerminalNode({ nodeId }: { nodeId: string }) {
   const payload = useNodes((s) => s.nodes[nodeId]?.payload);
   const status = useTerminalStatus(nodeId);
+  const workspaceId = useNodes((s) => s.nodes[nodeId]?.workspaceId);
   const selected = useCanvas((s) => s.view.selectedIds.includes(nodeId));
   const hostRef = useRef<HTMLDivElement>(null);
   const hasPayload = payload !== undefined;
@@ -46,7 +50,29 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
         boxShadow: selected ? "0 0 0 3px color-mix(in srgb, var(--ov-accent) 15%, transparent)" : undefined,
       }}
     >
-      <TerminalHeader nodeId={nodeId} payload={payload} status={status} />
+      <TerminalHeader
+        nodeId={nodeId}
+        payload={payload}
+        status={status}
+        actions={
+          <>
+            <HeaderButton
+              label="Dupliquer"
+              onClick={() =>
+                workspaceId &&
+                void duplicateTerminal(workspaceId, nodeId).catch((error: unknown) =>
+                  toast.error(`Duplication impossible : ${String(error)}`),
+                )
+              }
+            >
+              <Copy />
+            </HeaderButton>
+            <HeaderButton label="Fermer" onClick={() => requestClose(nodeId)}>
+              <X />
+            </HeaderButton>
+          </>
+        }
+      />
       {/* The padding sits on a wrapper: FitAddon measures the host's border-box
           height, so padding on the host itself would clip the last row. */}
       <div className="relative min-h-0 flex-1 px-1 pt-1">
