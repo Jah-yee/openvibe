@@ -1,11 +1,14 @@
+import { useEffect, useRef } from "react";
 import { useStore } from "zustand";
+import { renameGroup } from "@/fleet/groups";
 import { GroupMenu } from "@/fleet/GroupMenu";
 import { countsText } from "@/fleet/groupSummary";
 import { screenRectOf } from "@/fleet/placement";
 import { ROLES } from "@/fleet/roles";
 import { terminalStatusStore } from "@/store/terminalStatus";
-import { useCanvas, type CanvasView } from "../canvasStore";
-import { isGroup, type SceneGroup } from "../groups";
+import { uiStore, useUi } from "@/store/ui";
+import { canvasStore, useCanvas, type CanvasView } from "../canvasStore";
+import { groupBeingRenamed, isGroup, type SceneGroup } from "../groups";
 
 /** The label sits on the frame's top edge, 16 px from its corner, like a tab (spec §11.4). */
 const LABEL_INSET = 16;
@@ -25,6 +28,17 @@ export function GroupLabels() {
   const view = useCanvas((s) => s.view);
   const statuses = useStore(terminalStatusStore, (s) => s.statuses);
   const groups = frames.filter(isGroup);
+  const renaming = useUi((s) => s.renamingGroup);
+  const takeover = groupBeingRenamed(view.editingFrame, frames);
+
+  // Double-click (or Enter) on a group's name opened Excalidraw's editor:
+  // close it before anything is typed, and rename in the label instead.
+  useEffect(() => {
+    if (!takeover) return;
+    canvasStore.getState().api?.updateScene({ appState: { editingFrame: null } });
+    uiStore.getState().setRenamingGroup(takeover);
+  }, [takeover]);
+
   return (
     <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
       <style>{groups.map((g) => `.excalidraw [id$="-frame-name-${g.id}"]{color:transparent!important}`).join("\n")}</style>
@@ -34,6 +48,7 @@ export function GroupLabels() {
             key={group.id}
             group={group}
             view={view}
+            renaming={group.id === renaming}
             working={group.memberIds.filter((id) => statuses[id]?.state === "running").length}
           />
         ),
@@ -42,7 +57,8 @@ export function GroupLabels() {
   );
 }
 
-function GroupLabel({ group, view, working }: { group: SceneGroup; view: CanvasView; working: number }) {
+function GroupLabel(props: { group: SceneGroup; view: CanvasView; working: number; renaming: boolean }) {
+  const { group, view, working, renaming } = props;
   const rect = screenRectOf(group, view);
   const role = ROLES[group.group.role];
   return (
@@ -59,9 +75,40 @@ function GroupLabel({ group, view, working }: { group: SceneGroup; view: CanvasV
       <span className="grid w-7 shrink-0 place-items-center">
         <span className="size-1.5 rounded-full" style={{ backgroundColor: role.color }} />
       </span>
-      <span className="font-semibold tracking-[0.08em] text-ov-text uppercase">{group.name}</span>
+      {renaming ? (
+        <NameField name={group.name} onDone={(name) => name !== null && renameGroup(group.id, name)} />
+      ) : (
+        <span className="font-semibold tracking-[0.08em] text-ov-text uppercase">{group.name}</span>
+      )}
       <span className="ml-2 font-mono text-ov-text-2">{countsText(group.memberIds.length, working)}</span>
       <GroupMenu groupId={group.id} />
     </div>
+  );
+}
+
+/** The group's name, edited in place: Enter or a click elsewhere keeps it, Escape cancels. */
+function NameField({ name, onDone }: { name: string; onDone: (name: string | null) => void }) {
+  // Removing the focused field may fire one last blur: only the first ending counts.
+  const done = useRef(false);
+  const finish = (value: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    uiStore.getState().setRenamingGroup(null);
+    onDone(value);
+  };
+  return (
+    <input
+      autoFocus
+      defaultValue={name}
+      aria-label="Nom du groupe"
+      size={Math.max(4, name.length + 1)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={(e) => finish(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") finish(null);
+      }}
+      className="pointer-events-auto rounded bg-ov-card px-1 font-semibold tracking-[0.08em] text-ov-text uppercase outline-none ring-1 ring-ov-accent"
+    />
   );
 }

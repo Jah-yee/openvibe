@@ -65,6 +65,16 @@ export function groupOf(frames: readonly SceneFrame[], nodeId: string): SceneGro
   return frames.find((f): f is SceneGroup => isGroup(f) && f.memberIds.includes(nodeId)) ?? null;
 }
 
+/**
+ * The group whose name Excalidraw's own editor just opened on. That editor
+ * changes the name outside Excalidraw's undo store, after which an undo of
+ * Dégrouper or Fermer le groupe no longer brings the frame back: groups are
+ * renamed in their label instead (plain frames keep the native editor).
+ */
+export function groupBeingRenamed(editingFrame: string | null, frames: readonly SceneFrame[]): string | null {
+  return frames.some((f) => f.id === editingFrame && isGroup(f)) ? editingFrame : null;
+}
+
 /** "Groupe N" with the smallest N no frame of the scene is named (spec §11.3, "Lancer 4"). */
 export function nextGroupName(frames: readonly SceneFrame[]): string {
   const taken = new Set(frames.map((f) => f.name));

@@ -10,9 +10,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { uiStore } from "@/store/ui";
 import { useAgents } from "./agentsStore";
 import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
-import { addAgentToGroup, renameGroup, requestCloseGroup, ungroup } from "./groups";
+import { addAgentToGroup, requestCloseGroup, ungroup } from "./groups";
 
 /** The `⌄` of a group label (spec habillage §11.4); J5 adds the orchestrator, pause and resume. */
 export function GroupMenu({ groupId }: { groupId: string }) {
@@ -31,7 +32,10 @@ export function GroupMenu({ groupId }: { groupId: string }) {
       </DropdownMenuTrigger>
       {/* Focus must not come back to the trigger: it would close Excalidraw's name editor. */}
       <DropdownMenuContent align="start" className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
-        <DropdownMenuItem onSelect={() => requestAnimationFrame(() => renameGroup(groupId))}>Renommer</DropdownMenuItem>
+        {/* After the menu has closed, so its focus handling leaves the name field alone. */}
+        <DropdownMenuItem onSelect={() => requestAnimationFrame(() => uiStore.getState().setRenamingGroup(groupId))}>
+          Renommer
+        </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>Ajouter un agent</DropdownMenuSubTrigger>
           <DropdownMenuSubContent>

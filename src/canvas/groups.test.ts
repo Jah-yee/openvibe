@@ -4,6 +4,7 @@ import {
   createGroupFrame,
   framesFromScene,
   groupAt,
+  groupBeingRenamed,
   groupInfoOf,
   groupOf,
   groupPantheons,
@@ -96,5 +97,18 @@ describe("group frame elements", () => {
 
   it("appends the child and its frame when the frame is not in the scene", () => {
     expect(insertIntoFrame([{ id: "x" }], { id: "t" }, { id: "f" })).toEqual([{ id: "x" }, { id: "t" }, { id: "f" }]);
+  });
+});
+
+describe("groupBeingRenamed", () => {
+  const frames = framesFromScene([group("g"), frame("plain")]);
+
+  it("takes over Excalidraw's name editor for a group", () => {
+    expect(groupBeingRenamed("g", frames)).toBe("g");
+  });
+
+  it("leaves plain frames and the idle editor to Excalidraw", () => {
+    expect(groupBeingRenamed("plain", frames)).toBeNull();
+    expect(groupBeingRenamed(null, frames)).toBeNull();
   });
 });

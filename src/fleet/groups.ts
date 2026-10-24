@@ -78,9 +78,20 @@ export async function addAgentToGroup(groupId: string, agent: AgentId) {
   await addTerminal(workspaceId, newTerminalPayload({ ...defaultLaunchOptions(), agent }, name), center, groupId);
 }
 
-/** "Renommer": Excalidraw's own frame name editor opens over the label. */
-export function renameGroup(groupId: string) {
-  canvasStore.getState().api?.updateScene({ appState: { editingFrame: groupId } });
+/**
+ * Renames a group as one undoable step (see `groupBeingRenamed` for why the
+ * label's editor is used rather than Excalidraw's). An empty name is ignored.
+ */
+export function renameGroup(groupId: string, name: string) {
+  const api = canvasStore.getState().api;
+  const trimmed = name.trim();
+  if (!api || !trimmed) return;
+  api.updateScene({
+    elements: api
+      .getSceneElementsIncludingDeleted()
+      .map((e) => (e.id === groupId && e.type === "frame" && e.name !== trimmed ? newElementWith(e, { name: trimmed }) : e)),
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
 }
 
 /** "Dégrouper": the frame goes, its terminals stay where they are (spec §11.4). */

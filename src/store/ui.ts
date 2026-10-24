@@ -17,6 +17,9 @@ interface UiState {
   /** The group whose closing waits for confirmation (some of its agents run). */
   closingGroup: string | null;
   setClosingGroup: (groupId: string | null) => void;
+  /** The group whose label shows its name editor. */
+  renamingGroup: string | null;
+  setRenamingGroup: (groupId: string | null) => void;
 }
 
 export const uiStore = createStore<UiState>()((set) => ({
@@ -26,6 +29,8 @@ export const uiStore = createStore<UiState>()((set) => ({
   setClosing: (closing) => set({ closing }),
   closingGroup: null,
   setClosingGroup: (closingGroup) => set({ closingGroup }),
+  renamingGroup: null,
+  setRenamingGroup: (renamingGroup) => set({ renamingGroup }),
 }));
 
 export function useUi<T>(selector: (state: UiState) => T): T {
