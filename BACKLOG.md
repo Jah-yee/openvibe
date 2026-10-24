@@ -101,3 +101,16 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Les compteurs de groupe ne vérifient pas que le processus tourne ; `fleetStateOf` range « en marche sans activité connue » dans Inactifs alors que la pastille dit ACTIF.
 - Le verrou du suivi d'activité se prend avec `lock().unwrap()` : un verrou empoisonné figerait tous les terminaux. Piste : `unwrap_or_else(PoisonError::into_inner)`.
 - Non traités : un proxy HTTP qui intercepterait `127.0.0.1` (les hooks échouent, l'activité du terminal prend le relais) ; les marqueurs de session Claude Code au-delà des 8 de la spec (`CLAUDE_CODE_SSE_PORT`…) ; un dialogue d'autorisation répondu hors du terminal (IDE, à distance) laisse ATTEND jusqu'au hook suivant.
+
+## Constats du plan B3 (commande et orchestrateur, relecture finale)
+
+- Les liaisons restent en flèches orange orphelines après Dégrouper, Fermer le groupe, la fermeture d'un terminal relié ou la suppression de l'orchestrateur par Suppr (seul × les retire). Piste : supprimer les flèches dont un bout a disparu, dans la même mise à jour.
+- Le marquage des flèches tracées à la main peut être programmé plusieurs fois avant de s'appliquer (versions et sauvegardes en trop) : un drapeau « en attente ».
+- La molette au-dessus du champ de l'orchestrateur fait défiler le canvas ; le mode « Relier » avale la molette, et son bouton « Terminer » n'est pas cliquable (le calque prend le clic).
+- « Relier un orchestrateur » une seconde fois sur le même groupe pose le nouvel orchestrateur sur le premier : réutiliser `clearSpot`.
+- « Reprendre » sur une ligne : rejet non géré si le processus vient de mourir ; aucun message.
+- Historique : une consigne envoyée avant la fin du chargement écrase l'historique enregistré (fenêtre de quelques millisecondes).
+- Envoyer grisé avec « Écris une consigne » quand les puces ne désignent aucun agent (groupe vide).
+- Les agents en démarrage échelonné sont annoncés « arrêtés ignorés ».
+- Le test Windows de `pty_send_text` vérifie l'effet de la commande, pas les octets écrits.
+- Pas de garde de composition IME dans le champ de commande.
