@@ -13,7 +13,8 @@ import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus, type TerminalStatus } from "@/store/terminalStatus";
 import { createFitScheduler } from "./fitScheduler";
-import { PRESET_LABELS, type LaunchMode } from "./launch";
+import { AGENTS } from "@/fleet/catalog";
+import type { LaunchMode } from "./launch";
 import { fitTerminal, mountTerminal, relaunchTerminal, stopTerminal } from "./registry";
 
 export function TerminalNode({ nodeId }: { nodeId: string }) {
@@ -84,7 +85,7 @@ function TerminalHeader(props: { nodeId: string; payload: TerminalPayload; statu
           {payload.title}
         </span>
       )}
-      <span className="shrink-0 text-muted-foreground">{PRESET_LABELS[payload.preset]}</span>
+      <span className="shrink-0 text-muted-foreground">{AGENTS[payload.agent].label}</span>
       <div className="ml-auto flex shrink-0">
         {running && (
           <Button size="icon" variant="ghost" className="size-6" aria-label="Arrêter" onClick={() => stopTerminal(nodeId)}>
@@ -115,7 +116,7 @@ function StoppedBanner(props: { nodeId: string; payload: TerminalPayload; status
     <div className="flex shrink-0 items-center gap-2 border-b bg-muted px-2 py-1 text-xs">
       <span className="truncate">{label}</span>
       <div className="ml-auto flex shrink-0">
-        {payload.preset === "claude" ? (
+        {payload.agent === "claude" ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" variant="secondary" className="h-6">

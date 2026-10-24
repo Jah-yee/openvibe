@@ -3,7 +3,6 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { call } from "./invoke";
 
 export type ShellKind = "default" | "powershell" | "pwsh" | "cmd" | "gitbash";
-export type Preset = "claude" | "aider" | "codex" | "shell" | "custom";
 export type ClaudeMode = "new" | "resume" | "continue";
 
 export interface ClaudeLaunch {
@@ -12,17 +11,29 @@ export interface ClaudeLaunch {
   title: string;
 }
 
-/** Mirrors Rust's `SpawnSpec` (spec §9). */
+/** Agents of the launch menu (spec habillage §8), in menu order. */
+export const AGENT_IDS = ["claude", "codex", "gemini", "qwen", "cursor", "opencode", "aider", "ollama", "shell", "custom"] as const;
+export type AgentId = (typeof AGENT_IDS)[number];
+
+export type OllamaMode = "chat" | "code";
+
+export interface OllamaLaunch {
+  model: string;
+  mode: OllamaMode;
+}
+
+/** Mirrors Rust's `SpawnSpec`. */
 export interface SpawnSpec {
   cwd: string;
   shell: ShellKind;
-  preset: Preset;
+  agent: AgentId;
   command: string;
   claude?: ClaudeLaunch;
+  ollama?: OllamaLaunch;
 }
 
-export interface PresetInfo {
-  id: Preset;
+export interface AgentInfo {
+  id: AgentId;
   available: boolean;
 }
 
@@ -77,7 +88,8 @@ export function ptyWrite(nodeId: string, data: string): Promise<void> {
 export const ptyResize = (nodeId: string, cols: number, rows: number) => call<void>("pty_resize", { nodeId, cols, rows });
 export const ptyKill = (nodeId: string) => call<void>("pty_kill", { nodeId });
 export const ptyList = () => call<string[]>("pty_list");
-export const listPresets = () => call<PresetInfo[]>("list_presets");
+export const listAgents = () => call<AgentInfo[]>("list_agents");
+export const listOllamaModels = () => call<string[]>("list_ollama_models");
 export const listShells = () => call<ShellKind[]>("list_shells");
 
 export async function getScrollback(nodeId: string): Promise<Uint8Array> {

@@ -14,14 +14,36 @@ pub enum ShellKind {
     GitBash,
 }
 
+/// The agents of the launch menu (spec habillage §8).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Preset {
+pub enum Agent {
     Claude,
-    Aider,
     Codex,
+    Gemini,
+    Qwen,
+    Cursor,
+    Opencode,
+    Aider,
+    Ollama,
     Shell,
     Custom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OllamaMode {
+    /// `ollama run <model>`: a conversation, no access to the repository.
+    Chat,
+    /// Aider driven by the local model: edits the repository.
+    Code,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OllamaLaunch {
+    pub model: String,
+    pub mode: OllamaMode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -46,10 +68,14 @@ pub struct ClaudeLaunch {
 pub struct SpawnSpec {
     pub cwd: String,
     pub shell: ShellKind,
-    pub preset: Preset,
+    /// Saved terminals of plan 2 send `preset`; the ids are the same.
+    #[serde(alias = "preset")]
+    pub agent: Agent,
     #[serde(default)]
     pub command: String,
     pub claude: Option<ClaudeLaunch>,
+    #[serde(default)]
+    pub ollama: Option<OllamaLaunch>,
 }
 
 /// Quoting rules differ per shell, so each resolved shell carries its syntax.
@@ -163,13 +189,26 @@ pub fn quote(syntax: ShellSyntax, value: &str) -> String {
     }
 }
 
-/// The command typed into the shell for a preset, or `None` for a plain shell.
-pub fn preset_command(spec: &SpawnSpec, syntax: ShellSyntax) -> AppResult<Option<String>> {
-    Ok(match spec.preset {
-        Preset::Shell => None,
-        Preset::Aider => Some("aider".into()),
-        Preset::Codex => Some("codex".into()),
-        Preset::Custom => {
+/// The program an agent runs; `list_agents` looks for it on the PATH.
+pub fn binary(agent: Agent) -> &'static str {
+    match agent {
+        Agent::Claude => "claude",
+        Agent::Codex => "codex",
+        Agent::Gemini => "gemini",
+        Agent::Qwen => "qwen",
+        Agent::Cursor => "cursor-agent",
+        Agent::Opencode => "opencode",
+        Agent::Aider => "aider",
+        Agent::Ollama => "ollama",
+        Agent::Shell | Agent::Custom => "",
+    }
+}
+
+/// The command typed into the shell for an agent, or `None` for a plain shell.
+pub fn agent_command(spec: &SpawnSpec, syntax: ShellSyntax) -> AppResult<Option<String>> {
+    Ok(match spec.agent {
+        Agent::Shell => None,
+        Agent::Custom => {
             let command = spec.command.trim();
             if command.is_empty() {
                 return Err(AppError::InvalidInput(
@@ -178,7 +217,33 @@ pub fn preset_command(spec: &SpawnSpec, syntax: ShellSyntax) -> AppResult<Option
             }
             Some(command.to_string())
         }
-        Preset::Claude => Some(claude_command(spec.claude.as_ref(), syntax)?),
+        Agent::Claude => Some(claude_command(spec.claude.as_ref(), syntax)?),
+        Agent::Ollama => Some(ollama_command(spec.ollama.as_ref(), syntax)?),
+        other => Some(binary(other).into()),
+    })
+}
+
+/// Model names are typed into a shell: only the characters Ollama uses in them
+/// ("qwen2.5-coder:7b", "hf.co/user/model:tag") are accepted.
+fn ollama_command(launch: Option<&OllamaLaunch>, syntax: ShellSyntax) -> AppResult<String> {
+    let launch =
+        launch.ok_or_else(|| AppError::InvalidInput("options Ollama manquantes".into()))?;
+    let model = launch.model.trim();
+    let valid = !model.is_empty()
+        && model
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._:/-".contains(c));
+    if !valid {
+        return Err(AppError::InvalidInput(format!(
+            "modèle Ollama invalide : {model}"
+        )));
+    }
+    Ok(match launch.mode {
+        OllamaMode::Chat => format!("ollama run {}", quote(syntax, model)),
+        OllamaMode::Code => format!(
+            "aider --model {}",
+            quote(syntax, &format!("ollama_chat/{model}"))
+        ),
     })
 }
 
@@ -230,7 +295,7 @@ pub fn build_plan(node_id: &str, spec: &SpawnSpec, locate: Locate) -> AppResult<
         )));
     }
     let shell = resolve_shell(spec.shell, locate)?;
-    let initial_input = preset_command(spec, shell.syntax)?.map(|command| format!("{command}\r"));
+    let initial_input = agent_command(spec, shell.syntax)?.map(|command| format!("{command}\r"));
     Ok(SpawnPlan {
         program: shell.program,
         args: shell.args,
@@ -255,13 +320,14 @@ mod tests {
         None
     }
 
-    fn spec(preset: Preset, claude: Option<ClaudeLaunch>) -> SpawnSpec {
+    fn spec(agent: Agent, claude: Option<ClaudeLaunch>) -> SpawnSpec {
         SpawnSpec {
             cwd: std::env::temp_dir().to_string_lossy().into_owned(),
             shell: ShellKind::Cmd,
-            preset,
+            agent,
             command: String::new(),
             claude,
+            ollama: None,
         }
     }
 
@@ -295,8 +361,8 @@ mod tests {
 
     #[test]
     fn new_claude_session_passes_id_and_title() {
-        let cmd = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::New, "Mon agent")),
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "Mon agent")),
             ShellSyntax::PowerShell,
         )
         .unwrap();
@@ -308,8 +374,8 @@ mod tests {
 
     #[test]
     fn new_claude_session_without_title_omits_name() {
-        let cmd = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::New, "  ")),
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "  ")),
             ShellSyntax::Posix,
         )
         .unwrap();
@@ -322,8 +388,8 @@ mod tests {
     #[test]
     fn strips_control_characters_from_the_title() {
         // A carriage return would submit the line early and run the rest as a command.
-        let cmd = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::New, "Fix\r del *\x03")),
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "Fix\r del *\x03")),
             ShellSyntax::Cmd,
         )
         .unwrap();
@@ -335,9 +401,9 @@ mod tests {
 
     #[test]
     fn drops_double_quotes_and_trailing_backslashes_from_the_title() {
-        let cmd = preset_command(
+        let cmd = agent_command(
             &spec(
-                Preset::Claude,
+                Agent::Claude,
                 claude(ClaudeMode::New, "Fix \"login\" page\\"),
             ),
             ShellSyntax::PowerShell,
@@ -352,8 +418,8 @@ mod tests {
     #[test]
     fn disables_msys_path_conversion_for_posix_titles() {
         // Git Bash would otherwise turn "/fix login" into "C:/Program Files/Git/fix login".
-        let cmd = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::New, "/fix login")),
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "/fix login")),
             ShellSyntax::Posix,
         )
         .unwrap();
@@ -367,8 +433,8 @@ mod tests {
 
     #[test]
     fn a_title_of_only_control_characters_omits_the_name() {
-        let cmd = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::New, "\r\n\t")),
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "\r\n\t")),
             ShellSyntax::PowerShell,
         )
         .unwrap();
@@ -380,8 +446,8 @@ mod tests {
 
     #[test]
     fn resume_and_continue_modes() {
-        let resume = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::Resume, "x")),
+        let resume = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::Resume, "x")),
             ShellSyntax::Cmd,
         )
         .unwrap();
@@ -389,8 +455,8 @@ mod tests {
             resume.as_deref(),
             Some("claude --resume 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10")
         );
-        let cont = preset_command(
-            &spec(Preset::Claude, claude(ClaudeMode::Continue, "x")),
+        let cont = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::Continue, "x")),
             ShellSyntax::Cmd,
         )
         .unwrap();
@@ -404,20 +470,20 @@ mod tests {
             session_id: "x; rm -rf /".into(),
             title: String::new(),
         });
-        let err = preset_command(&spec(Preset::Claude, launch), ShellSyntax::Posix).unwrap_err();
+        let err = agent_command(&spec(Agent::Claude, launch), ShellSyntax::Posix).unwrap_err();
         assert_eq!(err.kind(), "invalidInput");
     }
 
     #[test]
     fn custom_preset_requires_a_command() {
-        let mut s = spec(Preset::Custom, None);
+        let mut s = spec(Agent::Custom, None);
         assert_eq!(
-            preset_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
             "invalidInput"
         );
         s.command = "  npm run dev ".into();
         assert_eq!(
-            preset_command(&s, ShellSyntax::Cmd).unwrap().as_deref(),
+            agent_command(&s, ShellSyntax::Cmd).unwrap().as_deref(),
             Some("npm run dev")
         );
     }
@@ -425,14 +491,14 @@ mod tests {
     #[test]
     fn shell_preset_types_nothing() {
         assert_eq!(
-            preset_command(&spec(Preset::Shell, None), ShellSyntax::Cmd).unwrap(),
+            agent_command(&spec(Agent::Shell, None), ShellSyntax::Cmd).unwrap(),
             None
         );
     }
 
     #[test]
     fn plan_types_command_with_carriage_return_and_sets_env() {
-        let plan = build_plan("node-1", &spec(Preset::Aider, None), &nothing_on_path).unwrap();
+        let plan = build_plan("node-1", &spec(Agent::Aider, None), &nothing_on_path).unwrap();
         assert_eq!(plan.program, PathBuf::from("cmd.exe"));
         assert_eq!(plan.initial_input.as_deref(), Some("aider\r"));
         assert!(
@@ -444,7 +510,7 @@ mod tests {
 
     #[test]
     fn plan_rejects_missing_working_directory() {
-        let mut s = spec(Preset::Shell, None);
+        let mut s = spec(Agent::Shell, None);
         s.cwd = "Z:/definitely/not/here".into();
         assert_eq!(
             build_plan("n", &s, &nothing_on_path).unwrap_err().kind(),
@@ -494,5 +560,76 @@ mod tests {
         let s: SpawnSpec = serde_json::from_value(json).unwrap();
         assert_eq!(s.shell, ShellKind::GitBash);
         assert_eq!(s.claude.unwrap().mode, ClaudeMode::Resume);
+    }
+
+    #[test]
+    fn each_agent_types_its_own_command() {
+        let agents = [
+            (Agent::Codex, "codex"),
+            (Agent::Gemini, "gemini"),
+            (Agent::Qwen, "qwen"),
+            (Agent::Cursor, "cursor-agent"),
+            (Agent::Opencode, "opencode"),
+            (Agent::Aider, "aider"),
+        ];
+        for (agent, command) in agents {
+            assert_eq!(
+                agent_command(&spec(agent, None), ShellSyntax::PowerShell)
+                    .unwrap()
+                    .as_deref(),
+                Some(command)
+            );
+        }
+    }
+
+    #[test]
+    fn ollama_runs_a_model_in_chat_or_through_aider() {
+        let mut s = spec(Agent::Ollama, None);
+        s.ollama = Some(OllamaLaunch {
+            model: "qwen2.5-coder:7b".into(),
+            mode: OllamaMode::Chat,
+        });
+        assert_eq!(
+            agent_command(&s, ShellSyntax::PowerShell)
+                .unwrap()
+                .as_deref(),
+            Some("ollama run 'qwen2.5-coder:7b'")
+        );
+        s.ollama = Some(OllamaLaunch {
+            model: "qwen2.5-coder:7b".into(),
+            mode: OllamaMode::Code,
+        });
+        assert_eq!(
+            agent_command(&s, ShellSyntax::Cmd).unwrap().as_deref(),
+            Some("aider --model \"ollama_chat/qwen2.5-coder:7b\"")
+        );
+    }
+
+    #[test]
+    fn rejects_a_missing_or_unsafe_ollama_model() {
+        let mut s = spec(Agent::Ollama, None);
+        assert_eq!(
+            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            "invalidInput"
+        );
+        s.ollama = Some(OllamaLaunch {
+            model: "llama3 & del *".into(),
+            mode: OllamaMode::Chat,
+        });
+        assert_eq!(
+            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            "invalidInput"
+        );
+    }
+
+    #[test]
+    fn deserializes_the_agent_and_its_ollama_options() {
+        let json = serde_json::json!({
+            "cwd": "C:/code", "shell": "cmd", "agent": "ollama", "command": "",
+            "ollama": { "model": "llama3", "mode": "code" }
+        });
+        let s: SpawnSpec = serde_json::from_value(json).unwrap();
+        assert_eq!(s.agent, Agent::Ollama);
+        assert_eq!(s.ollama.unwrap().mode, OllamaMode::Code);
     }
 }

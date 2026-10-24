@@ -3,7 +3,7 @@ import type { NodeKind } from "@/canvas/nodeElement";
 import { saveNode, type StoredNode } from "@/ipc/db";
 import { debounce, type Debounced } from "@/lib/debounce";
 import { onFlushAll } from "@/lib/flush";
-import type { NodePayload } from "@/nodes/types";
+import { readTerminalPayload, type NodePayload } from "@/nodes/types";
 
 export interface NodeRecord {
   workspaceId: string;
@@ -57,11 +57,14 @@ export function createNodesStore() {
       hydrate: (workspaceId, stored) => {
         const loaded: Record<string, NodeRecord> = {};
         for (const node of stored) {
+          let payload: NodePayload | null = null;
           try {
-            loaded[node.id] = { workspaceId, kind: node.kind, payload: JSON.parse(node.payloadJson) as NodePayload };
+            payload = readTerminalPayload(JSON.parse(node.payloadJson));
           } catch {
-            console.warn(`node ${node.id}: unreadable payload, skipped`);
+            payload = null;
           }
+          if (payload) loaded[node.id] = { workspaceId, kind: node.kind, payload };
+          else console.warn(`node ${node.id}: unreadable payload, skipped`);
         }
         set((s) => ({ nodes: { ...loaded, ...s.nodes } }));
       },

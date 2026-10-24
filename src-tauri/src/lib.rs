@@ -1,8 +1,8 @@
+mod agents;
 mod commands;
 mod db;
 mod error;
 mod git;
-mod presets;
 mod process;
 mod pty;
 
@@ -53,7 +53,8 @@ pub fn run() {
             commands::pty::pty_kill,
             commands::pty::pty_list,
             commands::pty::get_scrollback,
-            commands::pty::list_presets,
+            commands::pty::list_agents,
+            commands::pty::list_ollama_models,
             commands::pty::list_shells,
             commands::workspace::list_workspaces,
             commands::workspace::create_workspace,

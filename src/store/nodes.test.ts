@@ -4,7 +4,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { TerminalPayload } from "@/nodes/types";
 import { createNodesStore } from "./nodes";
 
-const payload: TerminalPayload = { title: "A", cwd: "C:/code", preset: "shell", command: "", shell: "default" };
+const payload: TerminalPayload = { title: "A", name: "", cwd: "C:/code", agent: "shell", command: "", shell: "default" };
 let saves: { id: string; payloadJson: string }[];
 
 beforeEach(() => {
@@ -65,4 +65,14 @@ it("forgets the nodes of a workspace", async () => {
   await store.getState().create("b", { workspaceId: "w2", kind: "terminal", payload });
   expect(store.getState().forgetWorkspace("w1")).toEqual(["a"]);
   expect(Object.keys(store.getState().nodes)).toEqual(["b"]);
+});
+
+it("reads payloads saved with a preset instead of an agent", () => {
+  const store = createNodesStore().store;
+  store.getState().hydrate("w1", [
+    { id: "old", kind: "terminal", payloadJson: JSON.stringify({ title: "T", cwd: "C:/", preset: "codex", command: "", shell: "cmd" }) },
+    { id: "bad", kind: "terminal", payloadJson: "{" },
+  ]);
+  expect(store.getState().nodes.old.payload.agent).toBe("codex");
+  expect(store.getState().nodes.bad).toBeUndefined();
 });

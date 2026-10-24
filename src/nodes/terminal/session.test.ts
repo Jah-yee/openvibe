@@ -5,7 +5,7 @@ import type { TerminalPayload } from "@/nodes/types";
 import { statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { acceptsInput, attachSession, relaunchSession, restoreSession, startSession, type TermSink } from "./session";
 
-const payload: TerminalPayload = { title: "A", cwd: "C:/code", preset: "shell", command: "", shell: "default" };
+const payload: TerminalPayload = { title: "A", name: "", cwd: "C:/code", agent: "shell", command: "", shell: "default" };
 
 /** Records writes; runs write callbacks only when `drain` is called, like xterm's async parser. */
 function fakeTerm() {
@@ -40,7 +40,7 @@ it("marks the terminal running before spawning, so ConPTY's cursor query can be 
   });
   await startSession("t", fakeTerm(), payload, "new");
   expect(statusDuringSpawn).toBe("running");
-  expect(calls[0].args).toMatchObject({ nodeId: "t", cols: 100, rows: 30, spec: { preset: "shell" } });
+  expect(calls[0].args).toMatchObject({ nodeId: "t", cols: 100, rows: 30, spec: { agent: "shell" } });
 });
 
 it("shows a failed launch in the terminal and as an error status", async () => {

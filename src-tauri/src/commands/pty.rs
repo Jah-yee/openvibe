@@ -2,9 +2,9 @@ use serde::Serialize;
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::agents::{self, AgentInfo};
 use crate::db::{Db, scrollback};
-use crate::error::AppResult;
-use crate::presets::{self, PresetInfo};
+use crate::error::{AppError, AppResult};
 use crate::pty::session::OutputSink;
 use crate::pty::shell::{ShellKind, SpawnSpec, build_plan, which_locate};
 use crate::pty::{PtyManager, pty_size};
@@ -113,13 +113,20 @@ pub async fn get_scrollback(
 }
 
 #[tauri::command]
-pub async fn list_presets() -> AppResult<Vec<PresetInfo>> {
-    Ok(presets::list_presets(&which_locate))
+pub async fn list_agents() -> AppResult<Vec<AgentInfo>> {
+    Ok(agents::list_agents(&which_locate))
+}
+
+#[tauri::command]
+pub async fn list_ollama_models() -> AppResult<Vec<String>> {
+    tauri::async_runtime::spawn_blocking(agents::ollama_models)
+        .await
+        .map_err(|err| AppError::Io(std::io::Error::other(err.to_string())))?
 }
 
 #[tauri::command]
 pub async fn list_shells() -> AppResult<Vec<ShellKind>> {
-    Ok(presets::list_shells(&which_locate))
+    Ok(agents::list_shells(&which_locate))
 }
 
 /// Writes scrollbacks to SQLite: only the changed ones, or all of them at exit.

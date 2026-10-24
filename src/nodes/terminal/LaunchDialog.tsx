@@ -14,9 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { listPresets, listShells, type Preset, type PresetInfo, type ShellKind } from "@/ipc/pty";
+import { AGENTS } from "@/fleet/catalog";
+import { listAgents, listShells, type AgentId, type AgentInfo, type ShellKind } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
-import { defaultTitle, newTerminalPayload, PRESET_LABELS, SHELL_LABELS } from "./launch";
+import { defaultTitle, newTerminalPayload, SHELL_LABELS } from "./launch";
 
 interface LaunchDialogProps {
   open: boolean;
@@ -24,21 +25,22 @@ interface LaunchDialogProps {
   onLaunch: (payload: TerminalPayload) => void;
 }
 
-/** Folder, preset, shell and title of a new terminal (spec §6.5). */
+/** Folder, agent, shell and title of a new terminal (spec §6.5). */
 export function LaunchDialog({ open: isOpen, onOpenChange, onLaunch }: LaunchDialogProps) {
-  const [presets, setPresets] = useState<PresetInfo[]>([]);
+  const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [shells, setShells] = useState<ShellKind[]>([]);
   const [cwd, setCwd] = useState("");
-  const [preset, setPreset] = useState<Preset>("claude");
+  const [agent, setAgent] = useState<AgentId>("claude");
   const [shell, setShell] = useState<ShellKind>("default");
   const [command, setCommand] = useState("");
   const [title, setTitle] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
-    void listPresets().then((list) => {
-      setPresets(list);
-      setPreset((current) => (list.find((p) => p.id === current)?.available ? current : "shell"));
+    void listAgents().then((list) => {
+      const usable = list.filter((a) => a.id !== "ollama");
+      setAgents(usable);
+      setAgent((current) => (usable.find((a) => a.id === current)?.available ? current : "shell"));
     });
     void listShells().then((list) => {
       setShells(list);
@@ -52,10 +54,10 @@ export function LaunchDialog({ open: isOpen, onOpenChange, onLaunch }: LaunchDia
     if (typeof picked === "string") setCwd(picked);
   };
 
-  const canLaunch = cwd.trim() !== "" && (preset !== "custom" || command.trim() !== "");
+  const canLaunch = cwd.trim() !== "" && (agent !== "custom" || command.trim() !== "");
 
   const launch = () => {
-    onLaunch(newTerminalPayload({ title, cwd: cwd.trim(), preset, command, shell }));
+    onLaunch(newTerminalPayload({ title, cwd: cwd.trim(), agent, command, shell }));
     setTitle("");
     setCommand("");
     onOpenChange(false);
@@ -80,15 +82,15 @@ export function LaunchDialog({ open: isOpen, onOpenChange, onLaunch }: LaunchDia
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-1.5">
-              <Label>Préréglage</Label>
-              <Select value={preset} onValueChange={(value) => setPreset(value as Preset)}>
+              <Label>Agent</Label>
+              <Select value={agent} onValueChange={(value) => setAgent(value as AgentId)}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {presets.map((p) => (
+                  {agents.map((p) => (
                     <SelectItem key={p.id} value={p.id} disabled={!p.available}>
-                      {PRESET_LABELS[p.id]}
+                      {AGENTS[p.id].label}
                       {!p.available && " (introuvable)"}
                     </SelectItem>
                   ))}
@@ -111,7 +113,7 @@ export function LaunchDialog({ open: isOpen, onOpenChange, onLaunch }: LaunchDia
               </Select>
             </div>
           </div>
-          {preset === "custom" && (
+          {agent === "custom" && (
             <div className="grid gap-1.5">
               <Label htmlFor="launch-command">Commande</Label>
               <Input id="launch-command" value={command} onChange={(e) => setCommand(e.target.value)} placeholder="npm run dev" />
@@ -123,7 +125,7 @@ export function LaunchDialog({ open: isOpen, onOpenChange, onLaunch }: LaunchDia
               id="launch-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={defaultTitle(preset, cwd)}
+              placeholder={defaultTitle(agent, cwd)}
             />
           </div>
         </div>
