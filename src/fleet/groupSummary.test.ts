@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countsText, livingAgents, waitingText } from "./groupSummary";
+import { agentsText, countsText, groupsText, livingAgents, waitingText } from "./groupSummary";
 
 describe("countsText", () => {
   it("shows the members and those at work", () => {
@@ -24,5 +24,14 @@ describe("waitingText", () => {
     expect(waitingText(1)).toBe("· 1 attend");
     expect(waitingText(3)).toBe("· 3 attendent");
     expect(waitingText(0)).toBeNull();
+  });
+});
+
+describe("agentsText / groupsText", () => {
+  it("counts in French with the singular", () => {
+    expect(agentsText(1)).toBe("1 agent");
+    expect(agentsText(8)).toBe("8 agents");
+    expect(groupsText(0)).toBe("0 groupe");
+    expect(groupsText(2)).toBe("2 groupes");
   });
 });

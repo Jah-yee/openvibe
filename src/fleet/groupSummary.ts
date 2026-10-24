@@ -20,3 +20,13 @@ export function waitingText(waiting: number): string | null {
   if (waiting <= 0) return null;
   return `· ${waiting} ${waiting > 1 ? "attendent" : "attend"}`;
 }
+
+/** "1 agent", "8 agents". */
+export function agentsText(count: number): string {
+  return count > 1 ? `${count} agents` : `${count} agent`;
+}
+
+/** "0 groupe", "2 groupes". */
+export function groupsText(count: number): string {
+  return count > 1 ? `${count} groupes` : `${count} groupe`;
+}
