@@ -55,3 +55,13 @@ describe("frames", () => {
     expect(canvasStore.getState().frames).toEqual([]);
   });
 });
+
+describe("nodeIds", () => {
+  it("keeps the same list when the scene's nodes did not change", () => {
+    const ids = ["a", "b"];
+    canvasStore.getState().setNodeIds(ids);
+    canvasStore.getState().setNodeIds(["a", "b"]);
+    expect(canvasStore.getState().nodeIds).toBe(ids);
+    canvasStore.getState().setNodeIds([]);
+  });
+});

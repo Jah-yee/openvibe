@@ -69,7 +69,13 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   }, [api]);
 
   // The next workspace must not show this one's groups before its first change.
-  useEffect(() => () => canvasStore.getState().setFrames([]), []);
+  useEffect(
+    () => () => {
+      canvasStore.getState().setFrames([]);
+      canvasStore.getState().setNodeIds([]);
+    },
+    [],
+  );
 
   const sync = useMemo(
     () =>
@@ -123,6 +129,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       sync.onChange(elements, appState, files, getSceneVersion(elements));
       canvasStore.getState().setView(viewFrom(appState));
       canvasStore.getState().setFrames(framesFromScene(elements));
+      canvasStore.getState().setNodeIds(liveNodeIds(elements));
       const activated = trackActivation(appState.activeEmbeddable);
       // Deferred: changing the view from inside onChange would re-enter it.
       if (activated && api) requestAnimationFrame(() => showAtFullSize(api, activated));

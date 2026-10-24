@@ -74,6 +74,9 @@ interface CanvasState {
   /** Frames and groups of the scene on screen, derived on every change (spec §11.1). */
   frames: SceneFrame[];
   setFrames: (frames: SceneFrame[]) => void;
+  /** Ids of the OpenVibe nodes on the canvas on screen (deleted ones excluded). */
+  nodeIds: string[];
+  setNodeIds: (ids: string[]) => void;
 }
 
 export const canvasStore = createStore<CanvasState>()((set, get) => ({
@@ -86,6 +89,11 @@ export const canvasStore = createStore<CanvasState>()((set, get) => ({
   frames: [],
   setFrames: (frames) => {
     if (!sameFrames(get().frames, frames)) set({ frames });
+  },
+  nodeIds: [],
+  setNodeIds: (ids) => {
+    const current = get().nodeIds;
+    if (ids.length !== current.length || ids.some((id, i) => id !== current[i])) set({ nodeIds: ids });
   },
 }));
 

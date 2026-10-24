@@ -9,6 +9,7 @@ import { CloseAgentDialog } from "./CloseAgentDialog";
 import { CloseGroupDialog } from "./CloseGroupDialog";
 import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
+import { RightRail } from "./RightRail";
 import { TopBar } from "./TopBar";
 import { ZoomControl } from "./ZoomControl";
 
@@ -28,6 +29,7 @@ export function ProjectView() {
         <>
           <Canvas key={activeId} workspaceId={activeId} />
           <LeftRail agentButton={<AgentMenu />} />
+          <RightRail />
           <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-4">
             <div className="justify-self-start">
               <GitChip />

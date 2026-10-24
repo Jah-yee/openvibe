@@ -20,6 +20,9 @@ interface UiState {
   /** The group whose label shows its name editor. */
   renamingGroup: string | null;
   setRenamingGroup: (groupId: string | null) => void;
+  /** The fleet panel of the right rail is open. */
+  fleetOpen: boolean;
+  setFleetOpen: (open: boolean) => void;
 }
 
 export const uiStore = createStore<UiState>()((set) => ({
@@ -31,6 +34,8 @@ export const uiStore = createStore<UiState>()((set) => ({
   setClosingGroup: (closingGroup) => set({ closingGroup }),
   renamingGroup: null,
   setRenamingGroup: (renamingGroup) => set({ renamingGroup }),
+  fleetOpen: false,
+  setFleetOpen: (fleetOpen) => set({ fleetOpen }),
 }));
 
 export function useUi<T>(selector: (state: UiState) => T): T {
