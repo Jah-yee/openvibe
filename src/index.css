@@ -132,4 +132,15 @@
     background: radial-gradient(circle at 35% 30%, #ffd48a, #f4602e 55%, #8a2a10);
     box-shadow: 0 0 18px rgb(244 96 46 / 0.45);
   }
+
+  /* The command bar's and the orchestrator's orb turn slowly (spec habillage §5.6). */
+  .ov-orb-live {
+    animation: ov-orb-spin 12s linear infinite;
+  }
+
+  @keyframes ov-orb-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 }

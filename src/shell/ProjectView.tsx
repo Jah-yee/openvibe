@@ -7,6 +7,7 @@ import { useWorkspaces } from "@/store/workspaces";
 import { ActionChips } from "./ActionChips";
 import { CloseAgentDialog } from "./CloseAgentDialog";
 import { CloseGroupDialog } from "./CloseGroupDialog";
+import { CommandBar, CommandHint } from "./CommandBar";
 import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
 import { RightRail } from "./RightRail";
@@ -34,7 +35,11 @@ export function ProjectView() {
             <div className="justify-self-start">
               <GitChip />
             </div>
-            <ActionChips />
+            <div className="flex flex-col items-center gap-2">
+              <CommandHint />
+              <ActionChips />
+              <CommandBar />
+            </div>
             <div className="justify-self-end">
               <ZoomControl />
             </div>
