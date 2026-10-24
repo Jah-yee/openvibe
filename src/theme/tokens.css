@@ -1,0 +1,26 @@
+/* Design tokens (spec habillage §4.1). OpenVibe has a single, dark theme. */
+:root {
+  color-scheme: dark;
+  --ov-canvas: #12110e;
+  --ov-dot: #2a2a22;
+  --ov-surface: #14140f;
+  --ov-surface-2: #18150f;
+  --ov-card: #1a1914;
+  --ov-command: #252724;
+  --ov-line: #2a2a22;
+  --ov-hover: #301e12;
+  --ov-selected: #2a1c11;
+  --ov-text: #edeae2;
+  --ov-text-2: #8a8a80;
+  --ov-accent: #f4602e;
+  --ov-accent-soft: #3a1d14;
+  --ov-danger: #ef4444;
+  --ov-terminal: #161712;
+  --ov-terminal-head: #0b0b09;
+  --ov-working: #e8553a;
+  --ov-waiting: #d9b35a;
+  --ov-idle: #8a8a80;
+  --ov-done: #6a8e51;
+  --ov-live: #4caf6a;
+  --ov-shadow: 0 8px 32px rgb(0 0 0 / 0.45);
+}
