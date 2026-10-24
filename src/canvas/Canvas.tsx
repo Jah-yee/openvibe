@@ -134,6 +134,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     <div className="absolute inset-0">
       <DotGrid />
       <GroupBackdrops />
+      <GroupLabels />
       <div className="absolute inset-0">
         <Excalidraw
           theme="dark"
@@ -146,7 +147,6 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
           renderEmbeddable={(element) => <NodeHost element={element} />}
         />
       </div>
-      <GroupLabels />
     </div>
   );
 }

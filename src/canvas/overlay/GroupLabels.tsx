@@ -14,6 +14,10 @@ const LABEL_HEIGHT = 24;
  * Group labels, above the canvas. Excalidraw's own frame name stays below as
  * the handle that selects, drags and renames the frame: excalidraw.css gives
  * it the label's font and place, and it is made transparent here.
+ *
+ * `.excalidraw` makes no stacking context, so its layers compete with ours:
+ * at z-index 3, placed before Excalidraw in the DOM, the labels cover frame
+ * names and nodes (2) but stay under its text editor (3) and its panels (4).
  */
 export function GroupLabels() {
   const frames = useCanvas((s) => s.frames);
@@ -21,7 +25,7 @@ export function GroupLabels() {
   const statuses = useStore(terminalStatusStore, (s) => s.statuses);
   const groups = frames.filter(isGroup);
   return (
-    <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
       <style>{groups.map((g) => `.excalidraw [id$="-frame-name-${g.id}"]{color:transparent!important}`).join("\n")}</style>
       {groups.map((group) =>
         group.id === view.editingFrame ? null : (
