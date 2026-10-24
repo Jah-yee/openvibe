@@ -412,6 +412,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
   - Sans cible `@`, la consigne part vers la sélection courante : terminaux sélectionnés, et membres des cadres de groupe sélectionnés.
   - Sans cible ni sélection : bouton Envoyer grisé, indice « Sélectionne des agents ou tape @ ».
   - Prénom ambigu (deux agents portant le même) : les deux apparaissent dans la liste avec leur groupe.
+  - Un `@nom` tapé sans passer par la liste (« @tous lance les tests ») devient une cible à l'envoi s'il désigne exactement une cible ; un prénom ambigu ou inconnu reste dans le texte. Une adresse `a@b.fr` n'est pas une cible (le `@` doit commencer un mot).
 - Envoi (Entrée ; Maj+Entrée = nouvelle ligne) : pour chaque terminal ciblé dont le processus vit, `pty_send_text` (§15.3). Les terminaux arrêtés sont ignorés : toast « 2 agents arrêtés ignorés : Thot, Anubis ».
 - Après l'envoi, le champ se vide et les cibles `@` restent (pour enchaîner) ; ↑ et ↓ parcourent les 50 dernières consignes (mémorisées par projet dans `settings`).
 - Indice ponctuel au-dessus des puces, à la première ouverture : « Essaie « @tous lance les tests » » (×, ne revient plus).
@@ -419,13 +420,13 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 ## 13. Orchestrateur
 
 - Nouveau type de nœud `orchestrator` (élément intégré `openvibe://orchestrator/<id>`, 320 × 420).
-- En-tête : orbe, « Orchestrateur » (renommable), anneau de progression `◌ 3/8` (agents en activité / agents reliés).
+- En-tête : orbe, « Orchestrateur » (renommable par double-clic), anneau de progression `◌ 3/8` (agents en activité / agents reliés), menu `⌄` (Tout mettre en pause, Tout reprendre) et × (supprime l'orchestrateur et ses liaisons en une étape d'annulation).
 - Ligne de résumé : « 8 agents · 2 groupes », bouton `+ Relier` (orange).
 - Liste défilante : par groupe relié (point, nom, compteur), ses agents ; puis les agents reliés directement. Chaque ligne : logo, prénom, agent, pastille d'état. Au survol : Centrer, Pause, Fermer.
 - Pied : champ « Commander N agents · @ pour cibler… », Envoyer. Même comportement que la barre de commande, cibles par défaut = tous ses agents reliés ; `@` restreint parmi eux.
 - Liaisons :
   - Une liaison est une flèche Excalidraw liée (`startBinding` sur l'orchestrateur, `endBinding` sur un cadre de groupe ou un terminal), avec `customData = { "openvibe": { "kind": "wire" } }`, trait orange, flèche courbe, sans tête.
-  - « Relier » passe en mode liaison : curseur en croix, chaque clic sur un groupe ou un terminal crée la flèche ; Échap ou un clic dans le vide termine. Une flèche dessinée à la main entre l'orchestrateur et un groupe ou un terminal compte aussi comme liaison (elle reçoit le `customData` au premier calcul).
+  - « Relier » passe en mode liaison : curseur en croix, chaque clic sur un groupe ou un terminal crée la flèche (un clic sur un terminal membre d'un groupe relie le groupe) ; Échap ou un clic dans le vide termine. Une flèche dessinée à la main entre l'orchestrateur et un groupe ou un terminal compte aussi comme liaison (elle reçoit le `customData` au premier calcul).
   - Les destinataires sont dérivés des flèches (`orchestratorTargets(elements, orchestratorId)`, fonction pure) : supprimer la flèche coupe la liaison.
 - Charge utile : `{ "name": "Orchestrateur" }`. L'historique des consignes de l'orchestrateur est partagé avec celui de la barre de commande.
 
@@ -436,6 +437,9 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 - Tout mettre en pause / Tout reprendre (puces) : tous les agents vivants du workspace actif dont l'activité est `working` (pause) ou `idle` après une pause par OpenVibe (reprise : seuls les agents mis en pause par OpenVibe depuis moins de 24 h reçoivent « continue », pour ne pas relancer un agent qui avait fini). Toast récapitulatif « 5 agents mis en pause ».
 - Menus de groupe et orchestrateur : mêmes actions restreintes à leurs agents.
 - Fermer le groupe : §11.4.
+- Survol d'un agent (panneau Flotte, orchestrateur) : Pause est proposée quand il est EN COURS, Reprendre quand il est PRÊT (demande explicite : sans limite de 24 h).
+- Les mises en pause faites par OpenVibe sont retenues en mémoire : un rechargement de la fenêtre les oublie.
+- L'interruption et l'Entrée qui suit une consigne comptent comme une réponse de l'utilisateur pour l'activité (§10.2, règle 4) : un agent interrompu repasse PRÊT dès que sa sortie se tait.
 
 ## 15. Données et IPC
 
@@ -510,8 +514,8 @@ Les charges utiles existantes sont lues avec rétrocompatibilité : `preset` dev
 | | `set_workspace_pantheon(id, pantheon)` | panthéon hors groupe |
 | Agents | `list_agents() -> AgentInfo[]` | remplace `list_presets` : `{ id, available }` |
 | | `list_ollama_models() -> string[]` | modèles Ollama |
-| PTY | `pty_send_text(nodeId, text)` | `ESC[200~` + texte + `ESC[201~`, puis `\r` 30 ms plus tard ; erreur si le processus n'existe pas |
-| | `pty_interrupt(nodeId)` | séquence d'interruption de l'agent du nœud |
+| PTY | `pty_send_text(nodeId, text)` | le texte, sauts de ligne en `\r`, encadré par `ESC[200~` et `ESC[201~` quand le programme a activé le collage encadré (`ESC[?2004h`, suivi dans sa sortie : ConPTY le transmet), tel quel sinon ; les marqueurs de collage présents dans le texte sont retirés ; puis `\r` 30 ms plus tard ; erreur si le processus n'existe pas |
+| | `pty_interrupt(nodeId) -> bool` | séquence d'interruption de l'agent du nœud ; `false` pour un Shell, qui n'en a pas |
 | Git | `git_status(path) -> { branch, changed } \| null` | `git status --porcelain=v1 -b` ; `null` hors dépôt ou sans git |
 | États | `agent_activity_snapshot() -> { hooksAvailable, activities: { nodeId, activity, since }[] }` | état courant au chargement du front, et disponibilité du serveur des hooks |
 

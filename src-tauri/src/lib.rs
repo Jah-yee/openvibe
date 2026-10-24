@@ -50,6 +50,8 @@ pub fn run() {
             commands::pty::pty_spawn,
             commands::pty::pty_attach,
             commands::pty::pty_write,
+            commands::pty::pty_send_text,
+            commands::pty::pty_interrupt,
             commands::pty::pty_resize,
             commands::pty::pty_kill,
             commands::pty::pty_list,

@@ -104,6 +104,8 @@ pub struct SpawnPlan {
     pub env_remove: Vec<String>,
     /// Typed into the shell right after it starts, e.g. `claude --resume <id>\r`.
     pub initial_input: Option<String>,
+    /// What `pty_interrupt` writes: the agent's interrupt key (spec §8).
+    pub interrupt: Option<&'static [u8]>,
 }
 
 /// What OpenVibe passes to agents so they report their state (spec §8.2).
@@ -226,6 +228,21 @@ pub fn binary(agent: Agent) -> &'static str {
         Agent::Aider => "aider",
         Agent::Ollama => "ollama",
         Agent::Shell | Agent::Custom => "",
+    }
+}
+
+/// What stops an agent's current turn (spec §8): Escape, or Ctrl+C for the
+/// agents that take it; nothing for a plain shell.
+pub fn interrupt_sequence(agent: Agent) -> Option<&'static [u8]> {
+    match agent {
+        Agent::Claude
+        | Agent::Codex
+        | Agent::Gemini
+        | Agent::Qwen
+        | Agent::Cursor
+        | Agent::Opencode => Some(b"\x1b"),
+        Agent::Aider | Agent::Ollama | Agent::Custom => Some(b"\x03"),
+        Agent::Shell => None,
     }
 }
 
@@ -376,6 +393,7 @@ pub fn build_plan(
             .map(|key| key.to_string())
             .collect(),
         initial_input,
+        interrupt: interrupt_sequence(spec.agent),
     })
 }
 
@@ -603,6 +621,23 @@ mod tests {
                 .contains(&("OPENVIBE_NODE_ID".into(), "node-1".into()))
         );
         assert!(plan.env.contains(&("TERM".into(), "xterm-256color".into())));
+    }
+
+    #[test]
+    fn interrupt_keys_follow_the_catalog() {
+        assert_eq!(interrupt_sequence(Agent::Claude), Some(&b"\x1b"[..]));
+        assert_eq!(interrupt_sequence(Agent::Opencode), Some(&b"\x1b"[..]));
+        assert_eq!(interrupt_sequence(Agent::Aider), Some(&b"\x03"[..]));
+        assert_eq!(interrupt_sequence(Agent::Custom), Some(&b"\x03"[..]));
+        assert_eq!(interrupt_sequence(Agent::Shell), None);
+        let plan = build_plan(
+            "node-1",
+            &spec(Agent::Codex, None),
+            &nothing_on_path,
+            &AgentHooks::default(),
+        )
+        .unwrap();
+        assert_eq!(plan.interrupt, Some(&b"\x1b"[..]));
     }
 
     fn hooked(settings: &str) -> AgentHooks {

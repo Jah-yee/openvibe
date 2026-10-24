@@ -101,6 +101,35 @@ pub async fn pty_write(
     Ok(())
 }
 
+/// The command bar, the orchestrator and "Reprendre" type into terminals this
+/// way (spec habillage §12, §15.3). The Enter counts as the user's answer for
+/// the agent's activity.
+#[tauri::command]
+pub async fn pty_send_text(app: AppHandle, node_id: String, text: String) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<PtyManager>().send_text(&node_id, &text)?;
+        agents::input(&app, &node_id, b"\r");
+        Ok(())
+    })
+    .await
+    .map_err(|err| AppError::Io(std::io::Error::other(err.to_string())))?
+}
+
+/// "Pause" (spec §14): false for a plain shell. The key counts as the user's
+/// answer, so a hooked agent's activity follows its output again.
+#[tauri::command]
+pub async fn pty_interrupt(
+    app: AppHandle,
+    pty: State<'_, PtyManager>,
+    node_id: String,
+) -> AppResult<bool> {
+    let sent = pty.interrupt(&node_id)?;
+    if let Some(key) = sent {
+        agents::input(&app, &node_id, key);
+    }
+    Ok(sent.is_some())
+}
+
 #[tauri::command]
 pub async fn pty_resize(
     pty: State<'_, PtyManager>,

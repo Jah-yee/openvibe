@@ -4,6 +4,7 @@ use std::thread::JoinHandle;
 
 use portable_pty::{Child, ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_system};
 
+use super::paste::PasteMode;
 use super::scrollback::{SCROLLBACK_CAPACITY, Scrollback};
 use super::shell::SpawnPlan;
 use crate::error::{AppError, AppResult};
@@ -30,6 +31,8 @@ pub struct Session {
     master: Mutex<Option<Box<dyn MasterPty + Send>>>,
     killer: Mutex<Box<dyn ChildKiller + Send + Sync>>,
     output: Mutex<Output>,
+    paste: Mutex<PasteMode>,
+    interrupt: Option<&'static [u8]>,
     pub pid: Option<u32>,
 }
 
@@ -78,6 +81,8 @@ impl Session {
                 scrollback: Scrollback::new(SCROLLBACK_CAPACITY),
                 sink: Some(sink),
             }),
+            paste: Mutex::new(PasteMode::default()),
+            interrupt: plan.interrupt,
             pid: child.process_id(),
         });
         let reader = spawn_reader(reader, session.clone(), on_output);
@@ -93,6 +98,19 @@ impl Session {
         writer.write_all(data)?;
         writer.flush()?;
         Ok(())
+    }
+
+    /// The program asked for bracketed paste (`ESC[?2004h`) and did not take it back.
+    pub fn pastes_bracketed(&self) -> bool {
+        self.paste.lock().unwrap().is_on()
+    }
+
+    /// Writes the agent's interrupt key; `None` for a plain shell.
+    pub fn interrupt(&self) -> AppResult<Option<&'static [u8]>> {
+        if let Some(key) = self.interrupt {
+            self.write(key)?;
+        }
+        Ok(self.interrupt)
     }
 
     pub fn resize(&self, size: PtySize) -> AppResult<()> {
@@ -147,6 +165,8 @@ fn spawn_reader(
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let chunk = &buf[..n];
+                    // Before the front sees it: a visible chunk's mode is known.
+                    session.paste.lock().unwrap().feed(chunk);
                     {
                         let mut output = session.output.lock().unwrap();
                         output.scrollback.push(chunk);

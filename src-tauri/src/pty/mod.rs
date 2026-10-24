@@ -1,3 +1,4 @@
+pub mod paste;
 pub mod scrollback;
 pub mod session;
 pub mod shell;
@@ -8,6 +9,7 @@ use std::sync::{Arc, Mutex};
 pub use portable_pty::PtySize;
 
 use crate::error::{AppError, AppResult};
+use paste::{ENTER_DELAY, paste_payload};
 use session::{OnOutput, OutputSink, Session, Started};
 use shell::SpawnPlan;
 
@@ -87,6 +89,27 @@ impl PtyManager {
 
     pub fn write(&self, node_id: &str, data: &[u8]) -> AppResult<()> {
         self.require(node_id)?.write(data)
+    }
+
+    /// Types `text` as a paste, then Enter after `ENTER_DELAY` (spec §15.3).
+    /// Blocks for that delay: call it off the async runtime.
+    pub fn send_text(&self, node_id: &str, text: &str) -> AppResult<()> {
+        let session = self.require(node_id)?;
+        session.write(&paste_payload(text, session.pastes_bracketed()))?;
+        std::thread::sleep(ENTER_DELAY);
+        session.write(b"\r")
+    }
+
+    /// Stops the agent's turn with its own key (spec §14); `None` for a plain
+    /// shell, which has none.
+    pub fn interrupt(&self, node_id: &str) -> AppResult<Option<&'static [u8]>> {
+        self.require(node_id)?.interrupt()
+    }
+
+    #[cfg(test)]
+    fn pastes_bracketed(&self, node_id: &str) -> bool {
+        self.get(node_id)
+            .is_some_and(|session| session.pastes_bracketed())
     }
 
     pub fn resize(&self, node_id: &str, size: PtySize) -> AppResult<()> {
@@ -192,6 +215,7 @@ mod windows_tests {
             env: vec![],
             env_remove: vec![],
             initial_input: initial_input.map(str::to_string),
+            interrupt: None,
         }
     }
 
@@ -408,6 +432,53 @@ mod windows_tests {
         assert_eq!(mgr.list(), vec!["d".to_string()]);
         mgr.kill_all();
         wait_exit(&exited);
+    }
+
+    #[test]
+    fn follows_the_paste_mode_the_program_asks_for() {
+        let mgr = PtyManager::default();
+        let sink = VecSink::default();
+        let exited = spawn_answering(
+            &mgr,
+            "i",
+            cmd_plan(&["/k", "echo \x1b[?2004hpaste-mode-on"], None),
+            sink.clone(),
+        );
+        wait_until("mode switch", || sink.text().contains("paste-mode-on"));
+        assert!(mgr.pastes_bracketed("i"));
+        mgr.kill("i");
+        wait_exit(&exited);
+    }
+
+    #[test]
+    fn types_a_command_then_validates_it_with_enter() {
+        let mgr = PtyManager::default();
+        let sink = VecSink::default();
+        let exited = spawn_answering(&mgr, "j", cmd_plan(&[], None), sink.clone());
+        wait_until("prompt", || sink.text().contains('>'));
+        mgr.send_text("j", "echo sent-by-openvibe").unwrap();
+        // The typed line, then what the command printed.
+        wait_until("command output", || {
+            sink.text().matches("sent-by-openvibe").count() >= 2
+        });
+        mgr.write("j", b"exit\r").unwrap();
+        wait_exit(&exited);
+    }
+
+    #[test]
+    fn interrupts_with_the_agent_key_and_not_a_plain_shell() {
+        let mgr = PtyManager::default();
+        let mut plan = cmd_plan(&[], None);
+        plan.interrupt = Some(b"\x03");
+        let agent = spawn_answering(&mgr, "k", plan, VecSink::default());
+        let shell = spawn_answering(&mgr, "l", cmd_plan(&[], None), VecSink::default());
+        assert_eq!(mgr.interrupt("k").unwrap(), Some(&b"\x03"[..]));
+        assert_eq!(mgr.interrupt("l").unwrap(), None);
+        assert_eq!(mgr.interrupt("nope").unwrap_err().kind(), "notFound");
+        assert_eq!(mgr.send_text("nope", "x").unwrap_err().kind(), "notFound");
+        mgr.kill_all();
+        wait_exit(&agent);
+        wait_exit(&shell);
     }
 
     #[test]

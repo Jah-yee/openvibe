@@ -74,15 +74,29 @@ export function ptyAttach(nodeId: string, onData: (bytes: Uint8Array) => void): 
 // reach the PTY swapped. Each terminal's writes are chained to keep their order.
 const writeQueues = new Map<string, Promise<unknown>>();
 
-export function ptyWrite(nodeId: string, data: string): Promise<void> {
+function queued<T>(nodeId: string, run: () => Promise<T>): Promise<T> {
   const previous = writeQueues.get(nodeId) ?? Promise.resolve();
-  const write = previous.then(() => call<void>("pty_write", { nodeId, data }));
-  const tail = write.catch(() => undefined);
+  const result = previous.then(run);
+  const tail = result.catch(() => undefined);
   writeQueues.set(nodeId, tail);
   void tail.then(() => {
     if (writeQueues.get(nodeId) === tail) writeQueues.delete(nodeId);
   });
-  return write;
+  return result;
+}
+
+export function ptyWrite(nodeId: string, data: string): Promise<void> {
+  return queued(nodeId, () => call<void>("pty_write", { nodeId, data }));
+}
+
+/** Types a command into the terminal, then Enter (spec habillage §15.3). */
+export function ptySendText(nodeId: string, text: string): Promise<void> {
+  return queued(nodeId, () => call<void>("pty_send_text", { nodeId, text }));
+}
+
+/** Interrupts the agent's turn; false for a plain shell (spec §14). */
+export function ptyInterrupt(nodeId: string): Promise<boolean> {
+  return queued(nodeId, () => call<boolean>("pty_interrupt", { nodeId }));
 }
 
 export const ptyResize = (nodeId: string, cols: number, rows: number) => call<void>("pty_resize", { nodeId, cols, rows });

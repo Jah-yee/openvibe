@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { getScrollback, ptyWrite, toBytes } from "./pty";
+import { getScrollback, ptyInterrupt, ptySendText, ptyWrite, toBytes } from "./pty";
 
 afterEach(() => clearMocks());
 
@@ -57,4 +57,22 @@ it("keeps writing after a failed write", async () => {
 it("decodes scrollback returned as raw bytes", async () => {
   mockIPC(() => new Uint8Array([104, 105]).buffer);
   expect(new TextDecoder().decode(await getScrollback("node-1"))).toBe("hi");
+});
+
+it("types a command after the keystrokes already sent to the terminal", async () => {
+  const calls: string[] = [];
+  let release!: () => void;
+  mockIPC((cmd) => {
+    calls.push(cmd);
+    if (cmd === "pty_write") return new Promise<void>((resolve) => (release = resolve));
+    if (cmd === "pty_interrupt") return true;
+  });
+  const typed = ptyWrite("node-3", "a");
+  const sent = ptySendText("node-3", "lance les tests");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(calls).toEqual(["pty_write"]); // the command waits for the keystroke
+  release();
+  await Promise.all([typed, sent]);
+  expect(calls).toEqual(["pty_write", "pty_send_text"]);
+  expect(await ptyInterrupt("node-3")).toBe(true);
 });
