@@ -8,7 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::agents::activity::{Activity, Change, HookSource, Tracker, is_keystroke};
+use crate::agents::activity::{Activity, Change, HookSource, Tracker};
 use crate::agents::claude_settings;
 use crate::agents::hooks_server::{self, HookHit, HookServer};
 use crate::error::AppResult;
@@ -103,12 +103,13 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
     let Some(state) = app.try_state::<AgentState>() else {
         return;
     };
-    let change =
-        state
-            .tracker
-            .lock()
-            .unwrap()
-            .hook(&hit.node_id, hit.source, hit.activity, Instant::now());
+    let mut tracker = state.tracker.lock().unwrap();
+    let change = if hit.session_ended {
+        tracker.session_end(&hit.node_id, Instant::now())
+    } else {
+        tracker.hook(&hit.node_id, hit.source, hit.activity, Instant::now())
+    };
+    drop(tracker);
     if let Some(change) = change {
         emit(app, &change);
     }
@@ -170,15 +171,12 @@ pub fn output(app: &AppHandle, node_id: &str) {
 
 /// What the user typed: an answer hands a hooked agent back to its output.
 pub fn input(app: &AppHandle, node_id: &str, data: &[u8]) {
-    if !is_keystroke(data) {
-        return;
-    }
-    let change = app
-        .state::<AgentState>()
-        .tracker
-        .lock()
-        .unwrap()
-        .input(node_id, Instant::now());
+    let change =
+        app.state::<AgentState>()
+            .tracker
+            .lock()
+            .unwrap()
+            .input(node_id, data, Instant::now());
     if let Some(change) = change {
         emit(app, &change);
     }

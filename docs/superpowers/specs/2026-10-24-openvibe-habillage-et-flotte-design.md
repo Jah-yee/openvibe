@@ -327,10 +327,10 @@ Chaque terminal a un état de processus (déjà existant : `running`, `stopped`,
 
 Sources d'activité, par ordre de priorité :
 
-1. **Hooks Claude** (§10.3) : `UserPromptSubmit` et `PostToolUse` → `working` ; `Stop` et `StopFailure` → `idle` ; `Notification` de type `permission_prompt`, `elicitation_dialog`, `elicitation_url_dialog` ou `agent_needs_input` → `waiting` ; `Notification` `idle_prompt` → `idle`.
+1. **Hooks Claude** (§10.3) : `UserPromptSubmit` et `PostToolUse` → `working` ; `Stop` et `StopFailure` → `idle` ; `Notification` de type `permission_prompt`, `elicitation_dialog`, `elicitation_url_dialog` ou `agent_needs_input` → `waiting` ; `Notification` `idle_prompt` → `idle` ; `SessionEnd` (sauf raison `clear`, qui continue dans le même processus) → `idle`, et le terminal revient à l'activité du terminal : l'agent est tapé dans un shell, qui lui survit après `/exit`.
 2. **Fin de tour Codex** (`notify`, type `agent-turn-complete`) → `idle`.
 3. **Activité du terminal** (tous les agents) : de la sortie reçue dans les 1,5 dernières secondes → `working` ; sinon `idle`. Pour un terminal qui a déjà reçu au moins un événement de hook, l'activité du terminal n'est plus utilisée (les hooks font foi), sauf pour quitter `working` si aucune sortie n'est arrivée depuis 30 s alors que le hook `Stop` n'est jamais venu (filet de sécurité).
-4. **Réponse de l'utilisateur** : une frappe dans un terminal à hooks qui est `working` ou `waiting` rend la main à l'activité du terminal jusqu'au hook suivant — `waiting` passe à `working`, puis 1,5 s sans sortie → `idle`. Les rapports que le terminal envoie seul (focus, souris) ne comptent pas. Raison (constat du 2026-10-24, Claude Code 2.1.304) : aucun hook ne signale la réponse à une demande d'autorisation. Un refus ne déclenche ni `Stop` ni `PermissionDenied` (réservé au mode auto), et la pastille restait ATTEND sans fin ; une acceptation n'est suivie de `PostToolUse` qu'à la fin de l'outil. De plus, `permission_prompt` ne part qu'après environ 6 s d'attente : un refus rapide trouve l'agent `working`.
+4. **Réponse de l'utilisateur** : une réponse dans un terminal à hooks rend la main à l'activité du terminal jusqu'au hook suivant — l'agent passe à `working`, puis 1,5 s sans sortie → `idle`. Est une réponse : toute frappe quand l'agent est `working` ; quand il est `waiting`, toute frappe sauf les touches qui parcourent les choix (flèches, Tab, Maj+Tab, pages, début, fin) ; quand il est `idle`, Entrée seulement (la saisie d'une consigne n'est qu'un écho ; Entrée couvre aussi un formulaire rempli lentement et les commandes sans hooks comme `/compact`). Les rapports que le terminal envoie seul (focus, souris) ne comptent pas. Raison (constat du 2026-10-24, Claude Code 2.1.304) : aucun hook ne signale la réponse à une demande d'autorisation. Un refus ne déclenche ni `Stop` ni `PermissionDenied` (réservé au mode auto), et la pastille restait ATTEND sans fin ; une acceptation n'est suivie de `PostToolUse` qu'à la fin de l'outil. De plus, `permission_prompt` ne part qu'après environ 6 s d'attente : un refus rapide trouve l'agent `working`.
 
 Le calcul est fait en Rust (`agents::activity`), qui émet `agent-activity` à chaque changement ; le front ne fait qu'afficher.
 
@@ -347,6 +347,7 @@ Le calcul est fait en Rust (`agents::activity`), qui émet `agent-activity` à c
     "PostToolUse": [{ "hooks": [{ "type": "http", "url": "URL", "timeout": 2 }] }],
     "Stop": [{ "hooks": [{ "type": "http", "url": "URL", "timeout": 2 }] }],
     "StopFailure": [{ "hooks": [{ "type": "http", "url": "URL", "timeout": 2 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "http", "url": "URL", "timeout": 2 }] }],
     "Notification": [{
       "matcher": "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input|idle_prompt",
       "hooks": [{ "type": "http", "url": "URL", "timeout": 2 }]

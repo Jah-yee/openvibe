@@ -79,16 +79,33 @@ impl Tracker {
         set(node_id, node, Activity::Working, now)
     }
 
-    /// The user typed in the terminal. Answering a hooked agent that works
-    /// or waits hands it to its output until the next hook: a waiting agent
-    /// resumes, and 1.5 s of quiet makes it idle.
-    pub fn input(&mut self, node_id: &str, now: Instant) -> Option<Change> {
+    /// The user typed in the terminal. An answer to a hooked agent hands it
+    /// to its output until the next hook: it works, and 1.5 s of quiet makes
+    /// it idle. Moving through a dialog answers nothing; at the prompt only
+    /// Enter sends something (typing there just echoes).
+    pub fn input(&mut self, node_id: &str, data: &[u8], now: Instant) -> Option<Change> {
         let node = self.nodes.get_mut(node_id)?;
-        if !node.hooked || node.activity == Activity::Idle {
+        if !node.hooked || !is_keystroke(data) {
+            return None;
+        }
+        let answers = match node.activity {
+            Activity::Waiting => !is_navigation(data),
+            Activity::Working => true,
+            Activity::Idle => data.contains(&b'\r'),
+        };
+        if !answers {
             return None;
         }
         node.answered = Some(now);
         set(node_id, node, Activity::Working, now)
+    }
+
+    /// Claude ended its session; its shell lives on, and the output decides again.
+    pub fn session_end(&mut self, node_id: &str, now: Instant) -> Option<Change> {
+        let node = self.nodes.get_mut(node_id)?;
+        node.hooked = false;
+        node.answered = None;
+        set(node_id, node, Activity::Idle, now)
     }
 
     pub fn hook(
@@ -179,13 +196,29 @@ pub fn claude_activity(event: &str, notification_type: Option<&str>) -> Option<A
     }
 }
 
+/// `SessionEnd`, except `/clear`, which goes on in the same process.
+pub fn claude_session_ended(event: &str, reason: Option<&str>) -> bool {
+    event == "SessionEnd" && reason != Some("clear")
+}
+
 /// What xterm sends on its own (focus changes, mouse reports) is not the
 /// user answering.
-pub fn is_keystroke(data: &[u8]) -> bool {
+fn is_keystroke(data: &[u8]) -> bool {
     !(data == b"\x1b[I"
         || data == b"\x1b[O"
         || data.starts_with(b"\x1b[<")
         || data.starts_with(b"\x1b[M"))
+}
+
+/// Arrows, Tab, Shift+Tab, and the page, home and end keys move through a
+/// dialog's choices.
+fn is_navigation(data: &[u8]) -> bool {
+    match data {
+        b"\t" | b"\x1b[Z" => true,
+        [0x1b, b'[' | b'O', key] => b"ABCDHF".contains(key),
+        [0x1b, b'[', digits @ .., b'~'] => digits.iter().all(u8::is_ascii_digit),
+        _ => false,
+    }
 }
 
 /// The type of Codex's `notify` payload that ends a turn.
@@ -264,7 +297,7 @@ mod tests {
         let t0 = Instant::now();
         let mut tracker = started(t0);
         tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
-        let working = tracker.input("a", t0 + ms(10_000)).unwrap();
+        let working = tracker.input("a", b"\x1b", t0 + ms(10_000)).unwrap();
         assert_eq!(working.activity, Activity::Working);
         assert_eq!(tracker.output("a", t0 + ms(10_100)), None);
         assert!(tracker.tick(t0 + ms(11_500)).is_empty());
@@ -281,7 +314,7 @@ mod tests {
         let t0 = Instant::now();
         let mut tracker = started(t0);
         tracker.hook("a", HookSource::Claude, Activity::Working, t0);
-        assert_eq!(tracker.input("a", t0 + ms(3000)), None);
+        assert_eq!(tracker.input("a", b"\x1b", t0 + ms(3000)), None);
         assert!(tracker.tick(t0 + ms(4400)).is_empty());
         assert_eq!(tracker.tick(t0 + ms(4500))[0].activity, Activity::Idle);
     }
@@ -291,7 +324,7 @@ mod tests {
         let t0 = Instant::now();
         let mut tracker = started(t0);
         tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
-        tracker.input("a", t0 + ms(1000));
+        tracker.input("a", b"1", t0 + ms(1000));
         tracker.hook("a", HookSource::Claude, Activity::Working, t0 + ms(1200));
         assert!(tracker.tick(t0 + ms(20_000)).is_empty());
     }
@@ -300,11 +333,83 @@ mod tests {
     fn keystrokes_at_the_prompt_or_without_hooks_change_nothing() {
         let t0 = Instant::now();
         let mut tracker = started(t0);
-        assert_eq!(tracker.input("a", t0), None);
+        assert_eq!(tracker.input("a", b"x", t0), None);
         tracker.hook("a", HookSource::Claude, Activity::Idle, t0 + ms(100));
-        assert_eq!(tracker.input("a", t0 + ms(200)), None);
+        assert_eq!(tracker.input("a", b"x", t0 + ms(200)), None);
         assert!(tracker.tick(t0 + ms(5000)).is_empty());
-        assert_eq!(tracker.input("zzz", t0), None);
+        assert_eq!(tracker.input("zzz", b"\r", t0), None);
+    }
+
+    #[test]
+    fn moving_through_a_dialog_keeps_the_agent_waiting() {
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
+        for key in [
+            &b"\x1b[B"[..],
+            b"\x1bOA",
+            b"\t",
+            b"\x1b[Z",
+            b"\x1b[6~",
+            b"\x1b[I",
+        ] {
+            assert_eq!(tracker.input("a", key, t0 + ms(100)), None, "{key:?}");
+        }
+        assert!(tracker.tick(t0 + ms(10_000)).is_empty());
+        assert_eq!(tracker.snapshot()[0].activity, Activity::Waiting);
+    }
+
+    #[test]
+    fn enter_after_a_quiet_answer_makes_the_agent_work_again() {
+        // A form filled in slowly: the agent went idle between two keys.
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Waiting, t0);
+        tracker.input("a", b"y", t0 + ms(1000));
+        assert_eq!(tracker.tick(t0 + ms(2500))[0].activity, Activity::Idle);
+        assert_eq!(tracker.input("a", b"e", t0 + ms(3000)), None);
+        let working = tracker.input("a", b"\r", t0 + ms(4000)).unwrap();
+        assert_eq!(working.activity, Activity::Working);
+        assert_eq!(tracker.output("a", t0 + ms(5000)), None);
+        assert!(tracker.tick(t0 + ms(6400)).is_empty());
+    }
+
+    #[test]
+    fn enter_at_the_prompt_hands_the_agent_to_its_output_until_the_next_hook() {
+        // `/compact` and other commands without hooks: the output decides.
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Idle, t0);
+        let working = tracker.input("a", b"\r", t0 + ms(100)).unwrap();
+        assert_eq!(working.activity, Activity::Working);
+        tracker.output("a", t0 + ms(1000));
+        assert!(tracker.tick(t0 + ms(2400)).is_empty());
+        assert_eq!(tracker.tick(t0 + ms(2500))[0].activity, Activity::Idle);
+    }
+
+    #[test]
+    fn the_end_of_a_claude_session_hands_its_shell_back_to_the_output() {
+        let t0 = Instant::now();
+        let mut tracker = started(t0);
+        tracker.hook("a", HookSource::Claude, Activity::Working, t0);
+        let idle = tracker.session_end("a", t0 + ms(100)).unwrap();
+        assert_eq!(idle.activity, Activity::Idle);
+        assert_eq!(
+            tracker.output("a", t0 + ms(200)).unwrap().activity,
+            Activity::Working
+        );
+        assert_eq!(tracker.session_end("zzz", t0), None);
+    }
+
+    #[test]
+    fn a_session_ends_unless_it_is_cleared() {
+        assert!(claude_session_ended(
+            "SessionEnd",
+            Some("prompt_input_exit")
+        ));
+        assert!(claude_session_ended("SessionEnd", None));
+        assert!(!claude_session_ended("SessionEnd", Some("clear")));
+        assert!(!claude_session_ended("Stop", None));
     }
 
     #[test]

@@ -6,7 +6,9 @@ use std::io::Read;
 
 use tiny_http::{Method, Request, Response, Server};
 
-use super::activity::{Activity, HookSource, claude_activity, codex_activity};
+use super::activity::{
+    Activity, HookSource, claude_activity, claude_session_ended, codex_activity,
+};
 
 /// Larger bodies are refused (spec §10.3).
 pub const MAX_BODY: usize = 64 * 1024;
@@ -17,6 +19,8 @@ pub struct HookHit {
     pub node_id: String,
     pub source: HookSource,
     pub activity: Activity,
+    /// Claude left (`SessionEnd`): its shell's output decides again.
+    pub session_ended: bool,
 }
 
 pub struct HookServer {
@@ -113,18 +117,29 @@ fn status_of(request: &mut Request, token: &str, on_hit: &dyn Fn(HookHit)) -> u1
     let Ok(json) = serde_json::from_slice::<serde_json::Value>(&body) else {
         return 400;
     };
-    let activity = match source {
-        HookSource::Claude => claude_activity(
-            json["hook_event_name"].as_str().unwrap_or_default(),
-            json["notification_type"].as_str(),
+    let (activity, session_ended) = match source {
+        HookSource::Claude => {
+            let event = json["hook_event_name"].as_str().unwrap_or_default();
+            if claude_session_ended(event, json["reason"].as_str()) {
+                (Some(Activity::Idle), true)
+            } else {
+                (
+                    claude_activity(event, json["notification_type"].as_str()),
+                    false,
+                )
+            }
+        }
+        HookSource::Codex => (
+            codex_activity(json["type"].as_str().unwrap_or_default()),
+            false,
         ),
-        HookSource::Codex => codex_activity(json["type"].as_str().unwrap_or_default()),
     };
     if let Some(activity) = activity {
         on_hit(HookHit {
             node_id,
             source,
             activity,
+            session_ended,
         });
     }
     204
@@ -227,7 +242,8 @@ mod tests {
             HookHit {
                 node_id: "n1".into(),
                 source: HookSource::Claude,
-                activity: Activity::Working
+                activity: Activity::Working,
+                session_ended: false,
             }
         );
         let waiting =
@@ -237,6 +253,16 @@ mod tests {
             rx.recv_timeout(Duration::from_secs(5)).unwrap().activity,
             Activity::Waiting
         );
+        let ended = br#"{"hook_event_name":"SessionEnd","reason":"prompt_input_exit"}"#;
+        assert_eq!(send(server.port, "POST", path, ended), 204);
+        assert!(
+            rx.recv_timeout(Duration::from_secs(5))
+                .unwrap()
+                .session_ended
+        );
+        // `/clear` goes on in the same process: no hit, the next one is Codex's.
+        let cleared = br#"{"hook_event_name":"SessionEnd","reason":"clear"}"#;
+        assert_eq!(send(server.port, "POST", path, cleared), 204);
 
         let codex = server.url(HookSource::Codex, "n2");
         let codex_path = codex.trim_start_matches(&format!("http://127.0.0.1:{}", server.port));
@@ -254,7 +280,8 @@ mod tests {
             HookHit {
                 node_id: "n2".into(),
                 source: HookSource::Codex,
-                activity: Activity::Idle
+                activity: Activity::Idle,
+                session_ended: false,
             }
         );
     }

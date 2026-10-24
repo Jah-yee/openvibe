@@ -20,6 +20,7 @@ pub fn settings_json(url: &str) -> Value {
             "PostToolUse": every,
             "Stop": every,
             "StopFailure": every,
+            "SessionEnd": every,
             "Notification": [{ "matcher": NOTIFICATIONS, "hooks": [hook] }],
         }
     })
@@ -76,6 +77,7 @@ mod tests {
             [
                 "Notification",
                 "PostToolUse",
+                "SessionEnd",
                 "Stop",
                 "StopFailure",
                 "UserPromptSubmit"
