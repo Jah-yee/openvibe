@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Excalidraw, getSceneVersion } from "@excalidraw/excalidraw";
+import { CaptureUpdateAction, Excalidraw, getSceneVersion, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { assignMissingNames } from "@/fleet/naming";
 import { dismissResumeOffer, offerResumeAll } from "@/fleet/ResumeAllToast";
 import { adoptCopies } from "@/fleet/terminals";
+import { orchestratorLinks, unmarkedWires } from "@/fleet/wires";
 import { saveFiles, saveScene } from "@/ipc/db";
 import { onFlushAll } from "@/lib/flush";
 import { NodeHost } from "@/nodes/NodeHost";
@@ -68,6 +69,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     () => () => {
       canvasStore.getState().setFrames([]);
       canvasStore.getState().setNodeIds([]);
+      canvasStore.getState().setLinks({});
     },
     [],
   );
@@ -125,6 +127,9 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       canvasStore.getState().setView(viewFrom(appState));
       canvasStore.getState().setFrames(framesFromScene(elements));
       canvasStore.getState().setNodeIds(liveNodeIds(elements));
+      canvasStore.getState().setLinks(orchestratorLinks(elements));
+      const unmarked = unmarkedWires(elements);
+      if (unmarked.length > 0 && api) requestAnimationFrame(() => markWires(api, unmarked));
       const activated = trackActivation(appState.activeEmbeddable);
       // Deferred: changing the view from inside onChange would re-enter it.
       if (activated && api) requestAnimationFrame(() => showAtFullSize(api, activated));
@@ -163,4 +168,15 @@ function showAtFullSize(api: ExcalidrawImperativeAPI, nodeId: string) {
   const element = api.getSceneElements().find((e) => e.id === nodeId);
   if (!element) return;
   api.updateScene({ appState: fullSizeView(element, api.getAppState()) });
+}
+
+/** Hand-drawn wires get their mark, outside the undo history (spec habillage §13). */
+function markWires(api: ExcalidrawImperativeAPI, ids: readonly string[]) {
+  const marked = new Set(ids);
+  api.updateScene({
+    elements: api
+      .getSceneElementsIncludingDeleted()
+      .map((e) => (marked.has(e.id) ? newElementWith(e, { customData: { ...e.customData, openvibe: { kind: "wire" } } }) : e)),
+    captureUpdate: CaptureUpdateAction.NEVER,
+  });
 }

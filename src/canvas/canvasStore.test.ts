@@ -72,3 +72,13 @@ describe("fullSizeView", () => {
     expect(view).toEqual({ zoom: { value: 1 }, scrollX: -700, scrollY: -250 });
   });
 });
+
+describe("links", () => {
+  it("keeps the same map when the wires did not change", () => {
+    const links = { o1: { groupIds: ["g1"], nodeIds: [] } };
+    canvasStore.getState().setLinks(links);
+    canvasStore.getState().setLinks({ o1: { groupIds: ["g1"], nodeIds: [] } });
+    expect(canvasStore.getState().links).toBe(links);
+    canvasStore.getState().setLinks({});
+  });
+});

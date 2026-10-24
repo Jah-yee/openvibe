@@ -1,5 +1,6 @@
 import { createStore, useStore } from "zustand";
 import type { AppState, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import { sameLinks, type Links } from "@/fleet/wires";
 import { sameFrames, type SceneFrame } from "./groups";
 
 /** The part of Excalidraw's state that the shell around the canvas shows. */
@@ -92,6 +93,9 @@ interface CanvasState {
   /** Ids of the OpenVibe nodes on the canvas on screen (deleted ones excluded). */
   nodeIds: string[];
   setNodeIds: (ids: string[]) => void;
+  /** What each orchestrator of the scene is wired to (spec habillage §13). */
+  links: Record<string, Links>;
+  setLinks: (links: Record<string, Links>) => void;
 }
 
 export const canvasStore = createStore<CanvasState>()((set, get) => ({
@@ -109,6 +113,10 @@ export const canvasStore = createStore<CanvasState>()((set, get) => ({
   setNodeIds: (ids) => {
     const current = get().nodeIds;
     if (ids.length !== current.length || ids.some((id, i) => id !== current[i])) set({ nodeIds: ids });
+  },
+  links: {},
+  setLinks: (links) => {
+    if (!sameLinks(get().links, links)) set({ links });
   },
 }));
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "@/canvas/groups";
-import { arrangeInFrame, cellAt, clearSpot, freeCell, GROUP_GAP, groupGrid } from "./groupLayout";
+import { arrangeInFrame, cellAt, clearSpot, freeCell, GROUP_GAP, groupGrid, orchestratorSpot } from "./groupLayout";
 
 const at = (x: number, y: number, size: { width: number; height: number }): Rect => ({ x, y, width: size.width, height: size.height });
 
@@ -94,5 +94,11 @@ describe("clearSpot", () => {
       { x: 300, y: 650, width: 200, height: 200 },
     ];
     expect(clearSpot(spot, obstacles)).toEqual({ ...spot, y: 850 + GROUP_GAP });
+  });
+});
+
+describe("orchestratorSpot", () => {
+  it("puts an orchestrator to the left of the group, its top on the group's top", () => {
+    expect(orchestratorSpot({ x: 1000, y: 500, width: 900, height: 600 })).toEqual({ x: 1000 - GROUP_GAP - 160, y: 710 });
   });
 });
