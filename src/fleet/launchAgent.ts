@@ -1,3 +1,5 @@
+import { canvasStore } from "@/canvas/canvasStore";
+import { groupAt } from "@/canvas/groups";
 import type { AgentId, OllamaLaunch, ShellKind } from "@/ipc/pty";
 import { newTerminalPayload } from "@/nodes/terminal/launch";
 import { projectsStore } from "@/store/projects";
@@ -22,10 +24,15 @@ export function defaultLaunchOptions(): LaunchOptions {
   return { cwd, shell: agentsStore.getState().shells[0] ?? "default", title: "", command: "" };
 }
 
-/** Creates and starts an agent of the active workspace at `center` (scene coordinates). */
+/**
+ * Creates and starts an agent of the active workspace at `center` (scene
+ * coordinates). Inside a group it takes the group's next free cell and a name
+ * from the group's pantheon (spec habillage §10.1, §11.3).
+ */
 export async function launchAgent(agent: AgentId, options: LaunchOptions, center: Point) {
   const workspaceId = workspacesStore.getState().activeId;
   if (!workspaceId) return;
-  const name = await nameForNewAgent(workspaceId);
-  await addTerminal(workspaceId, newTerminalPayload({ ...options, agent }, name), center);
+  const group = groupAt(canvasStore.getState().frames, center);
+  const name = await nameForNewAgent(workspaceId, group?.group.pantheon);
+  await addTerminal(workspaceId, newTerminalPayload({ ...options, agent }, name), center, group?.id ?? null);
 }

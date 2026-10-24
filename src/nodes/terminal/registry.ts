@@ -8,6 +8,7 @@ import { ptyKill, ptyResize, ptyWrite } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
+import { createAutostart } from "./autostart";
 import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, type FontMeasure } from "./crisp";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
@@ -27,7 +28,7 @@ interface Entry {
 
 const FONT_FAMILY = "'Cascadia Code', Consolas, monospace";
 const entries = new Map<string, Entry>();
-const autostart = new Set<string>();
+const autostart = createAutostart();
 let livePtys = new Set<string>();
 let measure: FontMeasure | null = null;
 
@@ -36,9 +37,9 @@ export function setLivePtys(nodeIds: string[]) {
   livePtys = new Set(nodeIds);
 }
 
-/** A terminal just created from the launch dialog starts on its first mount. */
-export function markForAutostart(nodeId: string) {
-  autostart.add(nodeId);
+/** A terminal just created starts on its first mount, `delayMs` later (groups stagger their agents). */
+export function markForAutostart(nodeId: string, delayMs = 0) {
+  autostart.mark(nodeId, delayMs);
 }
 
 function create(nodeId: string): Entry {
@@ -138,8 +139,13 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
   }
   layoutTerminal(nodeId, host, zoom);
   if (existing) return;
-  if (autostart.delete(nodeId)) void startSession(nodeId, entry.term, payload, "new");
-  else if (livePtys.delete(nodeId)) void attachSession(nodeId, entry.term, entry.session);
+  const started = autostart.run(nodeId, () => {
+    // The node may have been edited while it waited for its turn.
+    const latest = nodesStore.getState().nodes[nodeId]?.payload ?? payload;
+    void startSession(nodeId, entry.term, latest, "new");
+  });
+  if (started) return;
+  if (livePtys.delete(nodeId)) void attachSession(nodeId, entry.term, entry.session);
   else void restoreSession(nodeId, entry.term);
 }
 
@@ -199,6 +205,6 @@ export function disposeTerminal(nodeId: string) {
   stopTerminal(nodeId);
   entries.get(nodeId)?.term.dispose();
   entries.delete(nodeId);
-  autostart.delete(nodeId);
+  autostart.cancel(nodeId);
   terminalStatusStore.getState().remove(nodeId);
 }

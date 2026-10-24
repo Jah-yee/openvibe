@@ -15,6 +15,20 @@ export function PillButton({ className, ...props }: ComponentProps<"button">) {
   );
 }
 
+/** A chip of the bottom row (spec habillage §5.6): dark fill, multicolor outline. */
+export function ChipButton({ className, ...props }: ComponentProps<"button">) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "ov-chip h-8 shrink-0 rounded-full px-3.5 text-[13px] font-semibold text-ov-text shadow-ov hover:brightness-125",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 /** A round icon button of the rails and controls; `active` fills it in orange. */
 export function RoundButton({
   className,
