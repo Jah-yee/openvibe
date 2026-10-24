@@ -49,6 +49,9 @@ impl Session {
         for (key, value) in &plan.env {
             cmd.env(key, value);
         }
+        for key in &plan.env_remove {
+            cmd.env_remove(key);
+        }
         let child = pair.slave.spawn_command(cmd).map_err(pty_err)?;
         // The child owns its end now; keeping ours open would delay EOF on exit.
         drop(pair.slave);

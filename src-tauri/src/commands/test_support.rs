@@ -21,6 +21,7 @@ pub fn run_terminal(pty: &PtyManager, node_id: &str) -> mpsc::Receiver<()> {
         args: vec![],
         cwd: std::env::temp_dir(),
         env: vec![],
+        env_remove: vec![],
         initial_input: None,
     };
     let (tx, rx) = mpsc::channel();

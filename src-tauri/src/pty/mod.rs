@@ -189,6 +189,7 @@ mod windows_tests {
             args: args.iter().map(|a| a.to_string()).collect(),
             cwd: std::env::temp_dir(),
             env: vec![],
+            env_remove: vec![],
             initial_input: initial_input.map(str::to_string),
         }
     }
@@ -343,6 +344,23 @@ mod windows_tests {
         assert_eq!(mgr.all_scrollbacks().len(), 1);
         mgr.kill_all();
         wait_exit(&exited);
+    }
+
+    #[test]
+    fn removes_inherited_variables_from_the_terminal() {
+        // SAFETY: no other test reads or writes this variable.
+        unsafe { std::env::set_var("OPENVIBE_TEST_MARKER", "leaked") };
+        let mut plan = cmd_plan(&["/c", "echo [%OPENVIBE_TEST_MARKER%]"], None);
+        plan.env_remove = vec!["OPENVIBE_TEST_MARKER".into()];
+        let sink = VecSink::default();
+        let exited = spawn_answering(&PtyManager::default(), "g", plan, sink.clone());
+        wait_exit(&exited);
+        assert!(
+            sink.text().contains("[%OPENVIBE_TEST_MARKER%]"),
+            "output: {:?}",
+            sink.text()
+        );
+        assert!(!sink.text().contains("leaked"));
     }
 
     #[test]

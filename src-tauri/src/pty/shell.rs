@@ -100,9 +100,34 @@ pub struct SpawnPlan {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: Vec<(String, String)>,
+    /// Inherited variables the process must not see.
+    pub env_remove: Vec<String>,
     /// Typed into the shell right after it starts, e.g. `claude --resume <id>\r`.
     pub initial_input: Option<String>,
 }
+
+/// What OpenVibe passes to agents so they report their state (spec §8.2).
+#[derive(Debug, Clone, Default)]
+pub struct AgentHooks {
+    /// Claude: `claude --settings <file>`.
+    pub claude_settings: Option<PathBuf>,
+    /// Codex: the URL its `notify` posts to.
+    pub codex_notify: Option<String>,
+}
+
+/// Claude Code marks the processes its tools start; an OpenVibe launched from
+/// a Claude Code session must not pass them on, or its agents become child
+/// sessions, left out of `--resume` (spec §8.2).
+pub const INHERITED_MARKERS: [&str; 8] = [
+    "CLAUDECODE",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_BRIDGE_SESSION_ID",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_SKIP_PROMPT_HISTORY",
+];
 
 /// Finds an executable on PATH. Injected so tests don't depend on the machine.
 pub type Locate<'a> = &'a dyn Fn(&str) -> Option<PathBuf>;
@@ -205,7 +230,11 @@ pub fn binary(agent: Agent) -> &'static str {
 }
 
 /// The command typed into the shell for an agent, or `None` for a plain shell.
-pub fn agent_command(spec: &SpawnSpec, syntax: ShellSyntax) -> AppResult<Option<String>> {
+pub fn agent_command(
+    spec: &SpawnSpec,
+    syntax: ShellSyntax,
+    hooks: &AgentHooks,
+) -> AppResult<Option<String>> {
     Ok(match spec.agent {
         Agent::Shell => None,
         Agent::Custom => {
@@ -217,7 +246,12 @@ pub fn agent_command(spec: &SpawnSpec, syntax: ShellSyntax) -> AppResult<Option<
             }
             Some(command.to_string())
         }
-        Agent::Claude => Some(claude_command(spec.claude.as_ref(), syntax)?),
+        Agent::Claude => Some(claude_command(
+            spec.claude.as_ref(),
+            syntax,
+            hooks.claude_settings.as_deref(),
+        )?),
+        Agent::Codex => Some(codex_command(syntax, hooks.codex_notify.as_deref())),
         Agent::Ollama => Some(ollama_command(spec.ollama.as_ref(), syntax)?),
         other => Some(binary(other).into()),
     })
@@ -247,11 +281,22 @@ fn ollama_command(launch: Option<&OllamaLaunch>, syntax: ShellSyntax) -> AppResu
     })
 }
 
-fn claude_command(launch: Option<&ClaudeLaunch>, syntax: ShellSyntax) -> AppResult<String> {
+fn claude_command(
+    launch: Option<&ClaudeLaunch>,
+    syntax: ShellSyntax,
+    settings: Option<&Path>,
+) -> AppResult<String> {
     let launch =
         launch.ok_or_else(|| AppError::InvalidInput("options Claude manquantes".into()))?;
+    let claude = match settings {
+        Some(path) => format!(
+            "claude --settings {}",
+            quote(syntax, &path.to_string_lossy())
+        ),
+        None => "claude".to_string(),
+    };
     if launch.mode == ClaudeMode::Continue {
-        return Ok("claude --continue".into());
+        return Ok(format!("{claude} --continue"));
     }
     // Parsing guarantees the id is a bare UUID, so it never needs quoting.
     let session = uuid::Uuid::parse_str(&launch.session_id).map_err(|_| {
@@ -262,17 +307,31 @@ fn claude_command(launch: Option<&ClaudeLaunch>, syntax: ShellSyntax) -> AppResu
     })?;
     let title = clean_title(&launch.title);
     Ok(match launch.mode {
-        ClaudeMode::Resume => format!("claude --resume {session}"),
-        _ if title.is_empty() => format!("claude --session-id {session}"),
+        ClaudeMode::Resume => format!("{claude} --resume {session}"),
+        _ if title.is_empty() => format!("{claude} --session-id {session}"),
         // Git Bash rewrites arguments that look like paths ("/fix" → "C:/Program Files/Git/fix").
         _ if syntax == ShellSyntax::Posix => {
             format!(
-                "MSYS_NO_PATHCONV=1 claude --session-id {session} -n {}",
+                "MSYS_NO_PATHCONV=1 {claude} --session-id {session} -n {}",
                 quote(syntax, &title)
             )
         }
-        _ => format!("claude --session-id {session} -n {}", quote(syntax, &title)),
+        _ => format!(
+            "{claude} --session-id {session} -n {}",
+            quote(syntax, &title)
+        ),
     })
+}
+
+/// `notify` is given as TOML literal strings: PowerShell 5.1 drops the
+/// double quotes nested in an argument passed to a native program.
+fn codex_command(syntax: ShellSyntax, notify_url: Option<&str>) -> String {
+    let Some(url) = notify_url else {
+        return "codex".into();
+    };
+    let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
+    let notify = format!("notify=['{curl}','-s','-X','POST','{url}','-d']");
+    format!("codex -c {}", quote(syntax, &notify))
 }
 
 /// Titles are typed into an interactive shell: control characters would submit or
@@ -286,7 +345,12 @@ fn clean_title(title: &str) -> String {
     kept.trim().trim_end_matches('\\').trim_end().to_string()
 }
 
-pub fn build_plan(node_id: &str, spec: &SpawnSpec, locate: Locate) -> AppResult<SpawnPlan> {
+pub fn build_plan(
+    node_id: &str,
+    spec: &SpawnSpec,
+    locate: Locate,
+    hooks: &AgentHooks,
+) -> AppResult<SpawnPlan> {
     let cwd = PathBuf::from(&spec.cwd);
     if !cwd.is_dir() {
         return Err(AppError::NotFound(format!(
@@ -295,7 +359,8 @@ pub fn build_plan(node_id: &str, spec: &SpawnSpec, locate: Locate) -> AppResult<
         )));
     }
     let shell = resolve_shell(spec.shell, locate)?;
-    let initial_input = agent_command(spec, shell.syntax)?.map(|command| format!("{command}\r"));
+    let initial_input =
+        agent_command(spec, shell.syntax, hooks)?.map(|command| format!("{command}\r"));
     Ok(SpawnPlan {
         program: shell.program,
         args: shell.args,
@@ -306,6 +371,10 @@ pub fn build_plan(node_id: &str, spec: &SpawnSpec, locate: Locate) -> AppResult<
             ("OPENVIBE".into(), "1".into()),
             ("OPENVIBE_NODE_ID".into(), node_id.into()),
         ],
+        env_remove: INHERITED_MARKERS
+            .iter()
+            .map(|key| key.to_string())
+            .collect(),
         initial_input,
     })
 }
@@ -364,6 +433,7 @@ mod tests {
         let cmd = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::New, "Mon agent")),
             ShellSyntax::PowerShell,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -377,6 +447,7 @@ mod tests {
         let cmd = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::New, "  ")),
             ShellSyntax::Posix,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -391,6 +462,7 @@ mod tests {
         let cmd = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::New, "Fix\r del *\x03")),
             ShellSyntax::Cmd,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -407,6 +479,7 @@ mod tests {
                 claude(ClaudeMode::New, "Fix \"login\" page\\"),
             ),
             ShellSyntax::PowerShell,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -421,6 +494,7 @@ mod tests {
         let cmd = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::New, "/fix login")),
             ShellSyntax::Posix,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -436,6 +510,7 @@ mod tests {
         let cmd = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::New, "\r\n\t")),
             ShellSyntax::PowerShell,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -449,6 +524,7 @@ mod tests {
         let resume = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::Resume, "x")),
             ShellSyntax::Cmd,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(
@@ -458,6 +534,7 @@ mod tests {
         let cont = agent_command(
             &spec(Agent::Claude, claude(ClaudeMode::Continue, "x")),
             ShellSyntax::Cmd,
+            &AgentHooks::default(),
         )
         .unwrap();
         assert_eq!(cont.as_deref(), Some("claude --continue"));
@@ -470,7 +547,12 @@ mod tests {
             session_id: "x; rm -rf /".into(),
             title: String::new(),
         });
-        let err = agent_command(&spec(Agent::Claude, launch), ShellSyntax::Posix).unwrap_err();
+        let err = agent_command(
+            &spec(Agent::Claude, launch),
+            ShellSyntax::Posix,
+            &AgentHooks::default(),
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), "invalidInput");
     }
 
@@ -478,12 +560,16 @@ mod tests {
     fn custom_preset_requires_a_command() {
         let mut s = spec(Agent::Custom, None);
         assert_eq!(
-            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            agent_command(&s, ShellSyntax::Cmd, &AgentHooks::default())
+                .unwrap_err()
+                .kind(),
             "invalidInput"
         );
         s.command = "  npm run dev ".into();
         assert_eq!(
-            agent_command(&s, ShellSyntax::Cmd).unwrap().as_deref(),
+            agent_command(&s, ShellSyntax::Cmd, &AgentHooks::default())
+                .unwrap()
+                .as_deref(),
             Some("npm run dev")
         );
     }
@@ -491,14 +577,25 @@ mod tests {
     #[test]
     fn shell_preset_types_nothing() {
         assert_eq!(
-            agent_command(&spec(Agent::Shell, None), ShellSyntax::Cmd).unwrap(),
+            agent_command(
+                &spec(Agent::Shell, None),
+                ShellSyntax::Cmd,
+                &AgentHooks::default()
+            )
+            .unwrap(),
             None
         );
     }
 
     #[test]
     fn plan_types_command_with_carriage_return_and_sets_env() {
-        let plan = build_plan("node-1", &spec(Agent::Aider, None), &nothing_on_path).unwrap();
+        let plan = build_plan(
+            "node-1",
+            &spec(Agent::Aider, None),
+            &nothing_on_path,
+            &AgentHooks::default(),
+        )
+        .unwrap();
         assert_eq!(plan.program, PathBuf::from("cmd.exe"));
         assert_eq!(plan.initial_input.as_deref(), Some("aider\r"));
         assert!(
@@ -508,12 +605,100 @@ mod tests {
         assert!(plan.env.contains(&("TERM".into(), "xterm-256color".into())));
     }
 
+    fn hooked(settings: &str) -> AgentHooks {
+        AgentHooks {
+            claude_settings: Some(PathBuf::from(settings)),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn claude_reports_its_state_through_its_settings_file() {
+        let cmd = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "Mon agent")),
+            ShellSyntax::PowerShell,
+            &hooked(r"C:\data\hooks\n1.json"),
+        )
+        .unwrap();
+        assert_eq!(
+            cmd.as_deref(),
+            Some(
+                r"claude --settings 'C:\data\hooks\n1.json' --session-id 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10 -n 'Mon agent'"
+            )
+        );
+        let resume = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::Resume, "x")),
+            ShellSyntax::Cmd,
+            &hooked(r"C:\data\hooks\n1.json"),
+        )
+        .unwrap();
+        assert_eq!(
+            resume.as_deref(),
+            Some(
+                r#"claude --settings "C:\data\hooks\n1.json" --resume 0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10"#
+            )
+        );
+        let cont = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::Continue, "x")),
+            ShellSyntax::Posix,
+            &hooked("C:/hooks/n1.json"),
+        )
+        .unwrap();
+        assert_eq!(
+            cont.as_deref(),
+            Some("claude --settings 'C:/hooks/n1.json' --continue")
+        );
+    }
+
+    #[test]
+    fn codex_notifies_the_end_of_its_turns() {
+        let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
+        let hooks = AgentHooks {
+            codex_notify: Some("http://127.0.0.1:4242/hook/codex/n1?t=tok".into()),
+            ..Default::default()
+        };
+        let cmd = agent_command(&spec(Agent::Codex, None), ShellSyntax::Cmd, &hooks).unwrap();
+        assert_eq!(
+            cmd.unwrap(),
+            format!(
+                r#"codex -c "notify=['{curl}','-s','-X','POST','http://127.0.0.1:4242/hook/codex/n1?t=tok','-d']""#
+            )
+        );
+        let plain = agent_command(
+            &spec(Agent::Codex, None),
+            ShellSyntax::Cmd,
+            &AgentHooks::default(),
+        )
+        .unwrap();
+        assert_eq!(plain.as_deref(), Some("codex"));
+    }
+
+    #[test]
+    fn terminals_do_not_inherit_claude_code_session_markers() {
+        let plan = build_plan(
+            "node-1",
+            &spec(Agent::Shell, None),
+            &nothing_on_path,
+            &AgentHooks::default(),
+        )
+        .unwrap();
+        for marker in [
+            "CLAUDECODE",
+            "CLAUDE_CODE_CHILD_SESSION",
+            "CLAUDE_CODE_SESSION_ID",
+        ] {
+            assert!(plan.env_remove.iter().any(|key| key == marker), "{marker}");
+        }
+    }
+
     #[test]
     fn plan_rejects_missing_working_directory() {
         let mut s = spec(Agent::Shell, None);
         s.cwd = "Z:/definitely/not/here".into();
         assert_eq!(
-            build_plan("n", &s, &nothing_on_path).unwrap_err().kind(),
+            build_plan("n", &s, &nothing_on_path, &AgentHooks::default())
+                .unwrap_err()
+                .kind(),
             "notFound"
         );
     }
@@ -574,9 +759,13 @@ mod tests {
         ];
         for (agent, command) in agents {
             assert_eq!(
-                agent_command(&spec(agent, None), ShellSyntax::PowerShell)
-                    .unwrap()
-                    .as_deref(),
+                agent_command(
+                    &spec(agent, None),
+                    ShellSyntax::PowerShell,
+                    &AgentHooks::default()
+                )
+                .unwrap()
+                .as_deref(),
                 Some(command)
             );
         }
@@ -590,7 +779,7 @@ mod tests {
             mode: OllamaMode::Chat,
         });
         assert_eq!(
-            agent_command(&s, ShellSyntax::PowerShell)
+            agent_command(&s, ShellSyntax::PowerShell, &AgentHooks::default())
                 .unwrap()
                 .as_deref(),
             Some("ollama run 'qwen2.5-coder:7b'")
@@ -600,7 +789,9 @@ mod tests {
             mode: OllamaMode::Code,
         });
         assert_eq!(
-            agent_command(&s, ShellSyntax::Cmd).unwrap().as_deref(),
+            agent_command(&s, ShellSyntax::Cmd, &AgentHooks::default())
+                .unwrap()
+                .as_deref(),
             Some("aider --model \"ollama_chat/qwen2.5-coder:7b\"")
         );
     }
@@ -609,7 +800,9 @@ mod tests {
     fn rejects_a_missing_or_unsafe_ollama_model() {
         let mut s = spec(Agent::Ollama, None);
         assert_eq!(
-            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            agent_command(&s, ShellSyntax::Cmd, &AgentHooks::default())
+                .unwrap_err()
+                .kind(),
             "invalidInput"
         );
         s.ollama = Some(OllamaLaunch {
@@ -617,7 +810,9 @@ mod tests {
             mode: OllamaMode::Chat,
         });
         assert_eq!(
-            agent_command(&s, ShellSyntax::Cmd).unwrap_err().kind(),
+            agent_command(&s, ShellSyntax::Cmd, &AgentHooks::default())
+                .unwrap_err()
+                .kind(),
             "invalidInput"
         );
     }
