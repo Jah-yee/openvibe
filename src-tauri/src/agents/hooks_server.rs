@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Wired in task 5.
-
 //! The local HTTP endpoint the agents' hooks post to (spec habillage §10.3).
 //! Bound to 127.0.0.1 on a port the system picks; every request must carry the
 //! token drawn at startup.

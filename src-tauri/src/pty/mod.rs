@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 pub use portable_pty::PtySize;
 
 use crate::error::{AppError, AppResult};
-use session::{OutputSink, Session, Started};
+use session::{OnOutput, OutputSink, Session, Started};
 use shell::SpawnPlan;
 
 /// Reported once a terminal's process has exited and its output is drained.
@@ -39,6 +39,7 @@ impl PtyManager {
         plan: SpawnPlan,
         size: PtySize,
         sink: Box<dyn OutputSink>,
+        on_output: OnOutput,
         on_exit: impl FnOnce(ExitInfo) + Send + 'static,
     ) -> AppResult<Option<u32>> {
         let mut sessions = self.sessions.lock().unwrap();
@@ -51,7 +52,7 @@ impl PtyManager {
             session,
             mut child,
             reader,
-        } = Session::start(plan, size, sink)?;
+        } = Session::start(plan, size, sink, on_output)?;
         sessions.insert(node_id.to_string(), session.clone());
         drop(sessions);
 
@@ -217,6 +218,7 @@ mod windows_tests {
             plan,
             pty_size(80, 24),
             Box::new(sink.clone()),
+            Box::new(|| {}),
             move |info| {
                 let _ = tx.send(info);
             },
@@ -364,6 +366,32 @@ mod windows_tests {
     }
 
     #[test]
+    fn reports_each_chunk_of_output_to_the_activity_callback() {
+        let mgr = PtyManager::default();
+        let sink = VecSink::default();
+        let chunks = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = chunks.clone();
+        let (tx, rx) = mpsc::channel();
+        mgr.spawn(
+            "h",
+            cmd_plan(&["/c", "echo activity"], None),
+            pty_size(80, 24),
+            Box::new(sink.clone()),
+            Box::new(move || {
+                counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }),
+            move |info| {
+                let _ = tx.send(info);
+            },
+        )
+        .unwrap();
+        wait_until("cursor position query", || sink.text().contains("\x1b[6n"));
+        mgr.write("h", b"\x1b[1;1R").unwrap();
+        wait_exit(&rx);
+        assert!(chunks.load(std::sync::atomic::Ordering::SeqCst) > 0);
+    }
+
+    #[test]
     fn rejects_a_second_spawn_for_the_same_node_and_resizes() {
         let mgr = PtyManager::default();
         let exited = spawn_answering(&mgr, "d", cmd_plan(&[], None), VecSink::default());
@@ -372,6 +400,7 @@ mod windows_tests {
             cmd_plan(&[], None),
             pty_size(80, 24),
             Box::new(VecSink::default()),
+            Box::new(|| {}),
             |_| {},
         );
         assert_eq!(again.unwrap_err().kind(), "invalidInput");

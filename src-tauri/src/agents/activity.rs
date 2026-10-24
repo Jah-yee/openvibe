@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Wired in task 5.
-
 //! Agent activity (spec habillage §10.2): working, waiting for the user or
 //! idle, from the agents' hooks first, else from their terminal's output.
 

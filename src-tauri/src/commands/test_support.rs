@@ -30,6 +30,7 @@ pub fn run_terminal(pty: &PtyManager, node_id: &str) -> mpsc::Receiver<()> {
         plan,
         pty_size(80, 24),
         Box::new(NullSink),
+        Box::new(|| {}),
         move |_| {
             let _ = tx.send(());
         },

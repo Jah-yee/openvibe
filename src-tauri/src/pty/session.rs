@@ -15,6 +15,9 @@ pub trait OutputSink: Send {
     fn send(&self, bytes: &[u8]) -> bool;
 }
 
+/// Called after each chunk of output is read: the agent's activity.
+pub type OnOutput = Box<dyn Fn() + Send>;
+
 /// Scrollback and sink share one lock so that re-attaching (snapshot + sink swap)
 /// can never miss or duplicate a chunk the reader is forwarding at the same time.
 struct Output {
@@ -41,7 +44,12 @@ pub fn pty_err(err: impl std::fmt::Display) -> AppError {
 }
 
 impl Session {
-    pub fn start(plan: SpawnPlan, size: PtySize, sink: Box<dyn OutputSink>) -> AppResult<Started> {
+    pub fn start(
+        plan: SpawnPlan,
+        size: PtySize,
+        sink: Box<dyn OutputSink>,
+        on_output: OnOutput,
+    ) -> AppResult<Started> {
         let pair = native_pty_system().openpty(size).map_err(pty_err)?;
         let mut cmd = CommandBuilder::new(&plan.program);
         cmd.args(&plan.args);
@@ -72,7 +80,7 @@ impl Session {
             }),
             pid: child.process_id(),
         });
-        let reader = spawn_reader(reader, session.clone());
+        let reader = spawn_reader(reader, session.clone(), on_output);
         Ok(Started {
             session,
             child,
@@ -127,7 +135,11 @@ impl Session {
     }
 }
 
-fn spawn_reader(mut reader: Box<dyn Read + Send>, session: Arc<Session>) -> JoinHandle<()> {
+fn spawn_reader(
+    mut reader: Box<dyn Read + Send>,
+    session: Arc<Session>,
+    on_output: OnOutput,
+) -> JoinHandle<()> {
     std::thread::spawn(move || {
         let mut buf = [0u8; 16 * 1024];
         loop {
@@ -135,11 +147,14 @@ fn spawn_reader(mut reader: Box<dyn Read + Send>, session: Arc<Session>) -> Join
                 Ok(0) | Err(_) => break,
                 Ok(n) => {
                     let chunk = &buf[..n];
-                    let mut output = session.output.lock().unwrap();
-                    output.scrollback.push(chunk);
-                    if output.sink.as_ref().is_some_and(|sink| !sink.send(chunk)) {
-                        output.sink = None;
+                    {
+                        let mut output = session.output.lock().unwrap();
+                        output.scrollback.push(chunk);
+                        if output.sink.as_ref().is_some_and(|sink| !sink.send(chunk)) {
+                            output.sink = None;
+                        }
                     }
+                    on_output();
                 }
             }
         }

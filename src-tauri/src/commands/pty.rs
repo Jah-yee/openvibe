@@ -2,11 +2,12 @@ use serde::Serialize;
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::agents::{self, AgentInfo};
+use crate::agents::{self as catalog, AgentInfo};
+use crate::commands::agents;
 use crate::db::{Db, scrollback};
 use crate::error::{AppError, AppResult};
 use crate::pty::session::OutputSink;
-use crate::pty::shell::{AgentHooks, ShellKind, SpawnSpec, build_plan, which_locate};
+use crate::pty::shell::{ShellKind, SpawnSpec, build_plan, which_locate};
 use crate::pty::{PtyManager, pty_size};
 
 /// Forwards PTY output to the webview as raw bytes (an `ArrayBuffer` in JS).
@@ -35,22 +36,36 @@ pub async fn pty_spawn(
     rows: u16,
     on_data: Channel<Response>,
 ) -> AppResult<Option<u32>> {
-    let plan = build_plan(&node_id, &spec, &which_locate, &AgentHooks::default())?;
+    let hooks = agents::hooks_for(&app, &node_id, spec.agent);
+    let plan = match build_plan(&node_id, &spec, &which_locate, &hooks) {
+        Ok(plan) => plan,
+        Err(err) => {
+            // The settings file written for this launch has no use any more.
+            agents::ended(&app, &node_id);
+            return Err(err);
+        }
+    };
     let exited_id = node_id.clone();
-    pty.spawn(
+    let output_app = app.clone();
+    let output_id = node_id.clone();
+    let exit_app = app.clone();
+    agents::started(&app, &node_id);
+    let spawned = pty.spawn(
         &node_id,
         plan,
         pty_size(cols, rows),
         Box::new(ChannelSink(on_data)),
+        Box::new(move || agents::output(&output_app, &output_id)),
         move |info| {
+            agents::ended(&exit_app, &exited_id);
             // Saved before the event so a restore right after the exit finds it.
-            let saved = app
+            let saved = exit_app
                 .state::<Db>()
                 .with(|conn| scrollback::save(conn, &exited_id, &info.scrollback));
             if let Err(err) = saved {
                 eprintln!("scrollback of {exited_id} not saved: {err}");
             }
-            let _ = app.emit(
+            let _ = exit_app.emit(
                 "pty-exit",
                 PtyExitEvent {
                     node_id: exited_id,
@@ -58,7 +73,11 @@ pub async fn pty_spawn(
                 },
             );
         },
-    )
+    );
+    if spawned.is_err() {
+        agents::ended(&app, &node_id);
+    }
+    spawned
 }
 
 #[tauri::command]
@@ -114,19 +133,19 @@ pub async fn get_scrollback(
 
 #[tauri::command]
 pub async fn list_agents() -> AppResult<Vec<AgentInfo>> {
-    Ok(agents::list_agents(&which_locate))
+    Ok(catalog::list_agents(&which_locate))
 }
 
 #[tauri::command]
 pub async fn list_ollama_models() -> AppResult<Vec<String>> {
-    tauri::async_runtime::spawn_blocking(agents::ollama_models)
+    tauri::async_runtime::spawn_blocking(catalog::ollama_models)
         .await
         .map_err(|err| AppError::Io(std::io::Error::other(err.to_string())))?
 }
 
 #[tauri::command]
 pub async fn list_shells() -> AppResult<Vec<ShellKind>> {
-    Ok(agents::list_shells(&which_locate))
+    Ok(catalog::list_shells(&which_locate))
 }
 
 /// Writes scrollbacks to SQLite: only the changed ones, or all of them at exit.

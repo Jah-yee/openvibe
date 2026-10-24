@@ -42,6 +42,7 @@ pub fn run() {
             };
             app.manage(db);
             spawn_scrollback_flusher(app.handle().clone());
+            commands::agents::setup(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -74,6 +75,7 @@ pub fn run() {
             commands::project::delete_project,
             commands::workspace::set_workspace_pantheon,
             commands::git::git_status,
+            commands::agents::agent_activity_snapshot,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the OpenVibe application");

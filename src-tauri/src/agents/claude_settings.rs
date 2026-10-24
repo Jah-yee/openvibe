@@ -1,5 +1,3 @@
-#![allow(dead_code)] // Wired in task 5.
-
 //! The settings file given to Claude with `--settings` (spec habillage §8.2,
 //! §10.3): http hooks that report its state, none that could block a decision.
 
