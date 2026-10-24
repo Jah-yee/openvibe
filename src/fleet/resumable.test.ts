@@ -15,11 +15,17 @@ describe("resumableTerminals", () => {
       d: { state: "error", message: "x" },
       e: { state: "stopped" },
     };
-    expect(resumableTerminals(nodes, statuses, "w1", new Set())).toEqual(["a", "f"]);
+    const onScene = new Set(Object.keys(nodes));
+    expect(resumableTerminals(nodes, statuses, "w1", new Set(), onScene)).toEqual(["a", "f"]);
   });
 
   it("skips terminals still running in Rust after a webview reload", () => {
     const nodes = { a: node("w1") };
-    expect(resumableTerminals(nodes, {}, "w1", new Set(["a"]))).toEqual([]);
+    expect(resumableTerminals(nodes, {}, "w1", new Set(["a"]), new Set(["a"]))).toEqual([]);
+  });
+
+  it("skips terminals closed from the canvas, whose record stays in memory for undo", () => {
+    const nodes = { kept: node("w1"), closed: node("w1") };
+    expect(resumableTerminals(nodes, {}, "w1", new Set(), new Set(["kept"]))).toEqual(["kept"]);
   });
 });

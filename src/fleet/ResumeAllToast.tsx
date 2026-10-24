@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { History, X } from "lucide-react";
 import { toast } from "sonner";
+import { canvasStore } from "@/canvas/canvasStore";
+import { liveNodeIds } from "@/canvas/sceneSync";
 import { useStore } from "zustand";
 import { isLiveInRust, resumeTerminal } from "@/nodes/terminal/registry";
 import { nodesStore, useNodes } from "@/store/nodes";
@@ -17,10 +19,15 @@ function liveSet(ids: string[]): Set<string> {
   return new Set(ids.filter(isLiveInRust));
 }
 
+/** Terminals on the canvas on screen; closed ones are kept in memory for undo. */
+function sceneSet(): Set<string> {
+  return new Set(liveNodeIds(canvasStore.getState().api?.getSceneElements() ?? []));
+}
+
 function ResumeAllToast({ workspaceId }: { workspaceId: string }) {
   const nodes = useNodes((s) => s.nodes);
   const statuses = useStore(terminalStatusStore, (s) => s.statuses);
-  const ids = resumableTerminals(nodes, statuses, workspaceId, liveSet(Object.keys(nodes)));
+  const ids = resumableTerminals(nodes, statuses, workspaceId, liveSet(Object.keys(nodes)), sceneSet());
 
   useEffect(() => {
     if (ids.length === 0) toast.dismiss(toastId(workspaceId));
@@ -64,7 +71,7 @@ export function offerResumeAll(workspaceId: string) {
   if (answered.has(workspaceId)) return;
   const nodes = nodesStore.getState().nodes;
   const statuses = terminalStatusStore.getState().statuses;
-  if (resumableTerminals(nodes, statuses, workspaceId, liveSet(Object.keys(nodes))).length === 0) return;
+  if (resumableTerminals(nodes, statuses, workspaceId, liveSet(Object.keys(nodes)), sceneSet()).length === 0) return;
   toast.custom(() => <ResumeAllToast workspaceId={workspaceId} />, {
     id: toastId(workspaceId),
     duration: Infinity,
