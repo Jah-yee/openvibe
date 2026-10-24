@@ -11,7 +11,7 @@ import { nodesStore } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
-import { startsOnKeystroke } from "./pill";
+import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
 import { acceptsInput, attachSession, relaunchSession, restoreSession, startSession, type SessionState } from "./session";
 
 // Terminals live outside React (spec §6.4): Excalidraw unmounts embeddables on a
@@ -74,8 +74,10 @@ function create(nodeId: string): Entry {
   });
   // Spec habillage §7.3: typing in a terminal where nothing runs starts it again.
   // onKey, not onData: xterm also answers the queries of a restored screen.
-  term.onKey(() => {
-    if (!entry.session.replaying && startsOnKeystroke(statusOf(nodeId))) startFresh(nodeId);
+  term.onKey(({ domEvent }) => {
+    if (!entry.session.replaying && isTypingKey(domEvent) && startsOnKeystroke(statusOf(nodeId))) {
+      void startFresh(nodeId, entry);
+    }
   });
   term.onResize(({ cols, rows }) => {
     if (isRunning(nodeId)) void ptyResize(nodeId, cols, rows).catch(() => undefined);
@@ -124,16 +126,23 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
 }
 
 /** Starts a terminal again from a keystroke: a new conversation for Claude. */
-function startFresh(nodeId: string) {
+async function startFresh(nodeId: string, entry: Entry) {
   const record = nodesStore.getState().nodes[nodeId];
   if (!record) return;
   let payload = record.payload;
-  if (payload.agent === "claude") {
+  if (payload.agent === "claude" && startsNewConversation(statusOf(nodeId))) {
     const claudeSessionId = crypto.randomUUID();
     nodesStore.getState().update(nodeId, { claudeSessionId });
     payload = { ...payload, claudeSessionId };
   }
-  relaunchTerminal(nodeId, payload, "new");
+  // Set before the first await: xterm sends the triggering key to onData right
+  // after onKey, and it would reach the shell before the agent starts.
+  entry.session.restarting = true;
+  try {
+    await relaunchSession(nodeId, entry.term, payload, "new");
+  } finally {
+    entry.session.restarting = false;
+  }
 }
 
 /** True while a process started before a webview reload awaits re-attachment. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pillOf, resumeOfferOf, startsOnKeystroke } from "./pill";
+import { isTypingKey, pillOf, resumeOfferOf, startsNewConversation, startsOnKeystroke } from "./pill";
 
 describe("pillOf", () => {
   it("labels each process state (spec habillage §7.2)", () => {
@@ -27,5 +27,38 @@ describe("startsOnKeystroke", () => {
     expect(startsOnKeystroke({ state: "exited", code: 1 })).toBe(true);
     expect(startsOnKeystroke({ state: "error", message: "x" })).toBe(true);
     expect(startsOnKeystroke({ state: "running" })).toBe(false);
+  });
+});
+
+describe("isTypingKey", () => {
+  const key = (k: string, mods: Partial<Record<"ctrlKey" | "altKey" | "metaKey", boolean>> = {}) => ({
+    key: k,
+    ctrlKey: false,
+    altKey: false,
+    metaKey: false,
+    ...mods,
+  });
+
+  it("counts characters and Enter as typing", () => {
+    expect(isTypingKey(key("a"))).toBe(true);
+    expect(isTypingKey(key("É"))).toBe(true);
+    expect(isTypingKey(key("Enter"))).toBe(true);
+    expect(isTypingKey(key("@", { ctrlKey: true, altKey: true }))).toBe(true); // AltGr on AZERTY
+  });
+
+  it("ignores navigation, function keys and shortcuts", () => {
+    for (const k of ["Escape", "ArrowUp", "Tab", "F5", "Shift", "Backspace"]) expect(isTypingKey(key(k))).toBe(false);
+    expect(isTypingKey(key("c", { ctrlKey: true }))).toBe(false);
+    expect(isTypingKey(key("z", { ctrlKey: true }))).toBe(false);
+    expect(isTypingKey(key("x", { altKey: true }))).toBe(false);
+    expect(isTypingKey(key("v", { metaKey: true }))).toBe(false);
+  });
+});
+
+describe("startsNewConversation", () => {
+  it("keeps the conversation id when the previous launch failed", () => {
+    expect(startsNewConversation({ state: "stopped" })).toBe(true);
+    expect(startsNewConversation({ state: "exited", code: 0 })).toBe(true);
+    expect(startsNewConversation({ state: "error", message: "dossier introuvable" })).toBe(false);
   });
 });

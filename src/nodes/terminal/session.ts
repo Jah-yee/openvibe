@@ -13,13 +13,15 @@ export interface TermSink {
 /** Per-terminal flag: true while replayed output is being written (see attachSession). */
 export interface SessionState {
   replaying: boolean;
+  /** True while a keystroke restarts the terminal: that keystroke is not sent. */
+  restarting?: boolean;
 }
 
 const setStatus = terminalStatusStore.getState().set;
 
-/** Keystrokes go to the process only while it runs and no old output is replayed. */
+/** Keystrokes go to the process only while it runs, no old output is replayed and no restart is under way. */
 export function acceptsInput(nodeId: string, state: SessionState): boolean {
-  return !state.replaying && isRunning(nodeId);
+  return !state.replaying && !state.restarting && isRunning(nodeId);
 }
 
 export async function startSession(nodeId: string, term: TermSink, payload: TerminalPayload, mode: LaunchMode) {

@@ -96,3 +96,9 @@ it("relaunch waits for the old process to exit before spawning", async () => {
   expect(calls.map((c) => c.cmd)).toEqual(["pty_kill", "pty_spawn"]);
   expect(statusOf("t").state).toBe("running");
 });
+
+it("ignores keystrokes while a terminal restarts from one", () => {
+  terminalStatusStore.getState().set("t", { state: "running" });
+  expect(acceptsInput("t", { replaying: false, restarting: true })).toBe(false);
+  expect(acceptsInput("t", { replaying: false, restarting: false })).toBe(true);
+});

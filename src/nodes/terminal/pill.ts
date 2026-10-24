@@ -36,3 +36,20 @@ export function resumeOfferOf(status: TerminalStatus, agent: AgentId, hasSession
 export function startsOnKeystroke(status: TerminalStatus): boolean {
   return status.state !== "running";
 }
+
+/**
+ * "Taper" in "taper démarre à neuf": a character or Enter. Escape, arrows,
+ * function keys and shortcuts (Ctrl+C, Ctrl+Z…) are reflexes, not typing, and
+ * must not throw away the conversation the card offers to resume. AltGr
+ * characters (Ctrl+Alt on Windows) count as typing.
+ */
+export function isTypingKey(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "altKey" | "metaKey">): boolean {
+  const altGr = e.ctrlKey && e.altKey;
+  const shortcut = e.metaKey || (!altGr && (e.ctrlKey || e.altKey));
+  return !shortcut && ([...e.key].length === 1 || e.key === "Enter");
+}
+
+/** A failed launch created no conversation: retrying keeps the same Claude session id. */
+export function startsNewConversation(status: TerminalStatus): boolean {
+  return status.state !== "error";
+}
