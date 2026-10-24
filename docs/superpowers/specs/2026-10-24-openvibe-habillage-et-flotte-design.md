@@ -246,7 +246,7 @@ Au chargement d'un workspace contenant au moins un terminal arrêté, un toast p
 ### 7.5 Fermer et dupliquer
 
 - Fermer un terminal dont le processus vit : dialogue « Fermer Isis ? — Isis est en cours. La fermer met fin à sa session. » (ou « …est prête. » si inactive), Annuler / Fermer l'agent (rouge). Terminal arrêté : fermeture directe (annulable par Ctrl+Z comme aujourd'hui).
-- Dupliquer : crée un nouveau terminal à droite du nœud (même agent, dossier, shell, groupe ; nouveau prénom ; Claude : nouvelle session) et le lance.
+- Dupliquer : crée un nouveau terminal à droite du nœud (même agent, dossier, shell, groupe ; nouveau prénom ; Claude : nouvelle session) et le lance. Dans un groupe, la copie prend la première case libre de la grille du groupe (§11.3).
 - La duplication et le copier-coller par Excalidraw d'un élément terminal créent désormais un vrai nouveau terminal (nouvel identifiant, nouvelle charge utile) au lieu d'un nœud vide (correction du mineur du plan 2).
 
 ## 8. Catalogue d'agents
@@ -316,7 +316,7 @@ Ordre d'attribution et noms (16 par panthéon, dans cet ordre) :
 
 - Ouvert par l'outil Agent du rail ou le `⌄` d'un en-tête. Titre « LANCER UN AGENT ». Une ligne par agent du catalogue : logo dans une pastille teintée, libellé, éditeur en gris ; coche sur l'agent par défaut ; lignes grisées pour les agents absents.
 - Pied : « puis clique sur le canvas pour le poser » ; lien « Options » (dossier — par défaut celui du projet —, shell, commande personnalisée, titre).
-- Après le choix, un rectangle orange en pointillé (taille du nœud terminal, 720 × 440, mis à l'échelle du zoom) suit le curseur ; un clic pose le terminal (centré sur le clic) et le lance ; Échap annule. Si le clic tombe dans un cadre de groupe, le terminal rejoint ce groupe.
+- Après le choix, un rectangle orange en pointillé (taille du nœud terminal, 720 × 440, mis à l'échelle du zoom) suit le curseur ; un clic pose le terminal (centré sur le clic) et le lance ; Échap annule. Si le clic tombe dans un cadre de groupe, le terminal rejoint ce groupe et se range dans sa grille (§11.3) ; pendant le placement, le rectangle en pointillé s'aligne sur la case que le terminal prendra.
 - Entrée supplémentaire en bas du menu : « Orchestrateur » (§13), posé de la même façon.
 
 ### 10.2 Modèle d'états
@@ -375,7 +375,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 
 - champ nom avec point de couleur, prérempli par le libellé du rôle et sélectionné ;
 - rôles en pastilles à point coloré : Frontend, Backend, Testeurs, Relecteurs, Design, Docs, Sécurité, Général (actif : pastille pleine) ; changer de rôle remplace le nom s'il n'a pas été modifié ;
-- grille de 4 colonnes d'emplacements (90 × 72, rayon 10) : logo de l'agent dans un carré teinté et libellé ; clic sur un emplacement : menu des agents disponibles ;
+- grille de 4 colonnes d'emplacements (72 px de haut, largeur de la colonne, rayon 10 ; quatre emplacements de 90 px ne tiennent pas dans 360 px) : logo de l'agent dans un carré teinté et libellé ; clic sur un emplacement : menu des agents disponibles ;
 - rangée « Tout remplir avec » : logos des agents disponibles ;
 - pied : pas `− N +` (1 à 12, 4 par défaut) et bouton « Lancer N » à la couleur du rôle (texte sombre).
 - Lancer : crée le cadre et les terminaux (§11.3), ferme le popover.
@@ -386,12 +386,18 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 - Le cadre est centré sur le centre de la vue, puis la vue s'ajuste pour le montrer entier (`scrollToContent`, animation 300 ms, zoom plafonné à 100 %).
 - Les terminaux sont créés en une seule mise à jour de scène (une seule entrée d'annulation), puis lancés à 300 ms d'intervalle.
 - « Lancer 4 » : rôle Général, nom « Groupe N » (plus petit N libre), 4 agents par défaut.
+- **Alignement dans le groupe** (demande de Mathieu, 2026-10-24) : tout terminal ouvert dans un groupe — clic de placement dans le cadre, « Nouvelle console » quand le centre de la vue tombe dans le cadre, « Ajouter un agent », « Dupliquer » ou copie (Ctrl+D, copier-coller) d'un membre — prend la première case libre de la grille du groupe, ligne par ligne. La grille part du coin du cadre, avec les marges ci-dessus ; une case est prise quand un élément du cadre en couvre plus d'un dixième, si bien qu'un terminal déplacé à la main garde sa case. Cadre plein : il s'agrandit d'une colonne (jusqu'à 4), sinon d'une ligne.
+- Glisser à la main un terminal dans un cadre ne le range pas : il reste où on le lâche.
 
 ### 11.4 Étiquette et menu
 
 - Posée sur le bord haut du cadre, à 16 px du coin, comme un onglet : point de 6 px à la couleur du rôle, nom en majuscules semi-gras 11 px interlettré, puis en Geist Mono gris `12 · 3 en cours` (membres, membres en activité `working` ; « inactif » si aucun ; `· 1 attend` ajouté en ambre si besoin), puis `⌄`.
 - Contour du cadre : 1 px à la couleur du rôle à 60 %, rayon 12, fond teinté du rôle à 4 %. Dessinés par la couche d'habillage (§16), sous les nœuds.
 - Menu `⌄` : Renommer, Ajouter un agent (menu des agents, posé dans la première case libre de la grille), Relier un orchestrateur (crée un orchestrateur à gauche du groupe, relié), Tout mettre en pause, Tout reprendre, Dégrouper (supprime le cadre, garde les terminaux), Fermer le groupe (confirmation listant les agents vivants ; supprime cadre et terminaux).
+- Jusqu'à J3, « en cours » compte les membres dont le processus tourne (pastille ACTIF) ; J3 le remplace par l'activité `working`.
+- Relier un orchestrateur, Tout mettre en pause et Tout reprendre arrivent avec J5 ; d'ici là, le menu ne les montre pas.
+- Les cadres simples reçoivent un contour gris sobre de la même couche (l'outline native est désactivée, §5.7).
+- Le nom natif de tous les cadres prend la police de l'étiquette (Geist 11 px semi-gras, majuscules, 28 px de marge pour le point) et sa position (16 px du coin, posé sur le bord), pour que la zone qu'on saisit coïncide avec notre étiquette ; il est transparent pour les groupes.
 
 ## 12. Barre de commande
 
@@ -542,11 +548,11 @@ Les fonctions de calcul (couleurs de scène, prénoms, groupes, placement, cible
 |---|---|---|---|
 | A | J1 — Thème et coquille | jetons et polices, couleurs de scène, interface d'Excalidraw masquée, grille de points, sélection orange, rail gauche et menus Formes et Stylo, panneau de propriétés restylé, barre du haut avec projets et onglets, accueil, migration 002 (projets), puce git, zoom, réglages | le nouveau look complet autour du canvas |
 | A | J2 — Terminal et catalogue | en-tête et pastilles, bordures teintées, encart et toast de reprise, fermeture confirmée, duplication réelle, catalogue d'agents et menu Agent avec placement, Ollama, prénoms mythologiques, puce « Nouvelle console » | les terminaux à la Symvibe |
-| B | J3 — États des agents | serveur local des hooks, réglages Claude, `notify` Codex, activité du terminal, événement `agent-activity`, pastilles vivantes, compteurs | EN COURS / ATTEND / PRÊT en direct |
-| B | J4 — Groupes | cadres de groupe, étiquettes et contours, Composer un groupe, Lancer 4, placement en grille, menu de groupe, panneau Flotte | les équipes |
-| B | J5 — Commande et orchestrateur | barre de commande et `@`, `pty_send_text`, historique, orchestrateur et liaisons, pause et reprise | piloter la flotte |
+| B2 | J3 — États des agents | serveur local des hooks, réglages Claude, `notify` Codex, activité du terminal, événement `agent-activity`, pastilles vivantes, compteurs, rail droit et panneau Flotte | EN COURS / ATTEND / PRÊT en direct |
+| B1 | J4 — Groupes | cadres de groupe, étiquettes et contours, Composer un groupe, Lancer 4, placement en grille et alignement, menu de groupe | les équipes |
+| B3 | J5 — Commande et orchestrateur | barre de commande et `@`, `pty_send_text`, historique, orchestrateur et liaisons, pause et reprise | piloter la flotte |
 
-Les éléments de la coquille apparaissent avec le jalon qui les rend fonctionnels : la puce « Nouvelle console » en J2 ; le rail droit, le panneau Flotte et les puces « Lancer 4 » et « Groupe » en J4 ; la barre de commande et les puces de pause et de reprise en J5. Aucun bouton inactif n'est affiché entre-temps.
+Les éléments de la coquille apparaissent avec le jalon qui les rend fonctionnels : la puce « Nouvelle console » en J2 ; les puces « Lancer 4 » et « Groupe » en J4 ; le rail droit et le panneau Flotte en J3, dont viennent ses filtres et ses durées (le jalon J4 est livré avant J3, à la demande de Mathieu) ; la barre de commande et les puces de pause et de reprise en J5. Aucun bouton inactif n'est affiché entre-temps.
 
 Chaque jalon se termine par une vérification manuelle de Mathieu (§19) et au moins un commit.
 
