@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { saveNode, saveScene } from "./db";
+import { flushAll } from "@/lib/flush";
+import { saveFiles, saveNode, saveScene } from "./db";
 
 afterEach(() => clearMocks());
 
@@ -19,6 +20,21 @@ it("never lets a scene save overtake a node save sent before it", async () => {
   release();
   await Promise.all([node, scene]);
   expect(started).toEqual(["save_node", "save_scene"]);
+});
+
+it("flushing before close waits for writes already in the queue", async () => {
+  let release!: () => void;
+  mockIPC((cmd) => {
+    if (cmd === "save_files") return new Promise<void>((resolve) => (release = resolve));
+  });
+  void saveFiles("w1", []);
+  let flushed = false;
+  const flushing = flushAll().then(() => (flushed = true));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(flushed).toBe(false);
+  release();
+  await flushing;
+  expect(flushed).toBe(true);
 });
 
 it("sends camelCase arguments", async () => {

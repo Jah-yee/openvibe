@@ -5,6 +5,7 @@ use crate::db::scenes::{self, SceneFile, WorkspaceData};
 use crate::db::workspaces::{self, Workspace};
 use crate::db::{Db, settings};
 use crate::error::AppResult;
+use crate::pty::PtyManager;
 
 #[tauri::command]
 pub async fn list_workspaces(db: State<'_, Db>) -> AppResult<Vec<Workspace>> {
@@ -22,8 +23,27 @@ pub async fn rename_workspace(db: State<'_, Db>, id: String, name: String) -> Ap
 }
 
 #[tauri::command]
-pub async fn delete_workspace(db: State<'_, Db>, id: String) -> AppResult<()> {
-    db.with(|conn| workspaces::delete(conn, &id))
+pub async fn delete_workspace(
+    db: State<'_, Db>,
+    pty: State<'_, PtyManager>,
+    id: String,
+) -> AppResult<()> {
+    delete_workspace_and_stop(&db, &pty, &id)
+}
+
+/// Deletes a workspace, then stops its terminals. Rust does it rather than the
+/// front, which only knows the nodes of the workspaces it has displayed: after a
+/// webview reload, agents of a never-opened workspace would keep running unseen.
+pub fn delete_workspace_and_stop(db: &Db, pty: &PtyManager, id: &str) -> AppResult<()> {
+    let node_ids = db.with(|conn| {
+        let ids = nodes::ids_of_workspace(conn, id)?;
+        workspaces::delete(conn, id)?;
+        Ok(ids)
+    })?;
+    for node_id in node_ids {
+        pty.kill(&node_id);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -73,6 +93,77 @@ pub async fn save_node(
 #[tauri::command]
 pub async fn get_setting(db: State<'_, Db>, key: String) -> AppResult<Option<serde_json::Value>> {
     db.with(|conn| settings::get(conn, &key))
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use super::*;
+    use crate::pty::pty_size;
+    use crate::pty::session::OutputSink;
+    use crate::pty::shell::SpawnPlan;
+
+    struct NullSink;
+
+    impl OutputSink for NullSink {
+        fn send(&self, _bytes: &[u8]) -> bool {
+            true
+        }
+    }
+
+    /// Starts an idle cmd.exe for `node_id`; the receiver fires when it exits.
+    fn run_terminal(pty: &PtyManager, node_id: &str) -> mpsc::Receiver<()> {
+        let plan = SpawnPlan {
+            program: "cmd.exe".into(),
+            args: vec![],
+            cwd: std::env::temp_dir(),
+            env: vec![],
+            initial_input: None,
+        };
+        let (tx, rx) = mpsc::channel();
+        pty.spawn(
+            node_id,
+            plan,
+            pty_size(80, 24),
+            Box::new(NullSink),
+            move |_| {
+                let _ = tx.send(());
+            },
+        )
+        .unwrap();
+        rx
+    }
+
+    #[test]
+    fn deleting_a_workspace_stops_its_terminals_even_if_the_front_never_loaded_them() {
+        let db = Db::open_in_memory().unwrap();
+        let a = db.with(|conn| workspaces::create(conn, "A")).unwrap();
+        db.with(|conn| workspaces::create(conn, "B")).unwrap();
+        db.with(|conn| nodes::save(conn, "t", &a.id, NodeKind::Terminal, "{}"))
+            .unwrap();
+        let pty = PtyManager::default();
+        let exited = run_terminal(&pty, "t");
+        delete_workspace_and_stop(&db, &pty, &a.id).unwrap();
+        exited
+            .recv_timeout(Duration::from_secs(20))
+            .expect("the terminal of a deleted workspace must stop");
+    }
+
+    #[test]
+    fn a_refused_deletion_leaves_terminals_running() {
+        let db = Db::open_in_memory().unwrap();
+        let only = db.with(|conn| workspaces::create(conn, "Seul")).unwrap();
+        db.with(|conn| nodes::save(conn, "t", &only.id, NodeKind::Terminal, "{}"))
+            .unwrap();
+        let pty = PtyManager::default();
+        let _exited = run_terminal(&pty, "t");
+        let err = delete_workspace_and_stop(&db, &pty, &only.id).unwrap_err();
+        assert_eq!(err.kind(), "invalidInput");
+        assert_eq!(pty.list(), vec!["t".to_string()]);
+        pty.kill_all();
+    }
 }
 
 #[tauri::command]

@@ -41,6 +41,12 @@ pub fn save(
     Ok(())
 }
 
+pub fn ids_of_workspace(conn: &Connection, workspace_id: &str) -> AppResult<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT id FROM nodes WHERE workspace_id = ?1")?;
+    let ids = stmt.query_map([workspace_id], |row| row.get(0))?;
+    Ok(ids.collect::<rusqlite::Result<_>>()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,6 +65,21 @@ mod tests {
                         r.get(0)
                     })?;
                 assert_eq!(payload, r#"{"title":"b"}"#);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn lists_the_node_ids_of_one_workspace() {
+        Db::open_in_memory()
+            .unwrap()
+            .with(|conn| {
+                let a = workspaces::create(conn, "A")?;
+                let b = workspaces::create(conn, "B")?;
+                save(conn, "a1", &a.id, NodeKind::Terminal, "{}")?;
+                save(conn, "b1", &b.id, NodeKind::Note, "{}")?;
+                assert_eq!(ids_of_workspace(conn, &a.id)?, vec!["a1".to_string()]);
                 Ok(())
             })
             .unwrap();

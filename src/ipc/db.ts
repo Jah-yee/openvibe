@@ -1,4 +1,5 @@
 import type { NodeKind } from "@/canvas/nodeElement";
+import { onFlushAll } from "@/lib/flush";
 import { createQueue } from "@/lib/queue";
 import { call } from "./invoke";
 
@@ -32,6 +33,10 @@ export interface WorkspaceData {
 // Writes go through one queue: a scene save that purges nodes must never overtake
 // the save of a node created just before it.
 const write = createQueue();
+
+// Closing the window waits for writes already queued (a save fired just before the
+// close may sit behind a large image save), not only for the ones still pending.
+onFlushAll(() => write(() => Promise.resolve()));
 
 export const listWorkspaces = () => call<Workspace[]>("list_workspaces");
 export const loadWorkspace = (id: string) => call<WorkspaceData>("load_workspace", { id });

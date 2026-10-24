@@ -1,9 +1,9 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onPtyExit, ptyList } from "@/ipc/pty";
-import { flushAll } from "@/lib/flush";
 import { setLivePtys } from "@/nodes/terminal/registry";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { workspacesStore } from "@/store/workspaces";
+import { saveBeforeClose } from "./close";
 
 let booting: Promise<void> | undefined;
 
@@ -18,9 +18,7 @@ export function boot(): Promise<void> {
       terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode }),
     );
     setLivePtys(await ptyList());
-    await getCurrentWindow().onCloseRequested(async () => {
-      await flushAll();
-    });
+    await getCurrentWindow().onCloseRequested(saveBeforeClose);
     await workspacesStore.getState().init();
   })();
   return booting;

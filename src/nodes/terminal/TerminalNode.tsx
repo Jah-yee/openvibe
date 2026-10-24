@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus, type TerminalStatus } from "@/store/terminalStatus";
+import { createFitScheduler } from "./fitScheduler";
 import { PRESET_LABELS, type LaunchMode } from "./launch";
 import { fitTerminal, mountTerminal, relaunchTerminal, stopTerminal } from "./registry";
 
@@ -26,9 +27,13 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
     const current = nodesStore.getState().nodes[nodeId]?.payload;
     if (!host || !current) return;
     mountTerminal(nodeId, host, current);
-    const observer = new ResizeObserver(() => fitTerminal(nodeId, host));
+    const fit = createFitScheduler(() => fitTerminal(nodeId, host));
+    const observer = new ResizeObserver(fit.schedule);
     observer.observe(host);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      fit.cancel();
+    };
   }, [nodeId, hasPayload]);
 
   if (!payload) {
@@ -39,7 +44,11 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
     <div className="flex h-full flex-col overflow-hidden rounded-md border border-border bg-[#1e1e1e]">
       <TerminalHeader nodeId={nodeId} payload={payload} status={status} />
       {status.state !== "running" && <StoppedBanner nodeId={nodeId} payload={payload} status={status} />}
-      <div ref={hostRef} className="min-h-0 flex-1 px-1 pt-1" />
+      {/* The padding sits on a wrapper: FitAddon measures the host's border-box
+          height, so padding on the host itself would clip the last row. */}
+      <div className="min-h-0 flex-1 px-1 pt-1">
+        <div ref={hostRef} className="h-full w-full" />
+      </div>
     </div>
   );
 }
