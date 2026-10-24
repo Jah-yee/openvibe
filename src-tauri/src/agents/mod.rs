@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod hooks_server;
 
 use std::process::Command;
 
