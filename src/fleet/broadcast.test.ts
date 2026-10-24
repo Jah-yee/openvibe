@@ -103,6 +103,21 @@ describe("canPause / canResume", () => {
 });
 
 describe("pauseAgents / resumeAgents", () => {
+  it("forgets a pause once the agent works or waits again, or its process stops", async () => {
+    await agent("min", "claude", "running", "idle");
+    await agent("amon", "claude", "running", "idle");
+    await agent("mout", "claude", "running", "idle");
+    await agent("khonsu", "claude", "running", "idle");
+    pausedStore.getState().mark(["min", "amon", "mout", "khonsu"], 1000);
+    // Restarted by hand, or sent a command from the bar.
+    agentActivityStore.getState().apply({ nodeId: "min", activity: "working", since: 2000 });
+    agentActivityStore.getState().apply({ nodeId: "mout", activity: "waiting", since: 2000 });
+    terminalStatusStore.getState().set("amon", { state: "exited", code: 0 });
+    const { pausedAt } = pausedStore.getState();
+    expect([pausedAt.min, pausedAt.amon, pausedAt.mout]).toEqual([undefined, undefined, undefined]);
+    expect(pausedAt.khonsu).toBe(1000);
+  });
+
   it("pauses the agents at work and remembers when", async () => {
     await agent("hera", "claude", "running", "working");
     await agent("zeus", "claude", "running", "idle");

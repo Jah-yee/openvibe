@@ -438,7 +438,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 - Menus de groupe et orchestrateur : mêmes actions restreintes à leurs agents.
 - Fermer le groupe : §11.4.
 - Survol d'un agent (panneau Flotte, orchestrateur) : Pause est proposée quand il est EN COURS, Reprendre quand il est PRÊT (demande explicite : sans limite de 24 h).
-- Les mises en pause faites par OpenVibe sont retenues en mémoire : un rechargement de la fenêtre les oublie.
+- Les mises en pause faites par OpenVibe sont retenues en mémoire : un rechargement de la fenêtre les oublie. Une pause est aussi oubliée dès que l'agent travaille ou attend de nouveau (relancé à la main, consigne envoyée) ou que son processus s'arrête : « Tout reprendre » ne relance que des agents restés arrêtés par OpenVibe.
 - L'interruption et l'Entrée qui suit une consigne comptent comme une réponse de l'utilisateur pour l'activité (§10.2, règle 4) : un agent interrompu repasse PRÊT dès que sa sortie se tait.
 
 ## 15. Données et IPC

@@ -5,7 +5,7 @@ import type { Activity } from "@/ipc/activity";
 import { ptyInterrupt, ptySendText, type AgentId } from "@/ipc/pty";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
-import { statusOf } from "@/store/terminalStatus";
+import { statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { AGENTS } from "./catalog";
 
 /** "Tout reprendre" only restarts agents OpenVibe paused less than this ago (spec habillage §14). */
@@ -30,6 +30,21 @@ export const pausedStore = createStore<PausedState>()((set) => ({
   mark: (ids, at) => set((s) => ({ pausedAt: { ...s.pausedAt, ...Object.fromEntries(ids.map((id) => [id, at])) } })),
   clear: (ids) => set((s) => ({ pausedAt: Object.fromEntries(Object.entries(s.pausedAt).filter(([id]) => !ids.includes(id))) })),
 }));
+
+// A paused agent that works or waits again (restarted by hand, sent a command)
+// or whose process stops is no longer OpenVibe's to resume. Its pause itself
+// only ends work: it never makes an agent working.
+agentActivityStore.subscribe((state, previous) => {
+  const restarted = Object.keys(pausedStore.getState().pausedAt).filter((id) => {
+    const activity = state.activities[id];
+    return activity !== previous.activities[id] && (activity?.activity === "working" || activity?.activity === "waiting");
+  });
+  if (restarted.length > 0) pausedStore.getState().clear(restarted);
+});
+terminalStatusStore.subscribe((state) => {
+  const stopped = Object.keys(pausedStore.getState().pausedAt).filter((id) => state.statuses[id]?.state !== "running");
+  if (stopped.length > 0) pausedStore.getState().clear(stopped);
+});
 
 /** What pause and resume look at. */
 export interface AgentFacts {
