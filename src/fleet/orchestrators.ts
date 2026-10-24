@@ -6,6 +6,7 @@ import { ORCHESTRATOR_NAME } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { workspacesStore } from "@/store/workspaces";
 import { orchestratorSpot } from "./groupLayout";
+import type { Point } from "./terminals";
 import { withWire } from "./wires";
 
 /** "Relier un orchestrateur" of the group menu: a new orchestrator left of the group, wired to it, in one undo step. */
@@ -18,6 +19,18 @@ export async function orchestrateGroup(groupId: string) {
   await nodesStore.getState().create(element.id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME } });
   api.updateScene({
     elements: withWire([...api.getSceneElementsIncludingDeleted(), element], element.id, groupId),
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** The menu's "Orchestrateur", placed with a click like an agent (spec habillage §10.1). */
+export async function addOrchestrator(workspaceId: string, center: Point) {
+  const api = canvasStore.getState().api;
+  if (!api) return;
+  const element = createNodeElement("orchestrator", center);
+  await nodesStore.getState().create(element.id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME } });
+  api.updateScene({
+    elements: [...api.getSceneElementsIncludingDeleted(), element],
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
 }

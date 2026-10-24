@@ -2,11 +2,8 @@ import { createStore, useStore } from "zustand";
 import type { AgentId } from "@/ipc/pty";
 import type { LaunchOptions } from "@/fleet/launchAgent";
 
-/** An agent chosen in the menu, waiting for a click on the canvas (spec habillage §10.1). */
-export interface Placement {
-  agent: AgentId;
-  options: LaunchOptions;
-}
+/** An agent, or an orchestrator, chosen in the menu and waiting for a click on the canvas (spec habillage §10.1). */
+export type Placement = { agent: AgentId; options: LaunchOptions } | { orchestrator: true };
 
 interface UiState {
   placing: Placement | null;

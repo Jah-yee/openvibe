@@ -21,6 +21,10 @@ describe("ghostRect", () => {
   it("draws the future terminal centered on the pointer, at the current zoom", () => {
     expect(ghostRect({ x: 400, y: 300 }, 0.5)).toEqual({ left: 220, top: 190, width: 360, height: 220 });
   });
+
+  it("takes the size of the node being placed, such as an orchestrator", () => {
+    expect(ghostRect({ x: 400, y: 300 }, 0.5, "orchestrator")).toEqual({ left: 320, top: 195, width: 160, height: 210 });
+  });
 });
 
 describe("screenRectOf", () => {

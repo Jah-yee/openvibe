@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { groupAt } from "@/canvas/groups";
 import { uiStore, useUi } from "@/store/ui";
+import { workspacesStore } from "@/store/workspaces";
 import { freeCell } from "./groupLayout";
 import { launchAgent } from "./launchAgent";
+import { addOrchestrator } from "./orchestrators";
 import { clientRectOf, ghostRect, sceneOf } from "./placement";
 import type { Point } from "./terminals";
 
@@ -26,9 +28,11 @@ export function PlacementGhost() {
 
   if (!placing) return null;
   // Over a group the ghost shows the cell the agent will take (spec §10.1, §11.3).
-  const group = pointer ? groupAt(frames, sceneOf(pointer, view)) : null;
+  const orchestrator = "orchestrator" in placing;
+  // An orchestrator is placed freely; an agent over a group takes the group's next cell.
+  const group = pointer && !orchestrator ? groupAt(frames, sceneOf(pointer, view)) : null;
   const members = group ? (canvasStore.getState().api?.getSceneElements().filter((e) => e.frameId === group.id) ?? []) : [];
-  const rect = group ? clientRectOf(freeCell(group, members).cell, view) : pointer ? ghostRect(pointer, view.zoom) : null;
+  const rect = group ? clientRectOf(freeCell(group, members).cell, view) : pointer ? ghostRect(pointer, view.zoom, orchestrator ? "orchestrator" : "terminal") : null;
 
   return (
     <div
@@ -41,16 +45,23 @@ export function PlacementGhost() {
       onClick={(e) => {
         uiStore.getState().setPlacing(null);
         const center = sceneOf({ x: e.clientX, y: e.clientY }, canvasStore.getState().view);
-        void launchAgent(placing.agent, placing.options, center).catch((error: unknown) =>
-          toast.error(`Lancement impossible : ${String(error)}`),
-        );
+        const workspaceId = workspacesStore.getState().activeId;
+        const placed =
+          "orchestrator" in placing
+            ? workspaceId
+              ? addOrchestrator(workspaceId, center)
+              : Promise.resolve()
+            : launchAgent(placing.agent, placing.options, center);
+        void placed.catch((error: unknown) => toast.error(`Lancement impossible : ${String(error)}`));
       }}
     >
       {rect && (
         <div className="pointer-events-none fixed rounded-xl border-2 border-dashed border-ov-accent/80 bg-ov-accent/5" style={rect} />
       )}
       <div className="pointer-events-none fixed left-1/2 top-16 -translate-x-1/2 rounded-full border border-ov-line bg-ov-surface-2 px-3 py-1 text-xs text-ov-text-2 shadow-ov">
-        {group ? `Clique pour l'ajouter au groupe ${group.name} · Échap pour annuler` : "Clique pour poser l'agent · Échap pour annuler"}
+        {group
+          ? `Clique pour l'ajouter au groupe ${group.name} · Échap pour annuler`
+          : `Clique pour poser ${orchestrator ? "l'orchestrateur" : "l'agent"} · Échap pour annuler`}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Asterisk, Check } from "lucide-react";
+import { Asterisk, Check, Network } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { RoundButton } from "@/shell/ui";
@@ -78,6 +78,23 @@ export function AgentMenu() {
                   </button>
                 );
               })}
+              {/* Spec habillage §10.1: placed the same way as an agent. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  uiStore.getState().setPlacing({ orchestrator: true });
+                }}
+                className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-ov-line px-2 py-1.5 text-left hover:bg-ov-hover"
+              >
+                <span className="grid size-7 place-items-center rounded-md bg-ov-accent-soft text-ov-accent">
+                  <Network className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium text-ov-text">Orchestrateur</span>
+                  <span className="block text-[11px] text-ov-text-2">commande des groupes et des agents</span>
+                </span>
+              </button>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-ov-line px-2 pt-2 text-[11px] text-ov-text-2">
               <span>puis clique sur le canvas pour le poser</span>
