@@ -7,9 +7,11 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import "@xterm/xterm/css/xterm.css";
 import { ptyKill, ptyResize, ptyWrite } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
-import { isRunning, terminalStatusStore } from "@/store/terminalStatus";
+import { nodesStore } from "@/store/nodes";
+import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
+import { startsOnKeystroke } from "./pill";
 import { acceptsInput, attachSession, relaunchSession, restoreSession, startSession, type SessionState } from "./session";
 
 // Terminals live outside React (spec §6.4): Excalidraw unmounts embeddables on a
@@ -42,7 +44,7 @@ function create(nodeId: string): Entry {
     cursorBlink: true,
     fontFamily: "'Cascadia Code', Consolas, monospace",
     fontSize: 13,
-    theme: { background: "#1e1e1e" },
+    theme: { background: "#161712", cursor: "#f4602e", selectionBackground: "#f4602e55" },
     windowsPty: { backend: "conpty" },
   });
   const fit = new FitAddon();
@@ -69,6 +71,11 @@ function create(nodeId: string): Entry {
   });
   term.onData((data) => {
     if (acceptsInput(nodeId, entry.session)) void ptyWrite(nodeId, data).catch(() => undefined);
+  });
+  // Spec habillage §7.3: typing in a terminal where nothing runs starts it again.
+  // onKey, not onData: xterm also answers the queries of a restored screen.
+  term.onKey(() => {
+    if (!entry.session.replaying && startsOnKeystroke(statusOf(nodeId))) startFresh(nodeId);
   });
   term.onResize(({ cols, rows }) => {
     if (isRunning(nodeId)) void ptyResize(nodeId, cols, rows).catch(() => undefined);
@@ -114,6 +121,19 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
   if (autostart.delete(nodeId)) void startSession(nodeId, entry.term, payload, "new");
   else if (livePtys.delete(nodeId)) void attachSession(nodeId, entry.term, entry.session);
   else void restoreSession(nodeId, entry.term);
+}
+
+/** Starts a terminal again from a keystroke: a new conversation for Claude. */
+function startFresh(nodeId: string) {
+  const record = nodesStore.getState().nodes[nodeId];
+  if (!record) return;
+  let payload = record.payload;
+  if (payload.agent === "claude") {
+    const claudeSessionId = crypto.randomUUID();
+    nodesStore.getState().update(nodeId, { claudeSessionId });
+    payload = { ...payload, claudeSessionId };
+  }
+  relaunchTerminal(nodeId, payload, "new");
 }
 
 export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode) {

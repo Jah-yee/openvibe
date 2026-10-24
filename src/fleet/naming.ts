@@ -17,12 +17,16 @@ export async function nameForNewAgent(workspaceId: string): Promise<string> {
 
 /** Names the terminals saved before names existed, in scene order. */
 export async function assignMissingNames(workspaceId: string, orderedIds: readonly string[]): Promise<void> {
-  const nodes = nodesStore.getState().nodes;
-  const unnamed = orderedIds.filter((id) => nodes[id]?.kind === "terminal" && !nodes[id].payload.name);
-  if (unnamed.length === 0) return;
+  const unnamed = () => {
+    const nodes = nodesStore.getState().nodes;
+    return orderedIds.filter((id) => nodes[id]?.kind === "terminal" && !nodes[id].payload.name);
+  };
+  if (unnamed().length === 0) return;
   const pantheon = await workspacesStore.getState().ensurePantheon(workspaceId);
+  // Read again after the wait: a concurrent pass (StrictMode runs effects twice)
+  // may have named some of them already.
   const taken = namesInWorkspace(workspaceId);
-  for (const id of unnamed) {
+  for (const id of unnamed()) {
     const name = nextName(pantheon, taken);
     taken.push(name);
     nodesStore.getState().update(id, { name });

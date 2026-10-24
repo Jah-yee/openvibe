@@ -47,3 +47,8 @@ it("gives a new agent the next free name of the workspace's pantheon", async () 
   expect(await nameForNewAgent("w1")).toBe("Anubis");
   expect(pantheonSaves).toEqual(["egyptian"]);
 });
+
+it("names each terminal once when two passes run at the same time (StrictMode)", async () => {
+  await Promise.all([assignMissingNames("w1", ["a", "c"]), assignMissingNames("w1", ["a", "c"])]);
+  expect([nameOf("a"), nameOf("c")]).toEqual(["Osiris", "Horus"]);
+});
