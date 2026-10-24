@@ -40,13 +40,16 @@ pub fn parse_status(output: &str) -> GitStatus {
 }
 
 /// None when `path` is not inside a git repository or git is not installed.
+/// `--no-optional-locks`: agents commit in this repository, and a refresh of the
+/// index would take `.git/index.lock` under them.
 pub fn status(path: &Path) -> Option<GitStatus> {
-    let output = hide_window(Command::new("git").arg("-C").arg(path).args([
-        "status",
-        "--porcelain=v1",
-        "-b",
-        "--untracked-files=normal",
-    ]))
+    let output = hide_window(
+        Command::new("git")
+            .arg("--no-optional-locks")
+            .arg("-C")
+            .arg(path)
+            .args(["status", "--porcelain=v1", "-b", "--untracked-files=normal"]),
+    )
     .output()
     .ok()?;
     if !output.status.success() {
@@ -98,5 +101,40 @@ mod tests {
         let read = status(dir.path()).unwrap();
         assert_eq!(read.changed, 1);
         assert!(!read.branch.is_empty());
+    }
+
+    /// Agents commit in the same repository: a status read every 5 s must not take
+    /// `.git/index.lock` to rewrite the index, or their `git commit` can fail.
+    #[test]
+    fn reading_the_status_never_rewrites_the_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let git = |args: &[&str]| {
+            Command::new("git")
+                .arg("-C")
+                .arg(dir.path())
+                .args([
+                    "-c",
+                    "user.name=t",
+                    "-c",
+                    "user.email=t@t",
+                    "-c",
+                    "commit.gpgsign=false",
+                ])
+                .args(args)
+                .output()
+        };
+        if git(&["init"]).is_err() {
+            return; // git is not installed on this machine
+        }
+        std::fs::write(dir.path().join("a.txt"), "x").unwrap();
+        git(&["add", "a.txt"]).unwrap();
+        git(&["commit", "-q", "-m", "init"]).unwrap();
+        // Same content, newer timestamp: a plain `git status` refreshes and rewrites the index.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(dir.path().join("a.txt"), "x").unwrap();
+        let index = dir.path().join(".git").join("index");
+        let before = std::fs::read(&index).unwrap();
+        status(dir.path()).unwrap();
+        assert_eq!(std::fs::read(&index).unwrap(), before);
     }
 }

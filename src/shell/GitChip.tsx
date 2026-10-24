@@ -13,16 +13,22 @@ export function GitChip() {
   useEffect(() => {
     if (!path) return;
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // The next read is scheduled once the previous one is done: on a large
+    // repository, git can take longer than the polling period.
     const read = () =>
-      gitStatus(path).then(
-        (next) => alive && setStatus(next),
-        () => alive && setStatus(null),
-      );
+      gitStatus(path)
+        .then(
+          (next) => alive && setStatus(next),
+          () => alive && setStatus(null),
+        )
+        .finally(() => {
+          if (alive) timer = setTimeout(read, POLL_MS);
+        });
     void read();
-    const timer = setInterval(() => void read(), POLL_MS);
     return () => {
       alive = false;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
   }, [path]);
 
