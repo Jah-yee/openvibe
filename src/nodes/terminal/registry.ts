@@ -136,6 +136,24 @@ function startFresh(nodeId: string) {
   relaunchTerminal(nodeId, payload, "new");
 }
 
+/** True while a process started before a webview reload awaits re-attachment. */
+export function isLiveInRust(nodeId: string): boolean {
+  return livePtys.has(nodeId);
+}
+
+/**
+ * Starts a terminal that may not be on screen yet ("Reprendre toutes les
+ * conversations"): Claude resumes its session, other agents start anew. Its
+ * output waits in xterm's buffer until the node is shown.
+ */
+export function resumeTerminal(nodeId: string) {
+  const payload = nodesStore.getState().nodes[nodeId]?.payload;
+  if (!payload) return;
+  const entry = entries.get(nodeId) ?? create(nodeId);
+  const mode = payload.agent === "claude" && payload.claudeSessionId ? "resume" : "new";
+  void relaunchSession(nodeId, entry.term, payload, mode);
+}
+
 export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode) {
   const entry = entries.get(nodeId);
   if (entry) void relaunchSession(nodeId, entry.term, payload, mode);

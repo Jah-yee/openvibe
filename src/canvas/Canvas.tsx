@@ -10,6 +10,7 @@ import type {
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
 import { assignMissingNames, nameForNewAgent } from "@/fleet/naming";
+import { dismissResumeOffer, offerResumeAll } from "@/fleet/ResumeAllToast";
 import { addTerminal, adoptCopies } from "@/fleet/terminals";
 import { saveFiles, saveScene } from "@/ipc/db";
 import { onFlushAll } from "@/lib/flush";
@@ -103,6 +104,15 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   useEffect(() => {
     void assignMissingNames(workspaceId, liveNodeIds(scene.initialData.elements ?? [])).catch(reportSaveError);
   }, [workspaceId, scene]);
+
+  // After the scene is shown, restored terminals have their status.
+  useEffect(() => {
+    const timer = setTimeout(() => offerResumeAll(workspaceId), 800);
+    return () => {
+      clearTimeout(timer);
+      dismissResumeOffer(workspaceId);
+    };
+  }, [workspaceId]);
 
   const trackActivation = useMemo(() => createActivationTracker(), []);
 
