@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { canvasStore } from "@/canvas/canvasStore";
 import { flushAll } from "@/lib/flush";
 import { nodesStore } from "@/store/nodes";
 import { workspacesStore } from "@/store/workspaces";
-import { assignMissingNames, nameForNewAgent } from "./naming";
+import { assignMissingNames, nameForNewAgent, pantheonForNewGroup } from "./naming";
 
 const terminal = (name?: string) =>
   JSON.stringify({ title: "t", cwd: "C:/code", agent: "claude", shell: "default", command: "", ...(name ? { name } : {}) });
@@ -30,6 +31,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  canvasStore.getState().setFrames([]);
   await flushAll(); // debounced node saves must not outlive the IPC mock
   clearMocks();
 });
@@ -51,4 +53,32 @@ it("gives a new agent the next free name of the workspace's pantheon", async () 
 it("names each terminal once when two passes run at the same time (StrictMode)", async () => {
   await Promise.all([assignMissingNames("w1", ["a", "c"]), assignMissingNames("w1", ["a", "c"])]);
   expect([nameOf("a"), nameOf("c")]).toEqual(["Osiris", "Horus"]);
+});
+
+const groupFrame = (id: string, pantheon: string) => ({
+  id,
+  name: id,
+  x: 0,
+  y: 0,
+  width: 1,
+  height: 1,
+  group: { role: "general" as const, pantheon },
+  memberIds: [],
+});
+
+it("keeps the pantheons of the groups for their own agents", async () => {
+  canvasStore.getState().setFrames([groupFrame("g", "egyptian")]);
+  expect(await nameForNewAgent("w1")).toBe("Athéna");
+  expect(pantheonSaves).toEqual(["greek"]);
+});
+
+it("names a group's agent from the group's pantheon", async () => {
+  expect(await nameForNewAgent("w1", "norse")).toBe("Odin");
+  expect(pantheonSaves).toEqual([]);
+});
+
+it("gives a new group the first pantheon nobody in the workspace uses", async () => {
+  await nameForNewAgent("w1"); // the agents outside groups take "egyptian"
+  canvasStore.getState().setFrames([groupFrame("g", "greek")]);
+  expect(pantheonForNewGroup("w1")).toBe("norse");
 });

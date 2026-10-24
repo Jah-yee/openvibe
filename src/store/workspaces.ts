@@ -31,8 +31,11 @@ export interface WorkspacesState {
   remove: (id: string) => Promise<void>;
   select: (id: string) => void;
   setPantheon: (id: string, pantheon: string) => Promise<void>;
-  /** The pantheon of the agents outside any group, chosen and saved on first use. */
-  ensurePantheon: (id: string) => Promise<string>;
+  /**
+   * The pantheon of the agents outside any group, chosen and saved on first
+   * use; it avoids `taken`, the pantheons of the workspace's groups.
+   */
+  ensurePantheon: (id: string, taken?: readonly string[]) => Promise<string>;
 }
 
 /** "Workspace N" with the smallest N not already taken. */
@@ -107,11 +110,10 @@ export function createWorkspacesStore() {
         set((s) => ({ workspaces: s.workspaces.map((w) => (w.id === id ? { ...w, pantheon } : w)) }));
       },
 
-      ensurePantheon: async (id) => {
+      ensurePantheon: async (id, taken = []) => {
         const workspace = get().workspaces.find((w) => w.id === id);
         if (workspace?.pantheon) return workspace.pantheon;
-        // Groups (plan B) will pass the pantheons they already use.
-        const pantheon = nextPantheon([]);
+        const pantheon = nextPantheon(taken);
         await get().setPantheon(id, pantheon);
         return pantheon;
       },
