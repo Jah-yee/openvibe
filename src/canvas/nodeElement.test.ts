@@ -3,6 +3,14 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { createNodeElement, isOpenVibeLink, nodeKindOf } from "./nodeElement";
 
 describe("createNodeElement", () => {
+  it("makes a 320 × 420 orchestrator linked to its own id", () => {
+    const element = createNodeElement("orchestrator", { x: 0, y: 0 });
+    expect(element).toMatchObject({ x: -160, y: -210, width: 320, height: 420, customData: { kind: "orchestrator" } });
+    expect(element.link).toBe(`openvibe://orchestrator/${element.id}`);
+    expect(isOpenVibeLink(element.link!)).toBe(true);
+    expect(nodeKindOf(element as unknown as ExcalidrawElement)).toBe("orchestrator");
+  });
+
   it("centers a terminal on the given point and links it to its own id", () => {
     const element = createNodeElement("terminal", { x: 100, y: 50 });
     expect(element).toMatchObject({ type: "embeddable", x: -260, y: -170, width: 720, height: 440 });

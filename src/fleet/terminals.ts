@@ -2,10 +2,10 @@ import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { groupInfoOf, groupOf, insertIntoFrame } from "@/canvas/groups";
-import { createNodeElement } from "@/canvas/nodeElement";
+import { createNodeElement, nodeKindOf } from "@/canvas/nodeElement";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import type { TerminalPayload } from "@/nodes/types";
-import { nodesStore } from "@/store/nodes";
+import { nodesStore, terminalOf } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
 import { cloneTerminalPayload } from "./clone";
@@ -58,7 +58,7 @@ function joinGroup(elements: readonly ExcalidrawElement[], element: ExcalidrawEl
 /** "Dupliquer" of the header: a copy of the agent to the right of the node, or in its group's grid. */
 export async function duplicateTerminal(workspaceId: string, nodeId: string) {
   const element = canvasStore.getState().api?.getSceneElements().find((e) => e.id === nodeId);
-  const source = nodesStore.getState().nodes[nodeId]?.payload;
+  const source = terminalOf(nodesStore.getState().nodes[nodeId]);
   if (!element || !source) return;
   const group = groupOf(canvasStore.getState().frames, nodeId);
   const center = { x: element.x + element.width * 1.5 + 24, y: element.y + element.height / 2 };
@@ -74,18 +74,23 @@ export async function adoptCopies(workspaceId: string, copies: readonly { id: st
   const api = canvasStore.getState().api;
   if (!api) return;
   for (const { id, sourceId } of copies) {
-    const source = nodesStore.getState().nodes[sourceId]?.payload;
+    const source = nodesStore.getState().nodes[sourceId];
     if (!source) continue;
+    if (source.kind === "orchestrator") {
+      // A copied orchestrator keeps its name; its wires stay with the original.
+      await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { ...source.payload } });
+      continue;
+    }
     markForAutostart(id);
     const frameId = api.getSceneElementsIncludingDeleted().find((e) => e.id === id)?.frameId;
     const group = canvasStore.getState().frames.find((f) => f.id === frameId);
     const name = await nameForNewAgent(workspaceId, group?.group?.pantheon);
-    await nodesStore.getState().create(id, { workspaceId, kind: "terminal", payload: cloneTerminalPayload(source, name) });
+    await nodesStore.getState().create(id, { workspaceId, kind: "terminal", payload: cloneTerminalPayload(source.payload, name) });
   }
   const ids = new Set(copies.map((copy) => copy.id));
   const linked = api
     .getSceneElementsIncludingDeleted()
-    .map((e) => (ids.has(e.id) ? newElementWith(e, { link: `openvibe://terminal/${e.id}` }) : e));
+    .map((e) => (ids.has(e.id) ? newElementWith(e, { link: `openvibe://${nodeKindOf(e) ?? "terminal"}/${e.id}` }) : e));
   api.updateScene({ elements: alignCopies(linked, ids), captureUpdate: CaptureUpdateAction.NEVER });
 }
 
@@ -93,7 +98,7 @@ export async function adoptCopies(workspaceId: string, copies: readonly { id: st
 function alignCopies(elements: readonly ExcalidrawElement[], copyIds: ReadonlySet<string>): ExcalidrawElement[] {
   const byFrame = new Map<string, string[]>();
   for (const e of elements) {
-    if (copyIds.has(e.id) && e.frameId) byFrame.set(e.frameId, [...(byFrame.get(e.frameId) ?? []), e.id]);
+    if (copyIds.has(e.id) && e.frameId && nodeKindOf(e) === "terminal") byFrame.set(e.frameId, [...(byFrame.get(e.frameId) ?? []), e.id]);
   }
   let result = [...elements];
   for (const [frameId, ids] of byFrame) {

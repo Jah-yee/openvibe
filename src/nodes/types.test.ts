@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readTerminalPayload } from "./types";
+import { readOrchestratorPayload, readTerminalPayload } from "./types";
 
 describe("readTerminalPayload", () => {
   it("reads a payload saved before agents and names existed", () => {
@@ -32,5 +32,14 @@ describe("readTerminalPayload", () => {
     expect(readTerminalPayload({ agent: "vim", cwd: "C:/" })).toBeNull();
     expect(readTerminalPayload({ agent: "shell" })).toBeNull();
     expect(readTerminalPayload({ agent: "shell", cwd: "C:/", shell: "zsh" })?.shell).toBe("default");
+  });
+});
+
+describe("readOrchestratorPayload", () => {
+  it("keeps the given name and names the others Orchestrateur", () => {
+    expect(readOrchestratorPayload({ name: "Chef" })).toEqual({ name: "Chef" });
+    expect(readOrchestratorPayload({ name: "  " })).toEqual({ name: "Orchestrateur" });
+    expect(readOrchestratorPayload({})).toEqual({ name: "Orchestrateur" });
+    expect(readOrchestratorPayload(null)).toEqual({ name: "Orchestrateur" });
   });
 });

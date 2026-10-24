@@ -8,6 +8,7 @@ use crate::error::AppResult;
 #[serde(rename_all = "lowercase")]
 pub enum NodeKind {
     Terminal,
+    Orchestrator,
     Note,
     Kanban,
     Git,
@@ -17,6 +18,7 @@ impl NodeKind {
     fn as_str(self) -> &'static str {
         match self {
             NodeKind::Terminal => "terminal",
+            NodeKind::Orchestrator => "orchestrator",
             NodeKind::Note => "note",
             NodeKind::Kanban => "kanban",
             NodeKind::Git => "git",
@@ -80,6 +82,21 @@ mod tests {
                 save(conn, "a1", &a.id, NodeKind::Terminal, "{}")?;
                 save(conn, "b1", &b.id, NodeKind::Note, "{}")?;
                 assert_eq!(ids_of_workspace(conn, &a.id)?, vec!["a1".to_string()]);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn stores_orchestrator_nodes() {
+        Db::open_in_memory()
+            .unwrap()
+            .with(|conn| {
+                let w = test_workspace(conn, "A")?;
+                save(conn, "o1", &w.id, NodeKind::Orchestrator, r#"{"name":"Chef"}"#)?;
+                let kind: String =
+                    conn.query_row("SELECT kind FROM nodes WHERE id = 'o1'", [], |r| r.get(0))?;
+                assert_eq!(kind, "orchestrator");
                 Ok(())
             })
             .unwrap();

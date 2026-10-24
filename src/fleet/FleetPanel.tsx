@@ -8,7 +8,7 @@ import { useNow } from "@/lib/useNow";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/nodes/terminal/StatusPill";
 import { useActivities } from "@/store/agentActivity";
-import { useNodes } from "@/store/nodes";
+import { terminalOf, useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { AGENTS, INDIGO } from "./catalog";
 import { FLEET_FILTERS, filterCounts, fleetSections, fleetStateOf, type FleetAgent, type FleetFilter } from "./fleetView";
@@ -25,20 +25,21 @@ export function FleetPanel() {
   const statuses = useStore(terminalStatusStore, (s) => s.statuses);
   const activities = useActivities();
 
-  const agents: FleetAgent[] = nodeIds
-    .filter((id) => nodes[id]?.kind === "terminal")
-    .map((id) => {
-      const payload = nodes[id].payload;
-      const status = statuses[id] ?? { state: "stopped" as const };
-      const state = fleetStateOf(status, activities[id]);
-      return {
+  const agents: FleetAgent[] = nodeIds.flatMap((id) => {
+    const payload = terminalOf(nodes[id]);
+    if (!payload) return [];
+    const status = statuses[id] ?? { state: "stopped" as const };
+    const state = fleetStateOf(status, activities[id]);
+    return [
+      {
         id,
         name: payload.name || AGENTS[payload.agent].label,
         agent: payload.agent,
         state,
         since: state === "stopped" ? undefined : activities[id]?.since,
-      };
-    });
+      },
+    ];
+  });
   const counts = filterCounts(agents);
   const sections = fleetSections(agents, frames, filter);
 

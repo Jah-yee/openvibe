@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { TerminalPayload } from "@/nodes/types";
-import { createNodesStore } from "./nodes";
+import { createNodesStore, terminalOf } from "./nodes";
 
 const payload: TerminalPayload = { title: "A", name: "", cwd: "C:/code", agent: "shell", command: "", shell: "default" };
 let saves: { id: string; payloadJson: string }[];
@@ -54,7 +54,7 @@ it("hydrates from SQLite without overwriting newer in-memory nodes", async () =>
     { id: "bad", kind: "terminal", payloadJson: "{not json" },
   ]);
   const { nodes } = store.getState();
-  expect(nodes.n1.payload.title).toBe("fresh");
+  expect(terminalOf(nodes.n1)?.title).toBe("fresh");
   expect(nodes.n2.workspaceId).toBe("w1");
   expect(nodes.bad).toBeUndefined();
 });
@@ -73,6 +73,18 @@ it("reads payloads saved with a preset instead of an agent", () => {
     { id: "old", kind: "terminal", payloadJson: JSON.stringify({ title: "T", cwd: "C:/", preset: "codex", command: "", shell: "cmd" }) },
     { id: "bad", kind: "terminal", payloadJson: "{" },
   ]);
-  expect(store.getState().nodes.old.payload.agent).toBe("codex");
+  expect(terminalOf(store.getState().nodes.old)?.agent).toBe("codex");
   expect(store.getState().nodes.bad).toBeUndefined();
+});
+
+it("reads orchestrator nodes and keeps them apart from terminals", () => {
+  const { store } = createNodesStore();
+  store.getState().hydrate("w1", [
+    { id: "o1", kind: "orchestrator", payloadJson: '{"name":"Chef"}' },
+    { id: "t1", kind: "terminal", payloadJson: JSON.stringify(payload) },
+  ]);
+  expect(store.getState().nodes.o1).toEqual({ workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef" } });
+  expect(terminalOf(store.getState().nodes.t1)).toEqual(payload);
+  expect(terminalOf(store.getState().nodes.o1)).toBeUndefined();
+  expect(terminalOf(undefined)).toBeUndefined();
 });

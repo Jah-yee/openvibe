@@ -16,8 +16,20 @@ export interface TerminalPayload {
   ollama?: OllamaLaunch;
 }
 
-/** Plan B adds the orchestrator payload. */
-export type NodePayload = TerminalPayload;
+/** Content of an orchestrator node (spec habillage §13, §15.2). */
+export interface OrchestratorPayload {
+  name: string;
+}
+
+export const ORCHESTRATOR_NAME = "Orchestrateur";
+
+export type NodePayload = TerminalPayload | OrchestratorPayload;
+
+/** Reads a stored orchestrator payload; a missing or blank name becomes "Orchestrateur". */
+export function readOrchestratorPayload(raw: unknown): OrchestratorPayload {
+  const name = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).name : undefined;
+  return { name: typeof name === "string" && name.trim() ? name : ORCHESTRATOR_NAME };
+}
 
 const SHELLS = new Set<string>(["default", "powershell", "pwsh", "cmd", "gitbash"]);
 

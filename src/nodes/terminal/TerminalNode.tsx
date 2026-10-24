@@ -5,7 +5,7 @@ import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { AGENTS } from "@/fleet/catalog";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import { useActivity } from "@/store/agentActivity";
-import { nodesStore, useNodes } from "@/store/nodes";
+import { nodesStore, terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
 import { frameStyle, WAITING_GLOW } from "./frame";
@@ -14,7 +14,7 @@ import { ResumeCard } from "./ResumeCard";
 import { HeaderButton, TerminalHeader } from "./TerminalHeader";
 
 export function TerminalNode({ nodeId }: { nodeId: string }) {
-  const payload = useNodes((s) => s.nodes[nodeId]?.payload);
+  const payload = useNodes((s) => terminalOf(s.nodes[nodeId]));
   const status = useTerminalStatus(nodeId);
   const activity = useActivity(nodeId);
   const workspaceId = useNodes((s) => s.nodes[nodeId]?.workspaceId);
@@ -24,7 +24,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
 
   useEffect(() => {
     const host = hostRef.current;
-    const current = nodesStore.getState().nodes[nodeId]?.payload;
+    const current = terminalOf(nodesStore.getState().nodes[nodeId]);
     if (!host || !current) return;
     const zoom = () => canvasStore.getState().view.zoom;
     mountTerminal(nodeId, host, current, zoom());

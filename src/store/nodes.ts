@@ -1,16 +1,13 @@
 import { createStore, useStore } from "zustand";
-import type { NodeKind } from "@/canvas/nodeElement";
 import { saveNode, type StoredNode } from "@/ipc/db";
 import { debounce, type Debounced } from "@/lib/debounce";
 import { onFlushAll } from "@/lib/flush";
 import { rebasePath } from "@/lib/paths";
-import { readTerminalPayload, type NodePayload } from "@/nodes/types";
+import { readOrchestratorPayload, readTerminalPayload, type OrchestratorPayload, type TerminalPayload } from "@/nodes/types";
 
-export interface NodeRecord {
-  workspaceId: string;
-  kind: NodeKind;
-  payload: NodePayload;
-}
+export type NodeRecord =
+  | { workspaceId: string; kind: "terminal"; payload: TerminalPayload }
+  | { workspaceId: string; kind: "orchestrator"; payload: OrchestratorPayload };
 
 export interface NodesState {
   nodes: Record<string, NodeRecord>;
@@ -19,7 +16,7 @@ export interface NodesState {
   /** Adds a node and saves it at once (its row must exist before its scrollback). */
   create: (id: string, record: NodeRecord) => Promise<void>;
   /** Changes a node; the save waits 500 ms for further changes. */
-  update: (id: string, patch: Partial<NodePayload>) => void;
+  update: (id: string, patch: Partial<TerminalPayload> | Partial<OrchestratorPayload>) => void;
   /** Saves a node now, e.g. when an undo brings back a node purged from SQLite. */
   persist: (id: string) => Promise<void>;
   /** Drops the nodes of a deleted workspace and returns their ids. */
@@ -58,13 +55,8 @@ export function createNodesStore() {
       hydrate: (workspaceId, stored) => {
         const loaded: Record<string, NodeRecord> = {};
         for (const node of stored) {
-          let payload: NodePayload | null = null;
-          try {
-            payload = readTerminalPayload(JSON.parse(node.payloadJson));
-          } catch {
-            payload = null;
-          }
-          if (payload) loaded[node.id] = { workspaceId, kind: node.kind, payload };
+          const record = readRecord(workspaceId, node);
+          if (record) loaded[node.id] = record;
           else console.warn(`node ${node.id}: unreadable payload, skipped`);
         }
         set((s) => ({ nodes: { ...loaded, ...s.nodes } }));
@@ -78,7 +70,8 @@ export function createNodesStore() {
       update: (id, patch) => {
         const record = get().nodes[id];
         if (!record) return;
-        set((s) => ({ nodes: { ...s.nodes, [id]: { ...record, payload: { ...record.payload, ...patch } } } }));
+        const next = { ...record, payload: { ...record.payload, ...patch } } as NodeRecord;
+        set((s) => ({ nodes: { ...s.nodes, [id]: next } }));
         saveLater(id);
       },
 
@@ -98,6 +91,24 @@ export function createNodesStore() {
 
   const flushPending = () => Promise.all([...pendingSaves.values()].map((save) => save.flush()));
   return { store, flushPending };
+}
+
+function readRecord(workspaceId: string, node: StoredNode): NodeRecord | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(node.payloadJson);
+  } catch {
+    return null;
+  }
+  if (node.kind === "orchestrator") return { workspaceId, kind: "orchestrator", payload: readOrchestratorPayload(raw) };
+  if (node.kind !== "terminal") return null;
+  const payload = readTerminalPayload(raw);
+  return payload ? { workspaceId, kind: "terminal", payload } : null;
+}
+
+/** The terminal payload of a node; undefined for an orchestrator or a missing node. */
+export function terminalOf(record: NodeRecord | undefined): TerminalPayload | undefined {
+  return record?.kind === "terminal" ? record.payload : undefined;
 }
 
 const nodes = createNodesStore();
