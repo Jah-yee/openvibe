@@ -16,10 +16,13 @@ import { LaunchDialog } from "@/nodes/terminal/LaunchDialog";
 import { disposeTerminal, focusTerminal, markForAutostart } from "@/nodes/terminal/registry";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
+import { uiStore, useUi } from "@/store/ui";
 import { createActivationTracker } from "./activation";
-import { InsertMenu } from "./InsertMenu";
-import { createNodeElement, isOpenVibeLink, type NodeKind } from "./nodeElement";
+import { canvasStore, viewFrom } from "./canvasStore";
+import { createNodeElement, isOpenVibeLink } from "./nodeElement";
+import { DotGrid } from "./overlay/DotGrid";
 import { loadScene, rememberScene, type LoadedScene } from "./sceneCache";
+import { EXCALIDRAW_UI_OPTIONS, withSceneDefaults } from "./sceneDefaults";
 import { createSceneSync } from "./sceneSync";
 
 const reportSaveError = (error: unknown) => toast.error(`Sauvegarde impossible : ${String(error)}`);
@@ -46,12 +49,21 @@ export function Canvas({ workspaceId }: { workspaceId: string }) {
 }
 
 function Centered({ children }: { children: ReactNode }) {
-  return <div className="grid h-full place-items-center text-sm text-muted-foreground">{children}</div>;
+  return <div className="absolute inset-0 grid place-items-center text-sm text-ov-text-2">{children}</div>;
 }
 
 function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: LoadedScene }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
-  const [launching, setLaunching] = useState(false);
+  const launchOpen = useUi((s) => s.launchOpen);
+  const initialData = useMemo(() => withSceneDefaults(scene.initialData), [scene]);
+
+  // The shell (rails, zoom, panels) drives the Excalidraw instance on screen.
+  useEffect(() => {
+    canvasStore.getState().setApi(api);
+    return () => {
+      if (canvasStore.getState().api === api) canvasStore.getState().setApi(null);
+    };
+  }, [api]);
 
   const sync = useMemo(
     () =>
@@ -83,16 +95,13 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   const onChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       sync.onChange(elements, appState, files, getSceneVersion(elements));
+      canvasStore.getState().setView(viewFrom(appState));
       const activated = trackActivation(appState.activeEmbeddable);
       // Deferred: changing the view from inside onChange would re-enter it.
       if (activated && api) requestAnimationFrame(() => showAtFullSize(api, activated));
     },
     [sync, trackActivation, api],
   );
-
-  const insert = useCallback((kind: NodeKind) => {
-    if (kind === "terminal") setLaunching(true);
-  }, []);
 
   const launch = useCallback(
     async (payload: TerminalPayload) => {
@@ -117,18 +126,25 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   );
 
   return (
-    <div className="relative h-full w-full">
-      <Excalidraw
-        theme="dark"
-        langCode="fr-FR"
-        excalidrawAPI={setApi}
-        initialData={scene.initialData}
-        onChange={onChange}
-        validateEmbeddable={isOpenVibeLink}
-        renderEmbeddable={(element) => <NodeHost element={element} />}
-        renderTopRightUI={() => <InsertMenu onInsert={insert} />}
+    <div className="absolute inset-0">
+      <DotGrid />
+      <div className="absolute inset-0">
+        <Excalidraw
+          theme="dark"
+          langCode="fr-FR"
+          excalidrawAPI={setApi}
+          initialData={initialData}
+          onChange={onChange}
+          UIOptions={EXCALIDRAW_UI_OPTIONS}
+          validateEmbeddable={isOpenVibeLink}
+          renderEmbeddable={(element) => <NodeHost element={element} />}
+        />
+      </div>
+      <LaunchDialog
+        open={launchOpen}
+        onOpenChange={uiStore.getState().setLaunchOpen}
+        onLaunch={(payload) => void launch(payload)}
       />
-      <LaunchDialog open={launching} onOpenChange={setLaunching} onLaunch={(payload) => void launch(payload)} />
     </div>
   );
 }

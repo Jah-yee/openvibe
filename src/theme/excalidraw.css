@@ -109,3 +109,9 @@
   background: var(--ov-surface-2);
   box-shadow: var(--ov-shadow);
 }
+
+/* Excalidraw inverts every canvas in dark mode (`.theme--dark canvas`), xterm's
+   WebGL canvas inside our nodes included: nodes keep their own colors. */
+.excalidraw .excalidraw__embeddable-container canvas {
+  filter: none !important;
+}

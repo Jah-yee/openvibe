@@ -1,0 +1,12 @@
+import { describe, expect, it } from "vitest";
+import { COMIC_SHANNS, SCENE_DEFAULTS, withSceneDefaults } from "./sceneDefaults";
+
+describe("withSceneDefaults", () => {
+  it("adds the OpenVibe defaults and keeps the saved viewport", () => {
+    const data = withSceneDefaults({ elements: [], appState: { scrollX: 4, scrollY: 2 } });
+    expect(data.appState).toMatchObject({ scrollX: 4, scrollY: 2, viewBackgroundColor: "transparent" });
+    expect(data.appState?.currentItemFontFamily).toBe(COMIC_SHANNS);
+    expect(COMIC_SHANNS).toBe(8);
+    expect(SCENE_DEFAULTS.currentItemStrokeColor).toBe("#0b0500");
+  });
+});
