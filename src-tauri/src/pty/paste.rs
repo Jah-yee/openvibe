@@ -49,13 +49,18 @@ fn find_last(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 /// What is written for `text`: line breaks as Enter (`\r`, as xterm does for a
 /// paste), inside paste markers when `bracketed`. Markers found in the text are
-/// dropped: they would end the paste early and type the rest as keys.
+/// dropped, then every escape and control character but tabs and line breaks:
+/// a marker would end the paste early and type the rest as keys, and removing
+/// one can glue the pieces of another back together.
 pub fn paste_payload(text: &str, bracketed: bool) -> Vec<u8> {
-    let clean = text
+    let clean: String = text
         .replace(PASTE_START, "")
         .replace(PASTE_END, "")
         .replace("\r\n", "\r")
-        .replace('\n', "\r");
+        .replace('\n', "\r")
+        .chars()
+        .filter(|c| !c.is_control() || matches!(c, '\t' | '\r'))
+        .collect();
     if bracketed {
         format!("{PASTE_START}{clean}{PASTE_END}").into_bytes()
     } else {
@@ -100,5 +105,12 @@ mod tests {
             paste_payload("x\x1b[201~rm\x1b[200~y", true),
             b"\x1b[200~xrmy\x1b[201~"
         );
+        // Removing the inner marker must not rebuild an end marker around it.
+        assert_eq!(
+            paste_payload("x\x1b[20\x1b[201~1~rm -rf ~\ny", true),
+            b"\x1b[200~x[201~rm -rf ~\ry\x1b[201~"
+        );
+        // No escape nor control key reaches the program; tabs and lines stay.
+        assert_eq!(paste_payload("a\x03b\tc\x7f", false), b"ab\tc");
     }
 }

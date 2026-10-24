@@ -93,7 +93,13 @@ mod tests {
             .unwrap()
             .with(|conn| {
                 let w = test_workspace(conn, "A")?;
-                save(conn, "o1", &w.id, NodeKind::Orchestrator, r#"{"name":"Chef"}"#)?;
+                save(
+                    conn,
+                    "o1",
+                    &w.id,
+                    NodeKind::Orchestrator,
+                    r#"{"name":"Chef"}"#,
+                )?;
                 let kind: String =
                     conn.query_row("SELECT kind FROM nodes WHERE id = 'o1'", [], |r| r.get(0))?;
                 assert_eq!(kind, "orchestrator");
