@@ -126,3 +126,8 @@ export function requestCloseGroup(groupId: string) {
   if (group?.memberIds.some(isRunning)) uiStore.getState().setClosingGroup(groupId);
   else closeGroup(groupId);
 }
+
+/** The terminals of a group, for its menu's pause and resume. */
+export function groupMembers(groupId: string): string[] {
+  return canvasStore.getState().frames.find((f) => f.id === groupId)?.memberIds ?? [];
+}

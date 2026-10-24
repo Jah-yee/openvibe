@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { uiStore } from "@/store/ui";
 import { useAgents } from "./agentsStore";
+import { pauseAll, resumeAll } from "./broadcast";
 import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
-import { addAgentToGroup, requestCloseGroup, ungroup } from "./groups";
+import { addAgentToGroup, groupMembers, requestCloseGroup, ungroup } from "./groups";
 
 /** The `⌄` of a group label (spec habillage §11.4); J5 adds the orchestrator, pause and resume. */
 export function GroupMenu({ groupId }: { groupId: string }) {
@@ -57,6 +58,8 @@ export function GroupMenu({ groupId }: { groupId: string }) {
             })}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem onSelect={() => void pauseAll(groupMembers(groupId))}>Tout mettre en pause</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void resumeAll(groupMembers(groupId))}>Tout reprendre</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => ungroup(groupId)}>Dégrouper</DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onSelect={() => requestCloseGroup(groupId)}>

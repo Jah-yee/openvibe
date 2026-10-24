@@ -433,7 +433,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 ## 14. Pause, reprise, fermeture en masse
 
 - Pause d'un agent : envoie sa séquence d'interruption (§8) ; pas d'effet sur `shell`.
-- Reprendre : `pty_send_text(nodeId, "continue")`.
+- Reprendre : `pty_send_text(nodeId, "\ncontinue")`, soit « continue » sur sa propre ligne du même message. Claude Code remet dans sa saisie une consigne interrompue avant sa réponse (constat du 2026-10-24) : sans le saut de ligne, « continue » s'y collait (« …sans fichiercontinue ») ; avec, la consigne est reprise telle quelle, et une saisie vide donne « continue ».
 - Tout mettre en pause / Tout reprendre (puces) : tous les agents vivants du workspace actif dont l'activité est `working` (pause) ou `idle` après une pause par OpenVibe (reprise : seuls les agents mis en pause par OpenVibe depuis moins de 24 h reçoivent « continue », pour ne pas relancer un agent qui avait fini). Toast récapitulatif « 5 agents mis en pause ».
 - Menus de groupe et orchestrateur : mêmes actions restreintes à leurs agents.
 - Fermer le groupe : §11.4.

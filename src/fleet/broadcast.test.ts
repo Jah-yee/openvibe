@@ -110,7 +110,8 @@ describe("pauseAgents / resumeAgents", () => {
     pausedStore.getState().mark(["ra", "bastet"], now - 3_600_000);
     pausedStore.getState().mark(["seth"], now - RESUME_WINDOW_MS - 1);
     expect(await resumeAgents(["ra", "ptah", "seth", "bastet"], now)).toBe(1);
-    expect(calls).toEqual([{ cmd: "pty_send_text", nodeId: "ra", text: "continue" }]);
+    // On its own line: Claude Code puts a prompt interrupted before any answer back in its input.
+    expect(calls).toEqual([{ cmd: "pty_send_text", nodeId: "ra", text: "\ncontinue" }]);
     expect(pausedStore.getState().pausedAt.ra).toBeUndefined();
     expect(pausedStore.getState().pausedAt.bastet).toBeDefined();
   });

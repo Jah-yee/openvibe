@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
 import { nextGroupName } from "@/canvas/groups";
 import { agentsStore } from "@/fleet/agentsStore";
+import { pauseAll, resumeAll, workspaceTerminalIds } from "@/fleet/broadcast";
 import { defaultAgent } from "@/fleet/catalog";
 import { ComposeGroup } from "@/fleet/ComposeGroup";
 import { launchGroup } from "@/fleet/groups";
@@ -11,7 +12,7 @@ import { ChipButton } from "./ui";
 
 const reportLaunchError = (error: unknown) => toast.error(`Lancement impossible : ${String(error)}`);
 
-/** Chips above the command bar (spec habillage §5.6); J5 adds pause and resume. */
+/** Chips above the command bar (spec habillage §5.6). */
 export function ActionChips() {
   const newConsole = () => {
     const agent = defaultAgent(agentsStore.getState().agents);
@@ -28,6 +29,8 @@ export function ActionChips() {
       <ChipButton onClick={newConsole}>Nouvelle console</ChipButton>
       <ChipButton onClick={launchFour}>Lancer 4</ChipButton>
       <ComposeGroup />
+      <ChipButton onClick={() => void pauseAll(workspaceTerminalIds())}>Tout mettre en pause</ChipButton>
+      <ChipButton onClick={() => void resumeAll(workspaceTerminalIds())}>Tout reprendre</ChipButton>
     </div>
   );
 }

@@ -11,6 +11,13 @@ import { AGENTS } from "./catalog";
 /** "Tout reprendre" only restarts agents OpenVibe paused less than this ago (spec habillage §14). */
 export const RESUME_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * What "Reprendre" types (spec §14), on a line of its own: Claude Code puts a
+ * prompt interrupted before any answer back in its input, and "continue" must
+ * not be glued to it.
+ */
+const RESUME_TEXT = "\ncontinue";
+
 interface PausedState {
   /** When OpenVibe paused each agent; kept in memory only. */
   pausedAt: Record<string, number>;
@@ -100,7 +107,7 @@ export async function resumeAgents(ids: readonly string[], now = Date.now()): Pr
     const at = pausedAt[id];
     return facts !== null && canResume(facts) && at !== undefined && now - at < RESUME_WINDOW_MS;
   });
-  const resumed = await Promise.all(targets.map((id) => ptySendText(id, "continue").then(() => id, () => null)));
+  const resumed = await Promise.all(targets.map((id) => ptySendText(id, RESUME_TEXT).then(() => id, () => null)));
   const done = resumed.filter((id): id is string => id !== null);
   pausedStore.getState().clear(done);
   return done.length;
@@ -110,7 +117,7 @@ export async function resumeAgents(ids: readonly string[], now = Date.now()): Pr
 export async function resumeAgent(id: string): Promise<boolean> {
   const facts = factsOf(id);
   if (!facts || !canResume(facts)) return false;
-  await ptySendText(id, "continue");
+  await ptySendText(id, RESUME_TEXT);
   pausedStore.getState().clear([id]);
   return true;
 }
