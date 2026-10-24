@@ -77,3 +77,15 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Ouvrir le menu Stylo réécrit la couleur et l'épaisseur courantes partagées avec les formes.
 - Les prénoms des terminaux fermés (encore en mémoire pour Ctrl+Z) ne sont réutilisés qu'au redémarrage.
 - Sauvegarde automatique de la base (`openvibe.vN-backup.db`) avant chaque migration (à faire avec la migration du plan B).
+
+## Constats du plan B1 (groupes, relecture finale)
+
+- Après une action dans nos menus ou puces (Dégrouper, Fermer le groupe, Lancer 4…), les raccourcis d'Excalidraw (Ctrl+Z en tête) ne répondent qu'après un clic sur le canvas : Excalidraw n'écoute le clavier que dans son conteneur (`handleKeyboardGlobally` désactivé). Piste : rendre le focus au conteneur d'Excalidraw après nos actions (le mode global ferait agir Suppr tapé dans nos menus sur la sélection).
+- Ctrl+D ou copier-coller d'un groupe entier garde son panthéon : deux groupes partagent alors les mêmes prénoms ; la première copie adoptée dans un cadre dupliqué prend un prénom hors groupe.
+- Un agent ajouté hors de la vue (Ajouter un agent ou Dupliquer vers une nouvelle ligne ou colonne) ne s'affiche ni ne démarre avant qu'on fasse défiler jusqu'à lui (Excalidraw ne monte un nœud qu'une fois visible) : faire défiler la vue vers lui.
+- Seul le nom natif sert de poignée : saisir l'étiquette par ses compteurs ou son vide lance une sélection au lasso.
+- Les identifiants de cadres ne passent pas par `CSS.escape` dans les règles de transparence injectées.
+- Les terminaux arrêtés avant la mise à jour de la netteté rejouent une fois leur ancien écran dans une grille plus étroite (cellule de base de 8 px arrondie, contre 7 px avec FitAddon) : affichage brouillé jusqu'à la relance.
+- Entrée dans le champ nom de « Composer un groupe » ne lance pas le groupe.
+- Aucune limite d'erreur React : une erreur de rendu efface toute l'interface jusqu'au rechargement.
+- Développement : modifier `Canvas.tsx` pendant que l'application tourne fait remonter `LoadedCanvas` avec sa scène d'origine (Fast Refresh), qui est alors enregistrée par-dessus la scène courante (nœuds purgés) ; l'observateur de Vite manque parfois des modifications rapprochées (toucher le fichier).

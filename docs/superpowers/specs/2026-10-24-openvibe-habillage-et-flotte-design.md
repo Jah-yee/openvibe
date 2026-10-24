@@ -179,7 +179,7 @@ Le panneau Flotte s'ouvre à gauche du rail (largeur 300 px, hauteur jusqu'à 70
 - Sélection : `--color-selection` d'Excalidraw = `--ov-accent` (bordure et poignées de sélection orange).
 - Interface d'origine d'Excalidraw masquée : barre d'outils, menu principal, aide, pied de page (zoom, annuler), bibliothèque, statistiques, écran d'accueil (le panneau de propriétés est conservé et restylé, §5.4). Par `UIOptions` quand c'est possible, sinon par CSS ciblant les classes d'Excalidraw 0.18.1 (version figée ; une montée de version impose de revérifier cette liste).
 - Conservés : menu contextuel du clic droit (restylé par CSS), raccourcis clavier, annuler et rétablir (Ctrl+Z, Ctrl+Y), dialogues d'Excalidraw restylés.
-- Cadres : `frameRendering = { enabled: true, name: true, outline: false, clip: true }`. Le nom natif reste en place pour la sélection, le glisser et le renommage, mais devient transparent ; notre étiquette (§11.4) est dessinée exactement par-dessus.
+- Cadres : `frameRendering = { enabled: true, name: true, outline: false, clip: true }`. Le nom natif reste en place pour la sélection et le glisser, mais devient transparent ; notre étiquette (§11.4) est dessinée exactement par-dessus. Les groupes se renomment dans leur étiquette (§11.4), les cadres simples avec l'éditeur d'Excalidraw.
 
 ### 5.8 Dialogues, popovers, toasts
 
@@ -225,6 +225,7 @@ Pastille en Geist Mono majuscules 10 px, point de 5 px + libellé :
 | travaille | EN COURS | contour et texte orange `#E8553A` (indigo `#707DE3` pour les agents de teinte indigo) |
 | attend ta réponse | ATTEND | contour et texte ambre `#D9B35A`, point clignotant |
 | arrêté (restauré, jamais relancé) | ARRÊTÉ | gris foncé |
+| en attente de son lancement échelonné (§11.3) | DÉMARRAGE | gris foncé, sans encart de reprise ni démarrage à la frappe |
 | terminé | TERMINÉ · code | vert `#6A8E51` si code 0, rouge sinon |
 | erreur de lancement | ERREUR | rouge |
 
@@ -383,7 +384,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 ### 11.3 Placement et lancement
 
 - Grille de `min(N, 4)` colonnes, terminaux de 720 × 440, espacement 24, marge intérieure du cadre 32 (48 en haut pour l'étiquette).
-- Le cadre est centré sur le centre de la vue, puis la vue s'ajuste pour le montrer entier (`scrollToContent`, animation 300 ms, zoom plafonné à 100 %).
+- Le cadre est centré sur le centre de la vue s'il n'y recouvre rien ; sinon il descend sous ce qu'il recouvrirait (96 d'écart), pour ne jamais se poser sur un autre groupe. La vue s'ajuste pour le montrer entier (`scrollToContent`, animation 300 ms, zoom plafonné à 100 %).
 - Les terminaux sont créés en une seule mise à jour de scène (une seule entrée d'annulation), puis lancés à 300 ms d'intervalle.
 - « Lancer 4 » : rôle Général, nom « Groupe N » (plus petit N libre), 4 agents par défaut.
 - **Alignement dans le groupe** (demande de Mathieu, 2026-10-24) : tout terminal ouvert dans un groupe — clic de placement dans le cadre, « Nouvelle console » quand le centre de la vue tombe dans le cadre, « Ajouter un agent », « Dupliquer » ou copie (Ctrl+D, copier-coller) d'un membre — prend la première case libre de la grille du groupe, ligne par ligne. La grille part du coin du cadre, avec les marges ci-dessus ; une case est prise quand un élément du cadre en couvre plus d'un dixième, si bien qu'un terminal déplacé à la main garde sa case. Cadre plein : il s'agrandit d'une colonne (jusqu'à 4), sinon d'une ligne.
@@ -397,6 +398,7 @@ Popover « Composer un groupe » (360 px), ancré au-dessus de la puce Groupe :
 - Jusqu'à J3, « en cours » compte les membres dont le processus tourne (pastille ACTIF) ; J3 le remplace par l'activité `working`.
 - Relier un orchestrateur, Tout mettre en pause et Tout reprendre arrivent avec J5 ; d'ici là, le menu ne les montre pas.
 - Les cadres simples reçoivent un contour gris sobre de la même couche (l'outline native est désactivée, §5.7).
+- Renommer un groupe (menu, double-clic ou Entrée sur son nom) ouvre un champ dans l'étiquette : Entrée ou un clic ailleurs valide, Échap annule ; le renommage est une étape d'annulation. L'éditeur natif d'Excalidraw change le nom hors de son historique, après quoi annuler Dégrouper ou Fermer le groupe ne ramène plus le cadre : il est refermé dès qu'il s'ouvre sur un groupe.
 - Le nom natif de tous les cadres prend la police de l'étiquette (Geist 11 px semi-gras, majuscules, 28 px de marge pour le point) et sa position (16 px du coin, posé sur le bord), pour que la zone qu'on saisit coïncide avec notre étiquette ; il est transparent pour les groupes.
 
 ## 12. Barre de commande
