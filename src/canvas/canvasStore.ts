@@ -1,5 +1,5 @@
 import { createStore, useStore } from "zustand";
-import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { AppState, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import { sameFrames, type SceneFrame } from "./groups";
 
 /** The part of Excalidraw's state that the shell around the canvas shows. */
@@ -45,6 +45,21 @@ export function viewFrom(appState: AppState): CanvasView {
       .filter((id) => appState.selectedElementIds[id])
       .sort(),
     editingFrame: appState.editingFrame ?? null,
+  };
+}
+
+/**
+ * The view that shows an element at 100 %, centered. Set in one `updateScene`:
+ * `scrollToContent` right after a zoom change keeps the zoom it read before it.
+ */
+export function fullSizeView(
+  element: { x: number; y: number; width: number; height: number },
+  viewport: { width: number; height: number },
+) {
+  return {
+    zoom: { value: 1 as NormalizedZoomValue },
+    scrollX: viewport.width / 2 - (element.x + element.width / 2),
+    scrollY: viewport.height / 2 - (element.y + element.height / 2),
   };
 }
 

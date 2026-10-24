@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Excalidraw, getSceneVersion } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import type {
-  AppState,
-  BinaryFiles,
-  ExcalidrawImperativeAPI,
-  NormalizedZoomValue,
-} from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
 import { assignMissingNames } from "@/fleet/naming";
@@ -18,7 +13,7 @@ import { NodeHost } from "@/nodes/NodeHost";
 import { disposeTerminal, focusTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
 import { createActivationTracker } from "./activation";
-import { canvasStore, viewFrom } from "./canvasStore";
+import { canvasStore, fullSizeView, viewFrom } from "./canvasStore";
 import { framesFromScene } from "./groups";
 import { isOpenVibeLink } from "./nodeElement";
 import { classifyAddedNodes } from "./nodeCopies";
@@ -167,6 +162,5 @@ function showAtFullSize(api: ExcalidrawImperativeAPI, nodeId: string) {
   if (api.getAppState().zoom.value === 1) return;
   const element = api.getSceneElements().find((e) => e.id === nodeId);
   if (!element) return;
-  api.updateScene({ appState: { zoom: { value: 1 as NormalizedZoomValue } } });
-  api.scrollToContent(element, { animate: true, duration: 200 });
+  api.updateScene({ appState: fullSizeView(element, api.getAppState()) });
 }

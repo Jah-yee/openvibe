@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppState } from "@excalidraw/excalidraw/types";
-import { canvasStore, EMPTY_VIEW, sameView, viewFrom } from "./canvasStore";
+import { canvasStore, EMPTY_VIEW, fullSizeView, sameView, viewFrom } from "./canvasStore";
 
 const appState = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -63,5 +63,12 @@ describe("nodeIds", () => {
     canvasStore.getState().setNodeIds(["a", "b"]);
     expect(canvasStore.getState().nodeIds).toBe(ids);
     canvasStore.getState().setNodeIds([]);
+  });
+});
+
+describe("fullSizeView", () => {
+  it("centers the element in the viewport at 100 %", () => {
+    const view = fullSizeView({ x: 1000, y: 500, width: 800, height: 400 }, { width: 1400, height: 900 });
+    expect(view).toEqual({ zoom: { value: 1 }, scrollX: -700, scrollY: -250 });
   });
 });
