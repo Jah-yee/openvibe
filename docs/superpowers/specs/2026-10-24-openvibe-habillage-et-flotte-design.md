@@ -281,8 +281,9 @@ Le catalogue remplace les préréglages (`Preset`). Il est défini une fois en R
 
 ### 8.2 Hooks et réglages passés aux agents
 
-- Claude : OpenVibe écrit `<app_data>/hooks/<nodeId>.json` et lance `claude --settings "<chemin>" …`. Le fichier est réécrit à chaque lancement (port et jeton changent à chaque démarrage de l'application) et supprimé à la suppression du nœud. Contenu : §10.3. Les réglages de l'utilisateur (`~/.claude/settings.json`) ne sont pas modifiés.
-- Codex : `codex -c 'notify=["curl.exe","-s","-X","POST","<url>","-d"]'` ; Codex ajoute la charge JSON en dernier argument, qui devient le corps de la requête. À vérifier au jalon J3 ; en cas d'échec, Codex reste sur l'état déduit de l'activité.
+- Claude : OpenVibe écrit `<app_data>/hooks/<nodeId>.json` et lance `claude --settings "<chemin>" …`. Le fichier est réécrit à chaque lancement (port et jeton changent à chaque démarrage de l'application), supprimé à la fin du processus, et le dossier est vidé au démarrage de l'application (un fichier restant pointerait vers un serveur mort). Contenu : §10.3. Les réglages de l'utilisateur (`~/.claude/settings.json`) ne sont pas modifiés.
+- Codex : `codex -c "notify=['curl.exe','-s','-X','POST','<url>','-d']"` (chaînes littérales TOML entre apostrophes : PowerShell 5.1 perd les guillemets doubles imbriqués passés à un programme natif) ; Codex ajoute la charge JSON en dernier argument, qui devient le corps de la requête. Non vérifié (Codex absent de la machine de développement) ; en cas d'échec, Codex reste sur l'état déduit de l'activité.
+- Environnement : les terminaux héritent de l'environnement d'OpenVibe, sauf les marqueurs de session de Claude Code (`CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_BRIDGE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET`, `CLAUDE_CODE_MESSAGING_TOKEN`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY`) : un OpenVibe lancé depuis une session Claude Code ne doit pas faire de ses agents des sessions enfants (exclues de `--resume`).
 
 ## 9. Prénoms mythologiques
 
@@ -355,7 +356,7 @@ Le calcul est fait en Rust (`agents::activity`), qui émet `agent-activity` à c
 
 - Aucun hook pouvant bloquer une décision (`PreToolUse`, `PermissionRequest`) n'est utilisé : une réponse vide de notre serveur ne doit jamais influencer Claude.
 - Si le serveur ne démarre pas : un toast unique « États des agents approximatifs : serveur local indisponible », et tous les agents passent par l'activité du terminal ; Claude est alors lancé sans `--settings`.
-- Points à vérifier au jalon J3 (sur la version installée de Claude Code) : que les hooks de `--settings` s'ajoutent bien à ceux de l'utilisateur ; que les hooks `http` n'affichent rien dans l'interface de Claude ; les champs exacts du corps de `Notification`.
+- Vérifié sur Claude Code 2.1.304 (2026-10-24) : les hooks `http` de `--settings` se déclenchent (`UserPromptSubmit` puis `Stop` pour un tour) et s'ajoutent à ceux du projet et de l'utilisateur, qui se déclenchent aussi ; le corps porte `hook_event_name` (et `notification_type` pour `Notification`) ; une réponse 204 ne produit rien dans la sortie de Claude. Une réponse en erreur ou un serveur injoignable donnent une ligne « hook error » dans Claude : le délai de 2 s borne l'attente.
 
 ### 10.4 Chronomètre
 
@@ -510,7 +511,7 @@ Les charges utiles existantes sont lues avec rétrocompatibilité : `preset` dev
 | PTY | `pty_send_text(nodeId, text)` | `ESC[200~` + texte + `ESC[201~`, puis `\r` 30 ms plus tard ; erreur si le processus n'existe pas |
 | | `pty_interrupt(nodeId)` | séquence d'interruption de l'agent du nœud |
 | Git | `git_status(path) -> { branch, changed } \| null` | `git status --porcelain=v1 -b` ; `null` hors dépôt ou sans git |
-| États | `agent_activity_snapshot() -> { nodeId, activity, since }[]` | état courant au chargement du front |
+| États | `agent_activity_snapshot() -> { hooksAvailable, activities: { nodeId, activity, since }[] }` | état courant au chargement du front, et disponibilité du serveur des hooks |
 
 `pty_spawn` reçoit désormais l'agent (`agent`, `ollama`) au lieu du préréglage ; Rust construit la commande (§8) et, pour Claude, écrit le fichier de hooks.
 
@@ -518,7 +519,7 @@ Les charges utiles existantes sont lues avec rétrocompatibilité : `preset` dev
 
 - `agent-activity` : `{ nodeId, activity: "idle" | "working" | "waiting", since }` ;
 - `pty-exit` : inchangé ;
-- `hooks-unavailable` : émis une fois si le serveur local n'a pas démarré.
+- la disponibilité du serveur des hooks est lue dans `agent_activity_snapshot` (un événement émis au démarrage de Rust arriverait avant que la webview n'écoute).
 
 ## 16. Architecture front
 
