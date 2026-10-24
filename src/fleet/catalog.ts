@@ -38,6 +38,9 @@ export const AGENTS: Record<AgentId, AgentMeta> = {
 
 export const AGENT_ORDER: AgentId[] = [...AGENT_IDS];
 
+/** Agents of this tint work in indigo rather than orange (spec habillage §7.2). */
+export const INDIGO = "#707de3";
+
 /** Agents that start without options: Ollama needs a model, Personnalisé a command. */
 export const AGENTS_WITHOUT_OPTIONS = AGENT_ORDER.filter((id) => id !== "ollama" && id !== "custom");
 

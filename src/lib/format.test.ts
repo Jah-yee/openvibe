@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAgo, plural } from "./format";
+import { formatAgo, formatDuration, plural } from "./format";
 
 describe("formatAgo", () => {
   const now = 1_000_000_000;
@@ -17,5 +17,14 @@ describe("plural", () => {
     expect(plural(0, "workspace", "workspaces")).toBe("0 workspace");
     expect(plural(1, "agent actif", "agents actifs")).toBe("1 agent actif");
     expect(plural(3, "agent actif", "agents actifs")).toBe("3 agents actifs");
+  });
+});
+
+describe("formatDuration", () => {
+  it("reads like the fleet panel (spec habillage §10.4)", () => {
+    expect(formatDuration(45_400)).toBe("45 s");
+    expect(formatDuration(12 * 60_000 + 5_000)).toBe("12 min");
+    expect(formatDuration(65 * 60_000)).toBe("1 h 05");
+    expect(formatDuration(-3)).toBe("0 s");
   });
 });

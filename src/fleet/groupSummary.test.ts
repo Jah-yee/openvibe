@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countsText, livingAgents } from "./groupSummary";
+import { countsText, livingAgents, waitingText } from "./groupSummary";
 
 describe("countsText", () => {
   it("shows the members and those at work", () => {
@@ -16,5 +16,13 @@ describe("livingAgents", () => {
   it("names the members still running, in group order", () => {
     const names: Record<string, string> = { a: "Isis", b: "Osiris", c: "Horus" };
     expect(livingAgents(["a", "b", "c"], (id) => names[id], (id) => id !== "b")).toEqual(["Isis", "Horus"]);
+  });
+});
+
+describe("waitingText", () => {
+  it("adds the members waiting for an answer, in amber", () => {
+    expect(waitingText(1)).toBe("· 1 attend");
+    expect(waitingText(3)).toBe("· 3 attendent");
+    expect(waitingText(0)).toBeNull();
   });
 });

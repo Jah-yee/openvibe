@@ -10,10 +10,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
-import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "@/fleet/catalog";
+import { AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
+import type { AgentActivity } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
 import type { TerminalStatus } from "@/store/terminalStatus";
 import type { LaunchMode } from "./launch";
@@ -89,9 +90,10 @@ export function TerminalHeader(props: {
   nodeId: string;
   payload: TerminalPayload;
   status: TerminalStatus;
+  activity?: AgentActivity;
   actions?: ReactNode;
 }) {
-  const { nodeId, payload, status, actions } = props;
+  const { nodeId, payload, status, activity, actions } = props;
   const [editing, setEditing] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const meta = AGENTS[payload.agent];
@@ -154,7 +156,7 @@ export function TerminalHeader(props: {
         </span>
       )}
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
-        <StatusPill status={status} />
+        <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
         {actions}
       </div>

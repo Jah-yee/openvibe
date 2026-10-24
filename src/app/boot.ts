@@ -1,6 +1,9 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { toast } from "sonner";
+import { agentActivitySnapshot, onAgentActivity } from "@/ipc/activity";
 import { onPtyExit, ptyList } from "@/ipc/pty";
 import { setLivePtys } from "@/nodes/terminal/registry";
+import { agentActivityStore } from "@/store/agentActivity";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
@@ -15,9 +18,15 @@ let booting: Promise<void> | undefined;
  */
 export function boot(): Promise<void> {
   booting ??= (async () => {
-    await onPtyExit(({ nodeId, exitCode }) =>
-      terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode }),
-    );
+    await onPtyExit(({ nodeId, exitCode }) => {
+      terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode });
+      agentActivityStore.getState().remove(nodeId);
+    });
+    // Listened to before the snapshot: no change can fall between the two.
+    await onAgentActivity((event) => agentActivityStore.getState().apply(event));
+    const activity = await agentActivitySnapshot();
+    agentActivityStore.getState().load(activity.activities);
+    if (!activity.hooksAvailable) toast.warning("États des agents approximatifs : serveur local indisponible");
     setLivePtys(await ptyList());
     await getCurrentWindow().onCloseRequested(saveBeforeClose);
     setForgetWorkspaces(forgetWorkspaces);

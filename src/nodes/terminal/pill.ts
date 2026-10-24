@@ -1,17 +1,21 @@
+import type { Activity } from "@/ipc/activity";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalStatus } from "@/store/terminalStatus";
 
-export type PillTone = "live" | "stopped" | "done" | "failed";
+export type PillTone = "live" | "ready" | "working" | "workingIndigo" | "waiting" | "stopped" | "done" | "failed";
 
 /**
- * The status pill of a terminal header (spec habillage §7.2). Until agent
- * activity is detected (plan B), a running process reads ACTIF.
+ * The status pill of a terminal header (spec habillage §7.2): the process
+ * state, and for a running process its activity.
  */
-export function pillOf(status: TerminalStatus): { label: string; tone: PillTone } {
+export function pillOf(status: TerminalStatus, activity?: Activity, indigo = false): { label: string; tone: PillTone } {
   switch (status.state) {
     case "starting":
       return { label: "DÉMARRAGE", tone: "stopped" };
     case "running":
+      if (activity === "working") return { label: "EN COURS", tone: indigo ? "workingIndigo" : "working" };
+      if (activity === "waiting") return { label: "ATTEND", tone: "waiting" };
+      if (activity === "idle") return { label: "PRÊT", tone: "ready" };
       return { label: "ACTIF", tone: "live" };
     case "stopped":
       return { label: "ARRÊTÉ", tone: "stopped" };

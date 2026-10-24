@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { AGENTS } from "@/fleet/catalog";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
+import { useActivity } from "@/store/agentActivity";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
@@ -14,6 +15,7 @@ import { HeaderButton, TerminalHeader } from "./TerminalHeader";
 export function TerminalNode({ nodeId }: { nodeId: string }) {
   const payload = useNodes((s) => s.nodes[nodeId]?.payload);
   const status = useTerminalStatus(nodeId);
+  const activity = useActivity(nodeId);
   const workspaceId = useNodes((s) => s.nodes[nodeId]?.workspaceId);
   const selected = useCanvas((s) => s.view.selectedIds.includes(nodeId));
   const hostRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
         nodeId={nodeId}
         payload={payload}
         status={status}
+        activity={activity}
         actions={
           <>
             <HeaderButton

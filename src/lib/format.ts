@@ -13,3 +13,12 @@ export function formatAgo(timestampMs: number, nowMs = Date.now()): string {
 export function plural(count: number, one: string, many: string): string {
   return `${count} ${count > 1 ? many : one}`;
 }
+
+/** "45 s", "12 min", "1 h 05": how long an agent has been in its state (spec habillage §10.4). */
+export function formatDuration(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`;
+}

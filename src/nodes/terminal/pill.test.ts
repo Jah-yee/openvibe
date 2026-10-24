@@ -78,3 +78,22 @@ describe("a terminal waiting for its staggered start", () => {
     expect(startsOnKeystroke(starting)).toBe(false);
   });
 });
+
+describe("a running agent's activity (spec habillage §7.2)", () => {
+  const running = { state: "running" } as const;
+
+  it("reads PRÊT, EN COURS or ATTEND", () => {
+    expect(pillOf(running, "idle")).toEqual({ label: "PRÊT", tone: "ready" });
+    expect(pillOf(running, "working")).toEqual({ label: "EN COURS", tone: "working" });
+    expect(pillOf(running, "waiting")).toEqual({ label: "ATTEND", tone: "waiting" });
+  });
+
+  it("works in indigo for the indigo agents", () => {
+    expect(pillOf(running, "working", true)).toEqual({ label: "EN COURS", tone: "workingIndigo" });
+  });
+
+  it("reads ACTIF while its activity is unknown, and ignores the activity of a stopped process", () => {
+    expect(pillOf(running)).toEqual({ label: "ACTIF", tone: "live" });
+    expect(pillOf({ state: "stopped" }, "working")).toEqual({ label: "ARRÊTÉ", tone: "stopped" });
+  });
+});

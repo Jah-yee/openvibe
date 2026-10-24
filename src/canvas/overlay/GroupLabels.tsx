@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { useStore } from "zustand";
 import { renameGroup } from "@/fleet/groups";
+import type { Activity } from "@/ipc/activity";
 import { GroupMenu } from "@/fleet/GroupMenu";
-import { countsText } from "@/fleet/groupSummary";
+import { countsText, waitingText } from "@/fleet/groupSummary";
 import { screenRectOf } from "@/fleet/placement";
 import { ROLES } from "@/fleet/roles";
-import { terminalStatusStore } from "@/store/terminalStatus";
+import { useActivities } from "@/store/agentActivity";
 import { uiStore, useUi } from "@/store/ui";
 import { canvasStore, useCanvas, type CanvasView } from "../canvasStore";
 import { groupBeingRenamed, isGroup, type SceneGroup } from "../groups";
@@ -26,7 +26,10 @@ const LABEL_HEIGHT = 24;
 export function GroupLabels() {
   const frames = useCanvas((s) => s.frames);
   const view = useCanvas((s) => s.view);
-  const statuses = useStore(terminalStatusStore, (s) => s.statuses);
+  const activities = useActivities();
+  // An activity ends with its process (`pty-exit`): stopped members never count.
+  const members = (group: SceneGroup, activity: Activity) =>
+    group.memberIds.filter((id) => activities[id]?.activity === activity).length;
   const groups = frames.filter(isGroup);
   const renaming = useUi((s) => s.renamingGroup);
   const takeover = groupBeingRenamed(view.editingFrame, frames);
@@ -49,7 +52,8 @@ export function GroupLabels() {
             group={group}
             view={view}
             renaming={group.id === renaming}
-            working={group.memberIds.filter((id) => statuses[id]?.state === "running").length}
+            working={members(group, "working")}
+            waiting={members(group, "waiting")}
           />
         ),
       )}
@@ -57,8 +61,9 @@ export function GroupLabels() {
   );
 }
 
-function GroupLabel(props: { group: SceneGroup; view: CanvasView; working: number; renaming: boolean }) {
-  const { group, view, working, renaming } = props;
+function GroupLabel(props: { group: SceneGroup; view: CanvasView; working: number; waiting: number; renaming: boolean }) {
+  const { group, view, working, waiting, renaming } = props;
+  const waits = waitingText(waiting);
   const rect = screenRectOf(group, view);
   const role = ROLES[group.group.role];
   return (
@@ -81,6 +86,7 @@ function GroupLabel(props: { group: SceneGroup; view: CanvasView; working: numbe
         <span className="font-semibold tracking-[0.08em] text-ov-text uppercase">{group.name}</span>
       )}
       <span className="ml-2 font-mono text-ov-text-2">{countsText(group.memberIds.length, working)}</span>
+      {waits && <span className="ml-1 font-mono text-ov-waiting">{waits}</span>}
       <GroupMenu groupId={group.id} />
     </div>
   );
