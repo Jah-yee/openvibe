@@ -157,7 +157,7 @@ Comme dans Windows Terminal :
 
 ### 6.3 Activation
 
-Excalidraw demande un clic pour activer un élément intégré. À l'activation d'un terminal : focus sur Xterm et recalage de la vue à 100 % centré sur le nœud (réglage `terminal.zoomOnActivate`, activé par défaut). Raison : au zoom ≠ 100 %, le texte Xterm devient flou et la sélection se décale.
+Excalidraw demande un clic pour activer un élément intégré. À l'activation d'un terminal : focus sur Xterm et recalage de la vue à 100 % centré sur le nœud (réglage `terminal.zoomOnActivate`, activé par défaut ; toujours actif tant que les réglages n'ont pas d'écran). Raison : au zoom ≠ 100 %, le texte Xterm devient flou et la sélection se décale.
 
 ### 6.4 Registre des terminaux
 
@@ -264,7 +264,7 @@ CREATE TABLE scene_files (
   workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   file_id      TEXT NOT NULL,
   mime_type    TEXT NOT NULL,
-  data         BLOB NOT NULL,
+  data_url     TEXT NOT NULL,     -- data URL fournie par Excalidraw (écart du plan 2)
   created_at   INTEGER NOT NULL,
   PRIMARY KEY (workspace_id, file_id)
 );
@@ -283,6 +283,7 @@ CREATE TABLE terminal_scrollback (
   updated_at INTEGER NOT NULL
 );
 
+-- Tables des icônes : reportées à la migration du plan des icônes (écart du plan 2).
 CREATE TABLE icon_packs (
   id          TEXT PRIMARY KEY,
   provider    TEXT NOT NULL CHECK (provider IN ('aws', 'azure', 'gcp')),
@@ -345,12 +346,12 @@ type GitPayload    = { title: string; path?: string };
 | Domaine | Commande | Rôle |
 |---|---|---|
 | Base | `ping() -> String` | test du socle |
-| Workspaces | `list_workspaces`, `create_workspace(name)`, `rename_workspace(id, name)`, `delete_workspace(id)`, `reorder_workspaces(ids)` | gestion de la barre latérale |
+| Workspaces | `list_workspaces`, `create_workspace(name)`, `rename_workspace(id, name)`, `delete_workspace(id)` | gestion de la barre latérale ; `delete_workspace` arrête aussi les terminaux du workspace |
 | Scène | `load_workspace(id) -> { scene, files, nodes }` | chargement complet sauf scrollback |
 | | `save_scene(workspaceId, elementsJson, appStateJson, nodeIds)` | sauvegarde + purge |
 | | `save_files(workspaceId, files)` | images ajoutées |
 | | `save_node(id, workspaceId, kind, payload)` | contenu d'un nœud |
-| PTY | `pty_spawn(nodeId, spec, cols, rows, onData: Channel) -> { pid }` | lance shell + commande |
+| PTY | `pty_spawn(nodeId, spec, cols, rows, onData: Channel) -> pid | null` | lance shell + commande |
 | | `pty_attach(nodeId, onData: Channel) -> bool` | rattache une session vivante |
 | | `pty_write(nodeId, data)`, `pty_resize(nodeId, cols, rows)`, `pty_kill(nodeId)` | interaction |
 | | `pty_list() -> nodeId[]` | sessions vivantes (badges, rattachement) |
@@ -358,7 +359,7 @@ type GitPayload    = { title: string; path?: string };
 | Préréglages | `list_presets()`, `list_shells()` | dialogue de lancement |
 | Git | `git_status(path) -> GitStatus`, `git_diff(path, file) -> String` | Git Watcher |
 | Icônes | `import_icon_pack(provider, zipPath)`, `list_icon_packs()`, `delete_icon_pack(id)`, `search_icons(query, provider?, limit)`, `read_icon_svg(id)` | icônes cloud |
-| Réglages | `get_settings()`, `set_setting(key, value)` | réglages |
+| Réglages | `get_setting(key)`, `set_setting(key, value)` | réglages |
 
 `spec` de `pty_spawn` : `{ cwd, shell, preset, command, claude?: { mode: 'new' | 'resume' | 'continue', sessionId, title } }`.
 
@@ -375,7 +376,7 @@ type GitPayload    = { title: string; path?: string };
   - Git Watcher → « Pas un dépôt Git », « git introuvable ».
 - Échec d'ouverture de la base au démarrage → boîte de dialogue bloquante avec le chemin du fichier.
 - Import d'icônes sans aucun SVG reconnu → toast d'erreur, rien n'est enregistré.
-- Les logs Rust vont dans un fichier via `tauri-plugin-log`.
+- Les logs Rust vont dans un fichier via `tauri-plugin-log` (reporté, voir les écarts du plan 2).
 
 ## 11. Arborescence cible
 
@@ -507,6 +508,20 @@ Prototype passé par Mathieu le 2026-10-24 sur Windows 11 (WebView2), avec l'out
 | Pont PTY (jalon 3) | PowerShell réel avec accents corrects ; `claude` démarre avec le compte existant ; `pty-exit` reçu ; aucun processus orphelin après fermeture | ✔ |
 
 **Décision : option A (Excalidraw comme canvas).** Aucun contournement n'a été nécessaire (le blocage de propagation des touches est resté désactivé).
+
+### Écarts du plan 2
+
+| Point de la spec | Réalisé | Raison |
+|---|---|---|
+| `scene_files.data BLOB` (§8.2) | `data_url TEXT` | Excalidraw fournit et relit des data URL ; aucune conversion à faire |
+| Tables `icon_packs` et `icons` dans la migration 001 | reportées à la migration du plan des icônes | rien ne les utilise avant ce plan |
+| `reorder_workspaces(ids)` (§9) | absent | l'ordre de création suffit ; à ajouter avec le glisser des onglets |
+| `get_settings()` (§9) | `get_setting(key)` | lecture ciblée d'un réglage, valeur JSON |
+| `pty_spawn -> { pid }` (§9) | renvoie le pid nu, ou `null` si le système ne le fournit pas | rien d'autre à transmettre |
+| réglage `terminal.zoomOnActivate` (§6.3) | toujours actif | pas encore d'écran de réglages |
+| `tauri-plugin-log` (§3, §10) | reporté | aucun besoin de diagnostic sur fichier pour l'instant |
+| erreurs `{ kind, message }` (§10) | ajout du kind `db` | distinguer une erreur SQLite d'une erreur d'entrée |
+| suppression d'un workspace | Rust arrête aussi ses terminaux | après un rechargement de la webview, le front ne connaît pas les agents des workspaces jamais affichés |
 
 ## 16. Conventions
 
