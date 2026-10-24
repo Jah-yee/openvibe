@@ -1,7 +1,9 @@
 mod commands;
 mod db;
 mod error;
+mod git;
 mod presets;
+mod process;
 mod pty;
 
 use std::time::Duration;
@@ -63,6 +65,14 @@ pub fn run() {
             commands::workspace::save_node,
             commands::workspace::get_setting,
             commands::workspace::set_setting,
+            commands::project::list_projects,
+            commands::project::create_project,
+            commands::project::rename_project,
+            commands::project::relocate_project,
+            commands::project::open_project,
+            commands::project::delete_project,
+            commands::workspace::set_workspace_pantheon,
+            commands::git::git_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the OpenVibe application");
