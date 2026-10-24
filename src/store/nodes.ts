@@ -3,6 +3,7 @@ import type { NodeKind } from "@/canvas/nodeElement";
 import { saveNode, type StoredNode } from "@/ipc/db";
 import { debounce, type Debounced } from "@/lib/debounce";
 import { onFlushAll } from "@/lib/flush";
+import { rebasePath } from "@/lib/paths";
 import { readTerminalPayload, type NodePayload } from "@/nodes/types";
 
 export interface NodeRecord {
@@ -106,4 +107,13 @@ export const nodesStore = nodes.store;
 
 export function useNodes<T>(selector: (state: NodesState) => T): T {
   return useStore(nodesStore, selector);
+}
+
+/** After "Changer de dossier": terminals in memory follow the project's new folder. */
+export function rebaseTerminalFolders(from: string, to: string) {
+  for (const [id, node] of Object.entries(nodesStore.getState().nodes)) {
+    if (node.kind !== "terminal") continue;
+    const cwd = rebasePath(node.payload.cwd, from, to);
+    if (cwd) nodesStore.getState().update(id, { cwd });
+  }
 }

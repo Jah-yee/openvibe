@@ -11,6 +11,7 @@ import {
   type Project,
 } from "@/ipc/db";
 import { flushAll } from "@/lib/flush";
+import { rebaseTerminalFolders } from "./nodes";
 import { workspacesStore } from "./workspaces";
 
 export type { Project };
@@ -39,6 +40,8 @@ export function startupProject(projects: readonly Project[], saved: string | nul
 export interface ProjectsDeps {
   loadWorkspaces: (projectId: string) => Promise<void>;
   forgetWorkspaces: (workspaceIds: string[]) => void;
+  /** Moves the folder of the terminals in memory, as Rust did for the saved ones. */
+  rebaseTerminals: (from: string, to: string) => void;
 }
 
 export interface ProjectsState {
@@ -118,7 +121,9 @@ export function createProjectsStore(deps: ProjectsDeps) {
     },
 
     relocate: async (id, path) => {
+      const old = get().projects.find((p) => p.id === id)?.path;
       await relocateProject(id, path);
+      if (old) deps.rebaseTerminals(old, path);
       set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, path, missing: false } : p)) }));
     },
 
@@ -153,6 +158,7 @@ export function setForgetWorkspaces(forget: (workspaceIds: string[]) => void) {
 export const projectsStore = createProjectsStore({
   loadWorkspaces: (projectId) => workspacesStore.getState().load(projectId),
   forgetWorkspaces: (workspaceIds) => forgetHook(workspaceIds),
+  rebaseTerminals: rebaseTerminalFolders,
 });
 
 export function useProjects<T>(selector: (state: ProjectsState) => T): T {

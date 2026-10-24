@@ -109,15 +109,63 @@ pub fn rename(conn: &Connection, id: &str, name: &str) -> AppResult<()> {
     )
 }
 
+/// `path` moved from the folder `from` to `to` ("C:\api\web" from "C:\api" to
+/// "D:\api" gives "D:\api\web"); None when `path` is not inside `from`.
+pub fn rebase_path(path: &str, from: &str, to: &str) -> Option<String> {
+    let key = path_key(path);
+    let from_key = path_key(from);
+    let to = normalize_path(to);
+    if key == from_key {
+        return Some(to);
+    }
+    if !key.starts_with(&format!("{from_key}\\")) {
+        return None;
+    }
+    // The rest of the path keeps its own case.
+    let rest: String = normalize_path(path)
+        .replace('/', "\\")
+        .chars()
+        .skip(from_key.chars().count() + 1)
+        .collect();
+    Some(format!("{}\\{rest}", to.trim_end_matches(['\\', '/'])))
+}
+
+/// Points the project at another folder, and its terminals with it: a terminal
+/// started in the old folder (or below) would otherwise fail with "dossier introuvable".
 pub fn relocate(conn: &Connection, id: &str, path: &str) -> AppResult<()> {
     let path = valid_path(conn, path, Some(id))?;
-    changed(
-        conn.execute(
-            "UPDATE projects SET path = ?2 WHERE id = ?1",
-            params![id, path],
-        )?,
-        id,
-    )
+    let old = get(conn, id)?.path;
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "UPDATE projects SET path = ?2 WHERE id = ?1",
+        params![id, path],
+    )?;
+    let terminals: Vec<(String, String)> = {
+        let mut stmt = tx.prepare(
+            "SELECT n.id, n.payload_json FROM nodes n JOIN workspaces w ON w.id = n.workspace_id
+             WHERE w.project_id = ?1 AND n.kind = 'terminal'",
+        )?;
+        let rows = stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        rows.collect::<rusqlite::Result<_>>()?
+    };
+    for (node_id, payload) in terminals {
+        let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&payload) else {
+            continue;
+        };
+        let moved = value
+            .get("cwd")
+            .and_then(|cwd| cwd.as_str())
+            .and_then(|cwd| rebase_path(cwd, &old, &path));
+        if let Some(cwd) = moved {
+            value["cwd"] = serde_json::Value::String(cwd);
+            tx.execute(
+                "UPDATE nodes SET payload_json = ?2, updated_at = ?3 WHERE id = ?1",
+                params![node_id, value.to_string(), now_ms()],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 /// Records that the project was just opened (recent projects come first).
@@ -293,6 +341,71 @@ mod tests {
                 assert_eq!(deleted.node_ids, vec!["t1".to_string()]);
                 assert!(names(conn).is_empty());
                 assert_eq!(delete(conn, "nope").unwrap_err().kind(), "notFound");
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn rebases_paths_inside_a_folder_only() {
+        assert_eq!(
+            rebase_path("C:\\code\\api", "c:/code/API/", "D:\\api").as_deref(),
+            Some("D:\\api")
+        );
+        assert_eq!(
+            rebase_path("C:\\code\\api\\web", "C:\\code\\api", "D:\\").as_deref(),
+            Some("D:\\web")
+        );
+        assert_eq!(
+            rebase_path("C:\\code\\apis", "C:\\code\\api", "D:\\api"),
+            None
+        );
+    }
+
+    #[test]
+    fn relocating_moves_the_terminals_inside_the_old_folder() {
+        Db::open_in_memory()
+            .unwrap()
+            .with(|conn| {
+                let project = create(conn, "C:\\code\\api")?;
+                let w = workspaces::list(conn, &project.id)?.remove(0);
+                let terminal = nodes::NodeKind::Terminal;
+                nodes::save(
+                    conn,
+                    "root",
+                    &w.id,
+                    terminal,
+                    r#"{"cwd":"C:\\code\\api","agent":"claude"}"#,
+                )?;
+                nodes::save(
+                    conn,
+                    "sub",
+                    &w.id,
+                    terminal,
+                    r#"{"cwd":"c:/code/API/web","agent":"codex"}"#,
+                )?;
+                nodes::save(
+                    conn,
+                    "other",
+                    &w.id,
+                    terminal,
+                    r#"{"cwd":"C:\\code\\apis","agent":"shell"}"#,
+                )?;
+                relocate(conn, &project.id, "D:\\api")?;
+                let payload = |id: &str| -> serde_json::Value {
+                    let json: String = conn
+                        .query_row(
+                            "SELECT payload_json FROM nodes WHERE id = ?1",
+                            [id],
+                            |row| row.get(0),
+                        )
+                        .unwrap();
+                    serde_json::from_str(&json).unwrap()
+                };
+                assert_eq!(payload("root")["cwd"], "D:\\api");
+                assert_eq!(payload("sub")["cwd"], "D:\\api\\web");
+                assert_eq!(payload("sub")["agent"], "codex");
+                assert_eq!(payload("other")["cwd"], "C:\\code\\apis");
                 Ok(())
             })
             .unwrap();
