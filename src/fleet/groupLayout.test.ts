@@ -54,6 +54,13 @@ describe("freeCell", () => {
     expect(freeCell(frameOf(4), full(4))).toEqual({ cell: cellAt(origin, 0, 1), frame: frameOf(5) });
   });
 
+  it("does not grow onto a member straddling the frame's edge", () => {
+    // Excalidraw keeps a member in its frame while it still crosses the border.
+    const straddling = { ...cellAt(origin, 0, 0), x: origin.x + 1528 };
+    const placed = freeCell(frameOf(2), [...full(2), straddling]);
+    expect(placed.cell).toEqual(cellAt(origin, 0, 1));
+  });
+
   it("uses the first cell of a frame smaller than a terminal and grows it", () => {
     const small = at(0, 0, { width: 300, height: 200 });
     expect(freeCell(small, [])).toEqual({ cell: cellAt({ x: 0, y: 0 }, 0, 0), frame: at(0, 0, groupGrid(1)) });

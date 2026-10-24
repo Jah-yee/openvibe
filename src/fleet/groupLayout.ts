@@ -53,19 +53,36 @@ function grownTo(frame: Rect, cell: Rect): Rect {
 /**
  * Mathieu's alignment rule (spec §11.3): a terminal opened in a group takes the
  * first free cell of its grid, row by row. A full frame grows by a column (up
- * to four), else by a row. Returns the cell and the frame that holds it.
+ * to four), else by rows; growth cells a member already covers (one dragged
+ * past the edge stays in its frame) are skipped. Returns the cell and the
+ * frame that holds it.
  */
 export function freeCell(frame: Rect, members: readonly Rect[]): { cell: Rect; frame: Rect } {
   const columns = Math.min(MAX_COLUMNS, Math.max(1, Math.floor((frame.width - 2 * PADDING + GAP) / (CELL.width + GAP))));
   const rows = Math.max(1, Math.floor((frame.height - PADDING_TOP - PADDING + GAP) / (CELL.height + GAP)));
+  const free = (col: number, row: number) => {
+    const cell = cellAt(frame, col, row);
+    return isTaken(cell, members) ? null : { cell, frame: grownTo(frame, cell) };
+  };
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
-      const cell = cellAt(frame, col, row);
-      if (!isTaken(cell, members)) return { cell, frame: grownTo(frame, cell) };
+      const found = free(col, row);
+      if (found) return found;
     }
   }
-  const cell = columns < MAX_COLUMNS ? cellAt(frame, columns, 0) : cellAt(frame, 0, rows);
-  return { cell, frame: grownTo(frame, cell) };
+  if (columns < MAX_COLUMNS) {
+    for (let row = 0; row < rows; row++) {
+      const found = free(columns, row);
+      if (found) return found;
+    }
+  }
+  // Members are finite: some row below is free.
+  for (let row = rows; ; row++) {
+    for (let col = 0; col < columns; col++) {
+      const found = free(col, row);
+      if (found) return found;
+    }
+  }
 }
 
 /** `count` new terminals placed one after the other in `frame`. */
