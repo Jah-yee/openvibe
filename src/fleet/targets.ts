@@ -84,6 +84,14 @@ export function mentionAt(text: string, caret: number): { start: number; query: 
   return match ? { start: caret - match[2].length - 1, query: match[2] } : null;
 }
 
+/**
+ * Escape closes the `@` list of the mention starting at `dismissedAt`; it
+ * stays closed while that mention is typed, and opens again for any other.
+ */
+export function keptDismissal(dismissedAt: number | null, text: string, caret: number): number | null {
+  return dismissedAt !== null && mentionAt(text, caret)?.start === dismissedAt ? dismissedAt : null;
+}
+
 /** `text` without the mention from `start` to `end`, and one space after it. */
 export function withoutMention(text: string, start: number, end: number): { text: string; caret: number } {
   return { text: text.slice(0, start) + text.slice(end).replace(/^ /, ""), caret: start };

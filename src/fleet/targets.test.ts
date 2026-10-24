@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SceneFrame } from "@/canvas/groups";
 import {
   extractMentions,
+  keptDismissal,
   matchOptions,
   mentionAt,
   resolveTargets,
@@ -80,6 +81,15 @@ describe("mentionAt", () => {
     expect(mentionAt("@", 1)).toEqual({ start: 0, query: "" });
     expect(mentionAt("lance @ba suite", 15)).toBeNull();
     expect(mentionAt("mail a@b", 8)).toBeNull();
+  });
+});
+
+describe("keptDismissal", () => {
+  it("keeps the list closed only while the same mention is typed", () => {
+    expect(keptDismissal(0, "@tou", 4)).toBe(0);
+    expect(keptDismissal(0, "", 0)).toBeNull();
+    expect(keptDismissal(0, "lance @t", 8)).toBeNull();
+    expect(keptDismissal(null, "@", 1)).toBeNull();
   });
 });
 

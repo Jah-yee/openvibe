@@ -8,6 +8,7 @@ import { sendCommand } from "./broadcast";
 import { browseHistory, historyStore } from "./history";
 import {
   extractMentions,
+  keptDismissal,
   matchOptions,
   mentionAt,
   resolveTargets,
@@ -71,6 +72,7 @@ export function CommandInput(props: {
     setCaret(at);
     setActive(0);
     setBrowsing(null);
+    setDismissedAt((dismissed) => keptDismissal(dismissed, value, at));
   };
 
   const insert = (option: TargetOption) => {
