@@ -9,7 +9,7 @@ import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { createAutostart } from "./autostart";
-import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, type FontMeasure } from "./crisp";
+import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, renderZoom, type FontMeasure } from "./crisp";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import type { LaunchMode } from "./launch";
 import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
@@ -104,8 +104,9 @@ function loadWebgl(term: Terminal) {
 /**
  * Sizes the grid from the host's CSS size, then draws it at the screen
  * resolution of `zoom`: the screen box is `zoom` times larger and scaled back
- * by 1 / zoom, which Excalidraw's own scale cancels out. Skips hidden or
- * not-yet-laid-out hosts, which would shrink the PTY to 2x1.
+ * by 1 / zoom, which Excalidraw's own scale cancels out. Past `renderZoom`'s
+ * cap, Excalidraw enlarges the rest. Skips hidden or not-yet-laid-out hosts,
+ * which would shrink the PTY to 2x1.
  */
 export function layoutTerminal(nodeId: string, host: HTMLElement, zoom: number) {
   const entry = entries.get(nodeId);
@@ -116,11 +117,12 @@ export function layoutTerminal(nodeId: string, host: HTMLElement, zoom: number) 
   const { term, screen } = entry;
   const grid = gridFor(box, measure, dpr);
   if (grid.cols !== term.cols || grid.rows !== term.rows) term.resize(grid.cols, grid.rows);
-  const fontSize = fontFor(grid, box, zoom, measure, dpr);
+  const scale = renderZoom(zoom, box, dpr);
+  const fontSize = fontFor(grid, box, scale, measure, dpr);
   if (term.options.fontSize !== fontSize) term.options.fontSize = fontSize;
-  screen.style.width = `${box.width * zoom}px`;
-  screen.style.height = `${box.height * zoom}px`;
-  screen.style.transform = `scale(${1 / zoom})`;
+  screen.style.width = `${box.width * scale}px`;
+  screen.style.height = `${box.height * scale}px`;
+  screen.style.transform = `scale(${1 / scale})`;
 }
 
 /**

@@ -56,6 +56,20 @@ export function fontFor(grid: Grid, box: Box, zoom: number, measure: FontMeasure
   return fontForCell(cell, measure, dpr);
 }
 
+/** Past this zoom, Excalidraw's own scale enlarges the terminal (a little soft) instead of a bigger canvas. */
+export const MAX_RENDER_ZOOM = 4;
+/** Largest side of a terminal's canvas, in device pixels (D3D11 textures stop at 16384). */
+export const MAX_CANVAS_SIDE = 8192;
+
+/**
+ * The zoom a terminal is drawn at: the canvas zoom, capped so its WebGL canvas
+ * (box × zoom × dpr) keeps a reasonable size in graphics memory.
+ */
+export function renderZoom(zoom: number, box: Box, dpr: number): number {
+  const side = Math.max(box.width, box.height) * dpr;
+  return Math.min(zoom, MAX_RENDER_ZOOM, MAX_CANVAS_SIDE / side);
+}
+
 /** Measures `fontFamily` the way xterm does (canvas text metrics of "W"). */
 export function canvasMeasure(fontFamily: string): FontMeasure {
   const context = new OffscreenCanvas(1, 1).getContext("2d");

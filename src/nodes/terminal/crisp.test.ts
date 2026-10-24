@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { BASE_FONT_SIZE, fontFor, fontForCell, gridFor, SCROLLBAR_WIDTH, type FontMeasure } from "./crisp";
+import {
+  BASE_FONT_SIZE,
+  fontFor,
+  fontForCell,
+  gridFor,
+  MAX_CANVAS_SIDE,
+  MAX_RENDER_ZOOM,
+  renderZoom,
+  SCROLLBAR_WIDTH,
+  type FontMeasure,
+} from "./crisp";
 
 // Cascadia Code as Chromium measures it: linear advances, ascent and descent
 // rounded to whole pixels at each size.
@@ -61,5 +71,20 @@ describe("crisp terminal font", () => {
     expect(grid).toEqual({ cols: 2, rows: 1 });
     const font = fontFor(grid, tiny, 0.1, cascadia, 1);
     expect(Number.isFinite(font) && font > 0).toBe(true);
+  });
+});
+
+describe("render zoom", () => {
+  it("draws at the canvas zoom while the canvas stays small", () => {
+    expect(renderZoom(1.6, box, 1.5)).toBe(1.6);
+  });
+
+  it("stops growing the terminal's canvas past a few times the zoom", () => {
+    expect(renderZoom(8, box, 1)).toBe(MAX_RENDER_ZOOM);
+  });
+
+  it("keeps the canvas of a large terminal under the texture limit", () => {
+    const large = { width: 2000, height: 1200 };
+    expect(renderZoom(4, large, 2) * large.width * 2).toBeLessThanOrEqual(MAX_CANVAS_SIDE);
   });
 });
