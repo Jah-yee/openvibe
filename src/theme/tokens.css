@@ -1,26 +1,107 @@
-/* Design tokens (spec habillage §4.1). OpenVibe has a single, dark theme. */
+/* Design tokens (spec identité §4.2): Argile (dark) and Ivoire (light). The
+   theme is written on <html data-theme> by src/app/theme.ts. */
+
+/* Both themes. */
 :root {
+  --ov-blur: blur(18px) saturate(150%);
+  /* Aliases of the habillage tokens: the components reading them are rebuilt
+     by milestones R2 and R3, which drop these names. */
+  --ov-surface-2: var(--ov-surface);
+  --ov-command: var(--ov-surface);
+  --ov-selected: var(--ov-accent-soft);
+  --ov-working: var(--ov-accent);
+  --ov-waiting: var(--ov-wait);
+  --ov-idle: var(--ov-text-3);
+  --ov-done: var(--ov-ok);
+  --ov-live: var(--ov-ok);
+}
+
+:root, :root[data-theme="dark"] {
   color-scheme: dark;
-  --ov-canvas: #12110e;
-  --ov-dot: #2a2a22;
-  --ov-surface: #14140f;
-  --ov-surface-2: #18150f;
-  --ov-card: #1a1914;
-  --ov-command: #252724;
-  --ov-line: #2a2a22;
-  --ov-hover: #301e12;
-  --ov-selected: #2a1c11;
-  --ov-text: #edeae2;
-  --ov-text-2: #8a8a80;
-  --ov-accent: #f4602e;
-  --ov-accent-soft: #3a1d14;
-  --ov-danger: #ef4444;
-  --ov-terminal: #161712;
-  --ov-terminal-head: #0b0b09;
-  --ov-working: #e8553a;
-  --ov-waiting: #d9b35a;
-  --ov-idle: #8a8a80;
-  --ov-done: #6a8e51;
-  --ov-live: #4caf6a;
-  --ov-shadow: 0 8px 32px rgb(0 0 0 / 0.45);
+  --ov-canvas: #232220;
+  --ov-dot: rgba(255,255,255,.07);
+  --ov-surface: #2B2A27;
+  --ov-field: rgba(255,255,255,.05);
+  --ov-line: rgba(255,255,255,.09);
+  --ov-hover: rgba(255,255,255,.07);
+  --ov-text: #F5F4EF;
+  --ov-text-2: #B3B0A8;
+  --ov-text-3: #86837C;
+  --ov-accent: #D97757;
+  --ov-accent-soft: rgba(217,119,87,.18);
+  --ov-on-accent: #1F1E1D;
+  --ov-wait: #D4A27F;
+  --ov-ok: #8FA876;
+  --ov-danger: #E5534B;
+  --ov-terminal: #1A1918;
+  --ov-glass: rgba(40,39,36,.52);
+  --ov-glass-strong: rgba(42,41,38,.84);
+  --ov-glass-line: rgba(255,255,255,.10);
+  --ov-glass-hi: inset 0 1px 0 rgba(255,255,255,.07);
+  --ov-glass-edge: 0 0 0 1px rgba(0,0,0,.28);
+  --ov-tray: rgba(255,255,255,.028);
+  --ov-head: rgba(32,31,29,.70);
+  --ov-tab-on: rgba(255,255,255,.08);
+  --ov-glow-1: rgba(217,119,87,.16);
+  --ov-glow-2: rgba(143,168,118,.12);
+  --ov-glow-3: rgba(106,155,204,.08);
+  --ov-shadow: 0 12px 40px rgba(0,0,0,.45);
+  --ov-float-shadow: 0 8px 28px rgba(0,0,0,.32);
+  --ov-draw: #E8E5DD;
+  --ov-card: #30302D;
+  --ov-terminal-head: #232220;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ov-canvas: #F7F5EF;
+  --ov-dot: rgba(41,38,27,.10);
+  --ov-surface: #FFFFFF;
+  --ov-field: rgba(255,255,255,.60);
+  --ov-line: rgba(41,38,27,.10);
+  --ov-hover: rgba(41,38,27,.06);
+  --ov-text: #29261B;
+  --ov-text-2: #625F57;
+  --ov-text-3: #8F8C83;
+  --ov-accent: #C2603F;
+  --ov-accent-soft: rgba(194,96,63,.13);
+  --ov-on-accent: #FFFFFF;
+  --ov-wait: #B07D3A;
+  --ov-ok: #5E7A43;
+  --ov-danger: #C93C37;
+  --ov-terminal: #1A1918;
+  --ov-glass: rgba(255,255,255,.50);
+  --ov-glass-strong: rgba(252,251,248,.88);
+  --ov-glass-line: rgba(255,255,255,.80);
+  --ov-glass-hi: inset 0 1px 0 rgba(255,255,255,.90);
+  --ov-glass-edge: 0 0 0 1px rgba(41,38,27,.08);
+  --ov-tray: rgba(255,255,255,.38);
+  --ov-head: rgba(255,255,255,.66);
+  --ov-tab-on: rgba(255,255,255,.88);
+  --ov-glow-1: rgba(217,119,87,.16);
+  --ov-glow-2: rgba(106,155,204,.14);
+  --ov-glow-3: rgba(143,168,118,.12);
+  --ov-shadow: 0 12px 40px rgba(41,38,27,.16);
+  --ov-float-shadow: 0 8px 28px rgba(41,38,27,.10);
+  --ov-draw: #29261B;
+  --ov-card: #F5F3EC;
+  --ov-terminal-head: #F0EEE6;
+}
+
+/* Without transparency (spec identité §4.2): Windows' setting… */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme="dark"], :root[data-theme="light"] {
+    --ov-glass: var(--ov-surface);
+    --ov-glass-strong: var(--ov-surface);
+    --ov-head: var(--ov-terminal-head);
+    --ov-blur: none;
+  }
+}
+
+/* …or OpenVibe's (Réglages › Effets de transparence). */
+:root[data-theme][data-transparency="off"] {
+  --ov-glass: var(--ov-surface);
+  --ov-glass-strong: var(--ov-surface);
+  --ov-head: var(--ov-terminal-head);
+  --ov-blur: none;
 }
