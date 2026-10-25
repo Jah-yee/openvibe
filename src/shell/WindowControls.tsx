@@ -36,8 +36,8 @@ function WindowButton({ label, danger, className, ...props }: ComponentProps<"bu
       title={label}
       aria-label={label}
       className={cn(
-        "grid size-7 shrink-0 place-items-center rounded-full text-ov-text-2 transition-colors hover:bg-ov-hover hover:text-ov-text [&_svg]:size-4",
-        danger && "hover:bg-ov-danger hover:text-white",
+        "grid h-[38px] w-[46px] shrink-0 place-items-center text-ov-text-2 transition-colors hover:bg-ov-hover hover:text-ov-text [&_svg]:size-4",
+        danger && "hover:bg-[#C42B1C] hover:text-white",
         className,
       )}
       {...props}
@@ -45,16 +45,12 @@ function WindowButton({ label, danger, className, ...props }: ComponentProps<"bu
   );
 }
 
-/**
- * Réduire, Agrandir / Restaurer, Fermer (spec fenêtre §4.3), on one opaque pill
- * like the rest of the top bar: bare buttons vanish over a terminal scrolled
- * under the top row.
- */
+/** Réduire, Agrandir / Restaurer, Fermer OpenVibe, Windows-style in the title bar's corner (spec identité §5.1). */
 export function WindowControls() {
   const maximized = useMaximized();
   const appWindow = getCurrentWindow();
   return (
-    <div className="flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-ov-line bg-ov-surface px-px shadow-ov">
+    <div className="flex shrink-0 items-stretch">
       <WindowButton label="Réduire" onClick={() => perform(() => appWindow.minimize(), "Réduction impossible")}>
         <Minus />
       </WindowButton>
@@ -67,7 +63,7 @@ export function WindowControls() {
         {maximized ? <Copy /> : <Square />}
       </WindowButton>
       {/* close, not destroy: onCloseRequested saves first (src/app/close.ts). */}
-      <WindowButton label="Fermer" danger onClick={() => perform(() => appWindow.close(), "Fermeture impossible")}>
+      <WindowButton label="Fermer OpenVibe" danger onClick={() => perform(() => appWindow.close(), "Fermeture impossible")}>
         <X />
       </WindowButton>
     </div>

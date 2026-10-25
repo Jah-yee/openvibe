@@ -44,15 +44,15 @@ afterEach(async () => {
 it("minimizes, maximizes and asks to close the window", async () => {
   await act(async () => button("Réduire")!.click());
   await act(async () => button("Agrandir")!.click());
-  await act(async () => button("Fermer")!.click());
+  await act(async () => button("Fermer OpenVibe")!.click());
   // close, never destroy: the save before closing (onCloseRequested) runs.
   expect(calls).toEqual(["minimize", "toggle_maximize", "close"]);
 });
 
-it("sits on an opaque pill, readable over a terminal scrolled under the top row", () => {
-  const pill = host.firstElementChild as HTMLElement;
-  expect(pill.className).toContain("bg-ov-surface");
-  expect(pill.className).toContain("rounded-full");
+it("closes from a Windows-style corner button that turns red on hover", () => {
+  const close = button("Fermer OpenVibe")!;
+  expect(close.className).toContain("w-[46px]");
+  expect(close.className).toContain("hover:bg-[#C42B1C]");
 });
 
 it("follows the maximized state, however it changed", async () => {
