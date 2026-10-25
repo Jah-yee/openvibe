@@ -129,7 +129,7 @@ export function WorkspaceTabs() {
   return (
     <div
       data-tauri-drag-region=""
-      className="ov-glass-strong flex w-full items-end gap-0.5 overflow-x-auto rounded-none border-x-0 border-t-0 px-2.5"
+      className="ov-glass-strong flex w-full items-end gap-0.5 overflow-x-auto overflow-y-hidden rounded-none border-x-0 border-t-0 px-2.5"
       style={{ height: TABS_HEIGHT }}
     >
       {workspaces.map((workspace) => (

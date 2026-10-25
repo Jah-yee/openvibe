@@ -29,6 +29,8 @@ it("shows the workspaces as browser tabs on a row that moves the window (spec id
   const row = host.firstElementChild as HTMLElement;
   expect(row.getAttribute("data-tauri-drag-region")).toBe("");
   expect(row.style.height).toBe(`${TABS_HEIGHT}px`);
+  // The tabs sit 1 px low on the row's edge: they scroll sideways, never up and down.
+  expect(row.className).toContain("overflow-y-hidden");
   const tabs = [...row.querySelectorAll<HTMLElement>("[data-tab]")];
   expect(tabs.map((t) => t.dataset.tab)).toEqual(["w1", "w2"]);
   expect(tabs[1].dataset.active).toBe("true");
