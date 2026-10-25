@@ -114,3 +114,10 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Les agents en démarrage échelonné sont annoncés « arrêtés ignorés ».
 - Le test Windows de `pty_send_text` vérifie l'effet de la commande, pas les octets écrits.
 - Pas de garde de composition IME dans le champ de commande.
+
+## Constats du plan C1 (fenêtre et livraison, relecture finale)
+
+- Deux « Fermer » dans la rangée du haut : la pastille « × Fermer » (ferme le projet) et le bouton de fenêtre (quitte l'application, arrête les agents) ont la même info-bulle. Renommer celle du bouton de fenêtre « Fermer OpenVibe » (comme spec fenêtre §7.3) ; change la spec §4.3.
+- Les 8 px entre deux pastilles de la barre du haut ne cliquent ni ne déplacent la fenêtre : rendre les conteneurs `pointer-events-none` et leurs enfants `pointer-events-auto`.
+- La bande de déplacement suppose que ProjectView et HomeScreen ne créent pas de contexte d'empilement (TopBar z-30 au-dessus de DragStrip z-20) : le documenter par un commentaire avant que J7/J8 n'y ajoutent `isolate`, transform ou opacity.
+- Le test « sits on an opaque pill » de `WindowControls` ne vérifie que des noms de classes : fragile face à la refonte.
