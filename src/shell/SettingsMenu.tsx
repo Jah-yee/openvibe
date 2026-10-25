@@ -3,7 +3,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Download, ImageDown, Info, Settings, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
-import { readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
+import { currentTheme, readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -53,7 +53,7 @@ export function SettingsMenu() {
         <DropdownMenuItem onSelect={() => run(importScene, "Import impossible")}>
           <Upload /> Importer une scène…
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => run((api) => exportPng(api, name), "Export impossible")}>
+        <DropdownMenuItem onSelect={() => run((api) => exportPng(api, name, currentTheme()), "Export impossible")}>
           <ImageDown /> Exporter en PNG…
         </DropdownMenuItem>
         <DropdownMenuSeparator />

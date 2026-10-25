@@ -3,14 +3,16 @@ import { PenLine } from "lucide-react";
 import { canvasStore } from "@/canvas/canvasStore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { toDisplayColor, toSceneColor } from "@/theme/sceneColors";
+import { useTheme } from "@/app/theme";
+import { displayColorFor, sceneColorFor } from "@/theme/sceneColors";
 import { PEN_COLORS, PEN_WIDTHS } from "./tools";
 import { RoundButton } from "./ui";
 
 /** Pen tool with its COLOR and WIDTH menu (spec habillage §5.3). */
 export function PenMenu({ active }: { active: boolean }) {
   const [open, setOpen] = useState(false);
-  const [color, setColor] = useState(PEN_COLORS[0].display);
+  const theme = useTheme();
+  const [color, setColor] = useState(PEN_COLORS[0].scene);
   const [width, setWidth] = useState(2);
 
   const choose = (next: { color?: string; width?: number }) => {
@@ -21,7 +23,7 @@ export function PenMenu({ active }: { active: boolean }) {
     setColor(nextColor);
     setWidth(nextWidth);
     api.updateScene({
-      appState: { currentItemStrokeColor: toSceneColor(nextColor), currentItemStrokeWidth: nextWidth },
+      appState: { currentItemStrokeColor: nextColor, currentItemStrokeWidth: nextWidth },
     });
     api.setActiveTool({ type: "freedraw" });
   };
@@ -42,18 +44,18 @@ export function PenMenu({ active }: { active: boolean }) {
       <PopoverContent side="right" className="w-60">
         <p className="ov-label mb-2">Couleur</p>
         <div className="mb-3 flex flex-wrap gap-2">
-          {PEN_COLORS.map(({ label, display }) => (
+          {PEN_COLORS.map(({ label, scene }) => (
             <button
-              key={display}
+              key={scene}
               type="button"
               title={label}
               aria-label={label}
-              onClick={() => choose({ color: display })}
+              onClick={() => choose({ color: scene })}
               className={cn(
                 "size-6 rounded-full ring-offset-2 ring-offset-ov-surface-2",
-                display === color && "ring-2 ring-ov-accent",
+                scene === color && "ring-2 ring-ov-accent",
               )}
-              style={{ backgroundColor: toDisplayColor(toSceneColor(display)) }}
+              style={{ backgroundColor: displayColorFor(scene, theme) }}
             />
           ))}
           <label
@@ -63,7 +65,7 @@ export function PenMenu({ active }: { active: boolean }) {
             <input
               type="color"
               className="absolute inset-0 cursor-pointer opacity-0"
-              onChange={(e) => choose({ color: e.target.value })}
+              onChange={(e) => choose({ color: sceneColorFor(e.target.value, theme) })}
             />
           </label>
         </div>

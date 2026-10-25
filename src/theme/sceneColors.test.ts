@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toDisplayColor, toSceneColor } from "./sceneColors";
+import { displayColorFor, exportBackground, sceneColorFor, toDisplayColor, toSceneColor } from "./sceneColors";
 
 describe("scene colors under Excalidraw's dark filter", () => {
   it("matches reference values", () => {
@@ -18,5 +18,22 @@ describe("scene colors under Excalidraw's dark filter", () => {
   it("leaves non-hex values alone", () => {
     expect(toSceneColor("transparent")).toBe("transparent");
     expect(toDisplayColor("transparent")).toBe("transparent");
+  });
+});
+
+describe("colors in each theme", () => {
+  it("shows a stored color as is in light, through Excalidraw's inversion in dark", () => {
+    expect(displayColorFor("#C2603F", "light")).toBe("#C2603F");
+    expect(displayColorFor("#C2603F", "dark")).toBe(toDisplayColor("#C2603F"));
+  });
+
+  it("stores what was picked as is in light, inverted back in dark", () => {
+    expect(sceneColorFor("#3F74A8", "light")).toBe("#3F74A8");
+    expect(sceneColorFor("#3F74A8", "dark")).toBe(toSceneColor("#3F74A8"));
+  });
+
+  it("exports a PNG in the theme on screen, on its canvas color", () => {
+    expect(exportBackground("light")).toEqual({ exportWithDarkMode: false, viewBackgroundColor: "#F7F5EF" });
+    expect(exportBackground("dark")).toEqual({ exportWithDarkMode: true, viewBackgroundColor: toSceneColor("#232220") });
   });
 });

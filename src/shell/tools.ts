@@ -30,16 +30,19 @@ export function railToolOf(tool: string): RailTool | null {
   }
 }
 
-/** Pen colors as they should look on the canvas (spec habillage §4.3). */
-export const PEN_COLORS: { label: string; display: string }[] = [
-  { label: "Crème", display: "#EDE8DF" },
-  { label: "Orange", display: "#F2612E" },
-  { label: "Vert", display: "#5E9A55" },
-  { label: "Or", display: "#C9A34E" },
-  { label: "Rouge", display: "#EF4444" },
-  { label: "Cyan", display: "#5CC8F0" },
-  { label: "Lavande", display: "#A47CF0" },
-  { label: "Ardoise", display: "#4B5675" },
+/**
+ * Pen colors as stored (spec identité §4.2): what the light theme shows; the
+ * dark theme shows the same hues with their lightness inverted.
+ */
+export const PEN_COLORS: { label: string; scene: string }[] = [
+  { label: "Encre", scene: "#29261B" },
+  { label: "Terre cuite", scene: "#C2603F" },
+  { label: "Olive", scene: "#5E7A43" },
+  { label: "Ocre", scene: "#B07D3A" },
+  { label: "Rouge", scene: "#C93C37" },
+  { label: "Ciel", scene: "#3F74A8" },
+  { label: "Lavande", scene: "#7C66B0" },
+  { label: "Ardoise", scene: "#625F57" },
 ];
 
 export const PEN_WIDTHS = [1, 2, 4, 6, 8];

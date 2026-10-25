@@ -1,7 +1,8 @@
 import { CaptureUpdateAction, exportToBlob, loadFromBlob, serializeAsJSON } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { nodeKindOf } from "@/canvas/nodeElement";
-import { toSceneColor } from "@/theme/sceneColors";
+import type { Theme } from "@/app/theme";
+import { exportBackground } from "@/theme/sceneColors";
 
 type SavePicker = (options: unknown) => Promise<FileSystemFileHandle>;
 
@@ -45,15 +46,10 @@ export function exportScene(api: ExcalidrawImperativeAPI, name: string) {
   );
 }
 
-export async function exportPng(api: ExcalidrawImperativeAPI, name: string) {
+export async function exportPng(api: ExcalidrawImperativeAPI, name: string, theme: Theme) {
   const blob = await exportToBlob({
     elements: api.getSceneElements(),
-    appState: {
-      ...api.getAppState(),
-      exportBackground: true,
-      exportWithDarkMode: true,
-      viewBackgroundColor: toSceneColor("#12110E"),
-    },
+    appState: { ...api.getAppState(), exportBackground: true, ...exportBackground(theme) },
     files: api.getFiles(),
     mimeType: "image/png",
   });

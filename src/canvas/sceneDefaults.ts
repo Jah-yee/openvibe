@@ -1,5 +1,5 @@
 import type { ExcalidrawInitialDataState, UIOptions } from "@excalidraw/excalidraw/types";
-import { toSceneColor } from "@/theme/sceneColors";
+import { PEN_COLORS } from "@/shell/tools";
 
 /** Excalidraw 0.18.1's FONT_FAMILY["Comic Shanns"], its "code" font (a constant: tests cannot load Excalidraw). */
 export const COMIC_SHANNS = 8;
@@ -10,7 +10,7 @@ export const COMIC_SHANNS = 8;
  */
 export const SCENE_DEFAULTS = {
   viewBackgroundColor: "transparent",
-  currentItemStrokeColor: toSceneColor("#EDE8DF"),
+  currentItemStrokeColor: PEN_COLORS[0].scene,
   currentItemFontFamily: COMIC_SHANNS,
   gridModeEnabled: false,
   // Our layers draw frame outlines and group labels (spec habillage §5.7, §11.4).

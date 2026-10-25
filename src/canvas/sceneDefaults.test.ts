@@ -7,7 +7,7 @@ describe("withSceneDefaults", () => {
     expect(data.appState).toMatchObject({ scrollX: 4, scrollY: 2, viewBackgroundColor: "transparent" });
     expect(data.appState?.currentItemFontFamily).toBe(COMIC_SHANNS);
     expect(COMIC_SHANNS).toBe(8);
-    expect(SCENE_DEFAULTS.currentItemStrokeColor).toBe("#0b0500");
+    expect(SCENE_DEFAULTS.currentItemStrokeColor).toBe("#29261B");
   });
 });
 

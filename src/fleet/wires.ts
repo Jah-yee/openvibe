@@ -5,7 +5,7 @@ import { nodeKindOf } from "@/canvas/nodeElement";
 import type { Point } from "./terminals";
 
 /** The orange of the wires (spec habillage §13). */
-export const WIRE_COLOR = "#f4602e";
+export const WIRE_COLOR = "#C2603F";
 
 /** Space between a wire's ends and the elements it joins. */
 const GAP = 8;

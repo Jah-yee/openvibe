@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { toSceneColor } from "@/theme/sceneColors";
 import { PEN_COLORS, PEN_WIDTHS, railToolOf } from "./tools";
 
 describe("railToolOf", () => {
@@ -18,9 +17,10 @@ describe("railToolOf", () => {
 });
 
 describe("pen palette", () => {
-  it("offers 8 colors that all convert to scene colors, and 5 widths", () => {
+  it("offers eight pen colors, stored once for both themes, ink first, and 5 widths", () => {
     expect(PEN_COLORS).toHaveLength(8);
-    for (const { display } of PEN_COLORS) expect(toSceneColor(display)).toMatch(/^#[0-9a-f]{6}$/);
+    expect(PEN_COLORS[0]).toEqual({ label: "Encre", scene: "#29261B" });
+    for (const { scene } of PEN_COLORS) expect(scene).toMatch(/^#[0-9A-F]{6}$/);
     expect(PEN_WIDTHS).toEqual([1, 2, 4, 6, 8]);
   });
 });
