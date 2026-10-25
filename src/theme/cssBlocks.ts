@@ -1,22 +1,25 @@
 /// <reference types="node" />
 import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/** `src/`, found from this file with Node's own path tools: a DOM test environment replaces the global `URL`. */
+const SRC = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * Test helper: a source file of `src/`, as text. Vitest does not load
  * stylesheets, not even with `?raw`, so tests read them from disk.
  */
 export function readSource(pathInSrc: string): string {
-  return readFileSync(new URL(`../${pathInSrc}`, import.meta.url), "utf8");
+  return readFileSync(join(SRC, pathInSrc), "utf8");
 }
 
 /** Test helper: every `.ts`, `.tsx` and `.css` file of `src/` but the tests, by path, as text. */
 export function sourceFiles(): Record<string, string> {
-  const src = fileURLToPath(new URL("../", import.meta.url));
-  const files = readdirSync(src, { recursive: true, encoding: "utf8" })
+  const files = readdirSync(SRC, { recursive: true, encoding: "utf8" })
     .map((path) => path.replace(/\\/g, "/"))
     .filter((path) => /\.(ts|tsx|css)$/.test(path) && !/\.test\.tsx?$/.test(path));
-  return Object.fromEntries(files.map((path) => [path, readFileSync(`${src}${path}`, "utf8")]));
+  return Object.fromEntries(files.map((path) => [path, readFileSync(join(SRC, path), "utf8")]));
 }
 
 /**

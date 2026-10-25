@@ -55,6 +55,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
   const waiting = status.state === "running" && activity?.activity === "waiting";
   return (
     <div
+      data-terminal={nodeId}
       className="relative flex h-full flex-col overflow-hidden rounded-xl bg-ov-terminal"
       style={frameStyle(AGENTS[payload.agent].tint, selected, waiting)}
     >
