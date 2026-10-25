@@ -1,9 +1,12 @@
 // @vitest-environment happy-dom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { HomeScreen } from "./HomeScreen";
+
+// Excalidraw does not load under Vitest (roughjs); the search field reaches it through the command registry.
+vi.mock("@excalidraw/excalidraw", () => ({}));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

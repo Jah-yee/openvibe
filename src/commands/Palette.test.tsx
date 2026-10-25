@@ -6,6 +6,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { toast } from "sonner";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
+import { agentsStore } from "@/fleet/agentsStore";
 import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
@@ -150,5 +151,15 @@ describe("the palette (spec fenêtre §7.1, §7.2)", () => {
     expect(error).toHaveBeenCalledWith("Workspace Backend illisible");
     expect(items()[0].textContent).toContain("Isis");
     expect(document.body.textContent).not.toContain("Chargement…");
+  });
+
+  it("greys an agent not found on this computer, with why, and never chooses it", async () => {
+    agentsStore.setState({ agents: [{ id: "claude", available: false }] } as never);
+    await act(async () => openPalette("functions", busy));
+    await act(async () => setPaletteQuery("> lancer claude"));
+    const line = items().find((i) => i.textContent?.startsWith("Lancer Claude"))!;
+    expect(line.getAttribute("data-disabled")).toBe("true");
+    expect(line.textContent).toContain("claude introuvable dans le PATH");
+    expect(selected()).not.toBe(line);
   });
 });

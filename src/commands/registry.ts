@@ -3,13 +3,14 @@ import { lastTerminalOf, terminalWithKeyboard } from "@/canvas/keyboardFocus";
 import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
+import { AGENT_COMMANDS } from "./catalog/agents";
 import { APP } from "./catalog/app";
 import { NAVIGATION } from "./catalog/navigation";
 import { WORKSPACES } from "./catalog/workspaces";
 import type { Command, CommandContext } from "./command";
 
 /** Every function of the application, by section in the spec's order (spec fenêtre §7.3). */
-export const COMMANDS: readonly Command[] = [...NAVIGATION, ...WORKSPACES, ...APP];
+export const COMMANDS: readonly Command[] = [...NAVIGATION, ...WORKSPACES, ...AGENT_COMMANDS, ...APP];
 
 /** The context of a command, read at this moment from the stores and the keyboard focus. */
 export function commandContext(): CommandContext {
