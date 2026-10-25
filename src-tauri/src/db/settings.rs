@@ -1,0 +1,47 @@
+use rusqlite::{Connection, OptionalExtension, params};
+
+use crate::error::AppResult;
+
+pub fn get(conn: &Connection, key: &str) -> AppResult<Option<serde_json::Value>> {
+    let raw: Option<String> = conn
+        .query_row(
+            "SELECT value_json FROM settings WHERE key = ?1",
+            [key],
+            |row| row.get(0),
+        )
+        .optional()?;
+    // A value that no longer parses is treated as unset rather than blocking startup.
+    Ok(raw.and_then(|json| serde_json::from_str(&json).ok()))
+}
+
+pub fn set(conn: &Connection, key: &str, value: &serde_json::Value) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO settings (key, value_json) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json",
+        params![key, value.to_string()],
+    )?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Db;
+
+    #[test]
+    fn stores_json_values_by_key() {
+        Db::open_in_memory()
+            .unwrap()
+            .with(|conn| {
+                assert_eq!(get(conn, "ui.activeWorkspaceId")?, None);
+                set(conn, "ui.activeWorkspaceId", &serde_json::json!("w1"))?;
+                set(conn, "ui.activeWorkspaceId", &serde_json::json!("w2"))?;
+                assert_eq!(
+                    get(conn, "ui.activeWorkspaceId")?,
+                    Some(serde_json::json!("w2"))
+                );
+                Ok(())
+            })
+            .unwrap();
+    }
+}

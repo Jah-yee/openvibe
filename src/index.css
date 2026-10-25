@@ -1,0 +1,222 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "./theme/tokens.css";
+@import "./theme/excalidraw.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --color-ov-canvas: var(--ov-canvas);
+  --color-ov-dot: var(--ov-dot);
+  --color-ov-surface: var(--ov-surface);
+  --color-ov-surface-2: var(--ov-surface-2);
+  --color-ov-card: var(--ov-card);
+  --color-ov-command: var(--ov-command);
+  --color-ov-line: var(--ov-line);
+  --color-ov-hover: var(--ov-hover);
+  --color-ov-selected: var(--ov-selected);
+  --color-ov-text: var(--ov-text);
+  --color-ov-text-2: var(--ov-text-2);
+  --color-ov-accent: var(--ov-accent);
+  --color-ov-accent-soft: var(--ov-accent-soft);
+  --color-ov-danger: var(--ov-danger);
+  --color-ov-terminal: var(--ov-terminal);
+  --color-ov-terminal-head: var(--ov-terminal-head);
+  --color-ov-working: var(--ov-working);
+  --color-ov-waiting: var(--ov-waiting);
+  --color-ov-idle: var(--ov-idle);
+  --color-ov-done: var(--ov-done);
+  --color-ov-live: var(--ov-live);
+  --color-ov-field: var(--ov-field);
+  --color-ov-text-3: var(--ov-text-3);
+  --color-ov-on-accent: var(--ov-on-accent);
+  --color-ov-on-role: var(--ov-on-role);
+  --color-ov-wait: var(--ov-wait);
+  --color-ov-ok: var(--ov-ok);
+  --color-ov-tab-on: var(--ov-tab-on);
+  --shadow-ov: var(--ov-shadow);
+  --shadow-ov-float: var(--ov-float-shadow);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* shadcn components read these; they are mapped onto the OpenVibe tokens. */
+:root {
+  --background: var(--ov-canvas);
+  --foreground: var(--ov-text);
+  --card: var(--ov-surface);
+  --card-foreground: var(--ov-text);
+  --popover: var(--ov-surface-2);
+  --popover-foreground: var(--ov-text);
+  --primary: var(--ov-accent);
+  --primary-foreground: var(--ov-on-accent);
+  --secondary: var(--ov-card);
+  --secondary-foreground: var(--ov-text);
+  --muted: var(--ov-card);
+  --muted-foreground: var(--ov-text-2);
+  --accent: var(--ov-hover);
+  --accent-foreground: var(--ov-text);
+  --destructive: var(--ov-danger);
+  --border: var(--ov-line);
+  --input: var(--ov-line);
+  --ring: var(--ov-accent);
+  --radius: 0.75rem;
+  --sidebar: var(--ov-surface);
+  --sidebar-foreground: var(--ov-text);
+  --sidebar-primary: var(--ov-accent);
+  --sidebar-primary-foreground: var(--ov-on-accent);
+  --sidebar-accent: var(--ov-hover);
+  --sidebar-accent-foreground: var(--ov-text);
+  --sidebar-border: var(--ov-line);
+  --sidebar-ring: var(--ov-accent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer components {
+  /* Section titles of menus and panels. */
+  .ov-label {
+    @apply text-[11px] font-medium tracking-[0.06em] text-ov-text-2 uppercase;
+  }
+
+  /* Glass (spec identité §4.2): light glass for rails and floating bars… */
+  .ov-glass {
+    background: var(--ov-glass);
+    backdrop-filter: var(--ov-blur);
+    -webkit-backdrop-filter: var(--ov-blur);
+    border: 1px solid var(--ov-glass-line);
+    box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-float-shadow);
+  }
+
+  /* …dense glass for everything that carries text. */
+  .ov-glass-strong {
+    background: var(--ov-glass-strong);
+    backdrop-filter: var(--ov-blur);
+    -webkit-backdrop-filter: var(--ov-blur);
+    border: 1px solid var(--ov-glass-line);
+    box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-float-shadow);
+  }
+
+  /* The canvas color and three soft lights, fixed to the screen, that give
+     the glass something to blur (spec identité §4.2). */
+  .ov-ambient {
+    background-color: var(--ov-canvas);
+    background-image:
+      radial-gradient(760px 520px at 16% 28%, var(--ov-glow-1), transparent 70%),
+      radial-gradient(720px 560px at 86% 84%, var(--ov-glow-2), transparent 70%),
+      radial-gradient(520px 420px at 62% 12%, var(--ov-glow-3), transparent 70%);
+  }
+}
+
+/* Menus, popovers, lists and dialogs in dense glass (spec identité §5.10).
+   Outside any layer: it wins over the utility classes of the shadcn components. */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-slot="select-content"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 12px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+[data-slot="dialog-content"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 16px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+[data-slot="dialog-overlay"] {
+  background: rgb(0 0 0 / 0.25);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/* The veil follows the transparency setting too. */
+:root[data-transparency="off"] [data-slot="dialog-overlay"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="dialog-overlay"] {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Toasts, in the bottom-right corner (spec identité §5.8). */
+[data-sonner-toast][data-styled="true"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border-color: var(--ov-glass-line);
+  border-radius: 14px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+/* Arrival on a terminal: its border takes the accent, then fades back (spec fenêtre §6.4). */
+@keyframes ov-arrival {
+  from {
+    box-shadow: inset 0 0 0 2px var(--ov-accent);
+  }
+  to {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
+.ov-arrival {
+  animation: ov-arrival 600ms ease-out forwards;
+}

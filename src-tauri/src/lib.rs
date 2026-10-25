@@ -1,0 +1,102 @@
+mod agents;
+mod commands;
+mod db;
+mod error;
+mod git;
+mod process;
+mod pty;
+
+use std::time::Duration;
+
+use tauri::{AppHandle, Manager};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+
+use db::Db;
+use pty::PtyManager;
+
+/// Spec §5.6: changed scrollbacks are written to SQLite every 10 s.
+const SCROLLBACK_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .manage(PtyManager::default())
+        .setup(|app| {
+            let path = app.path().app_data_dir()?.join("openvibe.db");
+            let db = match Db::open(&path) {
+                Ok(db) => db,
+                Err(err) => {
+                    // Spec §10: a blocking dialog with the file path, then stop.
+                    app.dialog()
+                        .message(format!(
+                            "Impossible d'ouvrir la base {} :\n{err}",
+                            path.display()
+                        ))
+                        .kind(MessageDialogKind::Error)
+                        .title("OpenVibe")
+                        .blocking_show();
+                    return Err(err.into());
+                }
+            };
+            app.manage(db);
+            spawn_scrollback_flusher(app.handle().clone());
+            commands::agents::setup(app.handle())?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::ping,
+            commands::pty::pty_spawn,
+            commands::pty::pty_attach,
+            commands::pty::pty_write,
+            commands::pty::pty_send_text,
+            commands::pty::pty_interrupt,
+            commands::pty::pty_resize,
+            commands::pty::pty_kill,
+            commands::pty::pty_list,
+            commands::pty::get_scrollback,
+            commands::pty::list_agents,
+            commands::pty::list_ollama_models,
+            commands::pty::list_shells,
+            commands::workspace::list_workspaces,
+            commands::workspace::create_workspace,
+            commands::workspace::rename_workspace,
+            commands::workspace::delete_workspace,
+            commands::workspace::load_workspace,
+            commands::workspace::save_scene,
+            commands::workspace::save_files,
+            commands::workspace::save_node,
+            commands::workspace::get_setting,
+            commands::workspace::set_setting,
+            commands::project::list_projects,
+            commands::project::create_project,
+            commands::project::rename_project,
+            commands::project::relocate_project,
+            commands::project::open_project,
+            commands::project::delete_project,
+            commands::workspace::set_workspace_pantheon,
+            commands::git::git_status,
+            commands::agents::agent_activity_snapshot,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building the OpenVibe application");
+
+    app.run(|handle, event| {
+        // Agents must not outlive the window that shows them; their screens are
+        // saved first so they can be shown again, stopped, on the next start.
+        if let tauri::RunEvent::Exit = event {
+            commands::pty::flush_scrollbacks(handle, true);
+            handle.state::<PtyManager>().kill_all();
+        }
+    });
+}
+
+fn spawn_scrollback_flusher(app: AppHandle) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(SCROLLBACK_FLUSH_INTERVAL);
+            commands::pty::flush_scrollbacks(&app, false);
+        }
+    });
+}

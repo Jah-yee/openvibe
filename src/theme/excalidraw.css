@@ -1,0 +1,137 @@
+/* Excalidraw 0.18.1 under the OpenVibe shell (spec habillage §5.4, §5.7).
+   The selectors below are those of 0.18.1: re-check every one of them when
+   upgrading Excalidraw. */
+
+.excalidraw {
+  --ui-font: "Inter Variable", sans-serif;
+}
+
+/* Both themes: Excalidraw's own variables follow the OpenVibe tokens. `:root`
+   outranks Excalidraw's `.excalidraw.theme--dark`, whatever the sheet order. */
+:root .excalidraw.excalidraw {
+  --color-selection: var(--ov-accent);
+  --color-primary: var(--ov-accent);
+  --color-primary-darker: color-mix(in srgb, var(--ov-accent) 85%, black);
+  --color-primary-darkest: color-mix(in srgb, var(--ov-accent) 70%, black);
+  --color-primary-light: var(--ov-accent-soft);
+  --color-primary-light-darker: color-mix(in srgb, var(--ov-accent) 30%, transparent);
+  --color-primary-hover: color-mix(in srgb, var(--ov-accent) 85%, white);
+  --color-brand-hover: color-mix(in srgb, var(--ov-accent) 85%, white);
+  --color-brand-active: color-mix(in srgb, var(--ov-accent) 85%, black);
+  --color-surface-primary-container: var(--ov-accent-soft);
+  --color-on-primary-container: var(--ov-text);
+  --island-bg-color: var(--ov-surface);
+  --popup-secondary-bg-color: var(--ov-card);
+  --input-bg-color: var(--ov-card);
+  --input-border-color: var(--ov-line);
+  --input-hover-bg-color: var(--ov-hover);
+  --button-gray-1: var(--ov-card);
+  --button-gray-2: var(--ov-hover);
+  --button-gray-3: color-mix(in srgb, var(--ov-text) 14%, transparent);
+  --color-surface-high: var(--ov-hover);
+  --color-surface-mid: var(--ov-card);
+  --color-surface-low: var(--ov-surface);
+  --color-surface-lowest: var(--ov-canvas);
+  --color-on-surface: var(--ov-text);
+  --color-border-outline: var(--ov-line);
+  --color-border-outline-variant: var(--ov-line);
+  --dialog-border-color: var(--ov-line);
+  --overlay-bg-color: rgb(0 0 0 / 0.45);
+  --shadow-island: var(--ov-shadow);
+  --modal-shadow: var(--ov-shadow);
+  --color-slider-track: var(--ov-line);
+  --focus-highlight-color: var(--ov-accent-soft);
+}
+
+/* The dot grid and the canvas color are painted under a transparent canvas. */
+.excalidraw,
+.excalidraw .excalidraw-container {
+  background: transparent !important;
+}
+
+/* Excalidraw's own UI is replaced by the shell. */
+.excalidraw .shapes-section,
+.excalidraw .main-menu-trigger,
+.excalidraw .layer-ui__wrapper__top-right,
+.excalidraw .layer-ui__wrapper__footer,
+.excalidraw .App-bottom-bar,
+.excalidraw .HintViewer,
+.excalidraw .welcome-screen-center,
+.excalidraw .welcome-screen-decor,
+.excalidraw .default-sidebar-trigger,
+.excalidraw .sidebar-trigger {
+  display: none !important;
+}
+
+/* The properties panel is kept, in dense glass, docked right of the tool rail (spec identité §5.7). */
+.excalidraw .App-menu__left {
+  position: fixed;
+  left: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 232px;
+  max-height: calc(100vh - 160px) !important;
+  padding: 12px !important;
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 14px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+.excalidraw .App-menu__left legend,
+.excalidraw .App-menu__left h3 {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ov-text-2);
+}
+
+.excalidraw .App-menu__left .buttonList label,
+.excalidraw .App-menu__left .ToolIcon__icon {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--ov-card);
+}
+
+.excalidraw .App-menu__left .buttonList label.active,
+.excalidraw .App-menu__left .ToolIcon_type_radio:checked + .ToolIcon__icon {
+  border-color: var(--ov-accent);
+  background: var(--ov-accent-soft);
+}
+
+.excalidraw .App-menu__left input[type="range"] {
+  accent-color: var(--ov-accent);
+}
+
+.excalidraw .context-menu {
+  border: 1px solid var(--ov-line);
+  border-radius: 12px;
+  background: var(--ov-surface-2);
+  box-shadow: var(--ov-shadow);
+}
+
+/* Excalidraw inverts every canvas in dark mode (`.theme--dark canvas`), xterm's
+   WebGL canvas inside our nodes included: nodes keep their own colors. */
+.excalidraw .excalidraw__embeddable-container canvas {
+  filter: none !important;
+}
+
+/* Frame names (spec habillage §11.4). Excalidraw's name stays the handle that
+   selects, drags and renames a frame; it takes the font and the place of our
+   group label (a 28 px room for the dot, 16 px from the corner, on the top
+   edge) so that what you grab is what you see. GroupLabels makes the names of
+   groups transparent and draws its label over them. */
+.excalidraw [id*="-frame-name-"] {
+  padding-left: 28px;
+  font-family: "Inter Variable", sans-serif;
+  font-size: 11px !important;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 24px !important;
+  text-transform: uppercase;
+  transform: translate(16px, 3px);
+}

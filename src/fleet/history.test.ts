@@ -1,0 +1,47 @@
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { browseHistory, HISTORY_SIZE, historyStore, pushHistory } from "./history";
+
+afterEach(() => clearMocks());
+
+describe("pushHistory", () => {
+  it("adds the command last, moves an earlier copy and keeps the last 50", () => {
+    expect(pushHistory(["a", "b"], " a ")).toEqual(["b", "a"]);
+    expect(pushHistory(["a"], "   ")).toEqual(["a"]);
+    const full = Array.from({ length: HISTORY_SIZE }, (_, i) => `c${i}`);
+    const next = pushHistory(full, "new");
+    expect(next).toHaveLength(HISTORY_SIZE);
+    expect(next[0]).toBe("c1");
+    expect(next[next.length - 1]).toBe("new");
+  });
+});
+
+describe("browseHistory", () => {
+  it("walks up to the oldest command and down back to the draft", () => {
+    const entries = ["a", "b", "c"];
+    expect(browseHistory(entries, null, "up")).toBe(2);
+    expect(browseHistory(entries, 2, "up")).toBe(1);
+    expect(browseHistory(entries, 0, "up")).toBe(0);
+    expect(browseHistory(entries, 1, "down")).toBe(2);
+    expect(browseHistory(entries, 2, "down")).toBeNull();
+    expect(browseHistory(entries, null, "down")).toBeNull();
+    expect(browseHistory([], null, "up")).toBeNull();
+  });
+});
+
+describe("historyStore", () => {
+  it("loads a project's commands and saves each new one", async () => {
+    const saved: unknown[] = [];
+    mockIPC((cmd, args) => {
+      if (cmd === "get_setting") return (args as { key: string }).key === "command.history.p1" ? ["a", "b"] : null;
+      if (cmd === "set_setting") saved.push(args);
+    });
+    await historyStore.getState().load("p1");
+    expect(historyStore.getState().entries).toEqual(["a", "b"]);
+    historyStore.getState().add("a");
+    expect(historyStore.getState().entries).toEqual(["b", "a"]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(saved).toEqual([{ key: "command.history.p1", value: ["b", "a"] }]);
+  });
+});

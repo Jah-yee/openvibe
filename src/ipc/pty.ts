@@ -1,0 +1,115 @@
+import { Channel } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { call } from "./invoke";
+
+export type ShellKind = "default" | "powershell" | "pwsh" | "cmd" | "gitbash";
+export type ClaudeMode = "new" | "resume" | "continue";
+
+export interface ClaudeLaunch {
+  mode: ClaudeMode;
+  sessionId: string;
+  title: string;
+}
+
+/** Agents of the launch menu (spec habillage §8), in menu order. */
+export const AGENT_IDS = ["claude", "codex", "gemini", "qwen", "cursor", "opencode", "aider", "ollama", "shell", "custom"] as const;
+export type AgentId = (typeof AGENT_IDS)[number];
+
+export type OllamaMode = "chat" | "code";
+
+export interface OllamaLaunch {
+  model: string;
+  mode: OllamaMode;
+}
+
+/** Mirrors Rust's `SpawnSpec`. */
+export interface SpawnSpec {
+  cwd: string;
+  shell: ShellKind;
+  agent: AgentId;
+  command: string;
+  claude?: ClaudeLaunch;
+  ollama?: OllamaLaunch;
+}
+
+export interface AgentInfo {
+  id: AgentId;
+  available: boolean;
+}
+
+export interface PtyExitEvent {
+  nodeId: string;
+  exitCode: number | null;
+}
+
+/** Raw channel payloads arrive as ArrayBuffer; Tauri < 2.5.1 sent small ones as number[]. */
+export function toBytes(message: ArrayBuffer | number[]): Uint8Array {
+  return message instanceof ArrayBuffer ? new Uint8Array(message) : Uint8Array.from(message);
+}
+
+// Output stays as bytes end to end: decoding chunk by chunk would corrupt UTF-8
+// sequences split across reads, while xterm's write(Uint8Array) decodes statefully.
+function byteChannel(onData: (bytes: Uint8Array) => void): Channel<ArrayBuffer | number[]> {
+  const channel = new Channel<ArrayBuffer | number[]>();
+  channel.onmessage = (message) => onData(toBytes(message));
+  return channel;
+}
+
+export function ptySpawn(
+  nodeId: string,
+  spec: SpawnSpec,
+  cols: number,
+  rows: number,
+  onData: (bytes: Uint8Array) => void,
+): Promise<number | null> {
+  return call("pty_spawn", { nodeId, spec, cols, rows, onData: byteChannel(onData) });
+}
+
+/** Reconnects to a live session; the current scrollback is sent first. */
+export function ptyAttach(nodeId: string, onData: (bytes: Uint8Array) => void): Promise<boolean> {
+  return call("pty_attach", { nodeId, onData: byteChannel(onData) });
+}
+
+// Tauri runs async commands concurrently, so two writes sent back to back could
+// reach the PTY swapped. Each terminal's writes are chained to keep their order.
+const writeQueues = new Map<string, Promise<unknown>>();
+
+function queued<T>(nodeId: string, run: () => Promise<T>): Promise<T> {
+  const previous = writeQueues.get(nodeId) ?? Promise.resolve();
+  const result = previous.then(run);
+  const tail = result.catch(() => undefined);
+  writeQueues.set(nodeId, tail);
+  void tail.then(() => {
+    if (writeQueues.get(nodeId) === tail) writeQueues.delete(nodeId);
+  });
+  return result;
+}
+
+export function ptyWrite(nodeId: string, data: string): Promise<void> {
+  return queued(nodeId, () => call<void>("pty_write", { nodeId, data }));
+}
+
+/** Types a command into the terminal, then Enter (spec habillage §15.3). */
+export function ptySendText(nodeId: string, text: string): Promise<void> {
+  return queued(nodeId, () => call<void>("pty_send_text", { nodeId, text }));
+}
+
+/** Interrupts the agent's turn; false for a plain shell (spec §14). */
+export function ptyInterrupt(nodeId: string): Promise<boolean> {
+  return queued(nodeId, () => call<boolean>("pty_interrupt", { nodeId }));
+}
+
+export const ptyResize = (nodeId: string, cols: number, rows: number) => call<void>("pty_resize", { nodeId, cols, rows });
+export const ptyKill = (nodeId: string) => call<void>("pty_kill", { nodeId });
+export const ptyList = () => call<string[]>("pty_list");
+export const listAgents = () => call<AgentInfo[]>("list_agents");
+export const listOllamaModels = () => call<string[]>("list_ollama_models");
+export const listShells = () => call<ShellKind[]>("list_shells");
+
+export async function getScrollback(nodeId: string): Promise<Uint8Array> {
+  return toBytes(await call<ArrayBuffer | number[]>("get_scrollback", { nodeId }));
+}
+
+export function onPtyExit(handler: (event: PtyExitEvent) => void): Promise<UnlistenFn> {
+  return listen<PtyExitEvent>("pty-exit", (event) => handler(event.payload));
+}

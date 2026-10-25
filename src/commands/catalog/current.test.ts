@@ -1,0 +1,139 @@
+// @vitest-environment happy-dom
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { showNode } from "@/canvas/arrive";
+import { focusGroup } from "@/canvas/canvasFocus";
+import { canvasStore } from "@/canvas/canvasStore";
+import { agentsPanelStore } from "@/fleet/agentsPanelState";
+import { pauseAgents, resumeAgent } from "@/fleet/broadcast";
+import { requestCloseGroup, ungroup } from "@/fleet/groups";
+import { orchestrateGroup } from "@/fleet/orchestrators";
+import { duplicateTerminal, requestClose } from "@/fleet/terminals";
+import { relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
+import { agentActivityStore } from "@/store/agentActivity";
+import { nodesStore } from "@/store/nodes";
+import { terminalStatusStore } from "@/store/terminalStatus";
+import { labelOf, sectionOf, type CommandContext } from "../command";
+import { pendingUiRequest } from "../uiRequests";
+import { CURRENT } from "./current";
+
+vi.mock("@excalidraw/excalidraw", () => ({}));
+vi.mock("@/canvas/arrive", () => ({ showNode: vi.fn(() => true), arrive: vi.fn() }));
+vi.mock("@/canvas/canvasFocus", () => ({ focusGroup: vi.fn(() => true), releaseToCanvas: vi.fn() }));
+vi.mock("@/fleet/broadcast", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/fleet/broadcast")>()),
+  pauseAgents: vi.fn(() => Promise.resolve(1)),
+  resumeAgent: vi.fn(() => Promise.resolve(true)),
+}));
+vi.mock("@/fleet/groups", () => ({ requestCloseGroup: vi.fn(), ungroup: vi.fn() }));
+vi.mock("@/fleet/orchestrators", () => ({ orchestrateGroup: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/fleet/terminals", () => ({ duplicateTerminal: vi.fn(() => Promise.resolve()), requestClose: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), stopTerminal: vi.fn() }));
+
+const ctx = (terminalId: string | null): CommandContext => ({ project: true, workspaceId: "w1", terminalCount: 2, terminalId });
+const find = (id: string) => CURRENT.find((c) => c.id === id)!;
+const ids = (c: CommandContext) => CURRENT.filter((command) => command.available(c)).map((command) => command.id);
+
+beforeAll(async () => {
+  mockIPC(() => undefined);
+  await nodesStore.getState().create("isis", {
+    workspaceId: "w1",
+    kind: "terminal",
+    payload: { title: "Isis", name: "Isis", agent: "claude", cwd: "C:/code", shell: "default", command: "", claudeSessionId: "s1" },
+  });
+  await nodesStore.getState().create("thot", {
+    workspaceId: "w1",
+    kind: "terminal",
+    payload: { title: "Thot", name: "Thot", agent: "codex", cwd: "C:/code", shell: "default", command: "" },
+  });
+});
+beforeEach(() => {
+  canvasStore.setState({
+    frames: [{ id: "g1", name: "Serveurs", x: 0, y: 0, width: 10, height: 10, group: { role: "backend", pantheon: "egypt" }, memberIds: ["isis"] }],
+  });
+  terminalStatusStore.getState().set("isis", { state: "running" });
+  terminalStatusStore.getState().set("thot", { state: "stopped" });
+  agentActivityStore.getState().apply({ nodeId: "isis", activity: "working", since: 0 });
+});
+afterAll(() => clearMocks());
+
+describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () => {
+  it("names its sections after the terminal of the moment and its group", () => {
+    expect(sectionOf(find("terminal.rename"), ctx("isis"))).toBe("Terminal · Isis");
+    expect(sectionOf(find("group.rename"), ctx("isis"))).toBe("Groupe · Serveurs");
+    expect(CURRENT.map((c) => labelOf(c, ctx("isis")))).toEqual([
+      "Renommer",
+      "Dupliquer",
+      "Relancer",
+      "Arrêter le processus",
+      "Mettre en pause",
+      "Reprendre",
+      "Fermer",
+      "Renommer le groupe",
+      "Ajouter un agent…",
+      "Relier un orchestrateur",
+      "Dégrouper",
+      "Fermer le groupe",
+    ]);
+  });
+
+  it("offers each function under the rules of its button", () => {
+    expect(ids(ctx(null))).toEqual([]);
+    // Isis runs and works: no Reprendre; in a group.
+    expect(ids(ctx("isis"))).toEqual([
+      "terminal.rename",
+      "terminal.duplicate",
+      "terminal.relaunch",
+      "terminal.stop",
+      "terminal.pause",
+      "terminal.close",
+      "group.rename",
+      "group.addAgent",
+      "group.orchestrate",
+      "group.ungroup",
+      "group.close",
+    ]);
+    // Thot is stopped and outside any group.
+    expect(ids(ctx("thot"))).toEqual(["terminal.rename", "terminal.duplicate", "terminal.relaunch", "terminal.close"]);
+  });
+
+  it("acts on the terminal of the moment, as its header and the panel's row do", async () => {
+    await find("terminal.duplicate").run(ctx("isis"));
+    expect(duplicateTerminal).toHaveBeenCalledWith("w1", "isis");
+    await find("terminal.relaunch").run(ctx("isis"));
+    expect(vi.mocked(relaunchTerminal).mock.calls[0][0]).toBe("isis");
+    expect(vi.mocked(relaunchTerminal).mock.calls[0][2]).toBe("resume");
+    await find("terminal.relaunch").run(ctx("thot"));
+    expect(vi.mocked(relaunchTerminal).mock.calls[1][2]).toBe("new");
+    await find("terminal.stop").run(ctx("isis"));
+    expect(stopTerminal).toHaveBeenCalledWith("isis");
+    await find("terminal.pause").run(ctx("isis"));
+    expect(pauseAgents).toHaveBeenCalledWith(["isis"]);
+    agentActivityStore.getState().apply({ nodeId: "isis", activity: "idle", since: 0 });
+    await find("terminal.resume").run(ctx("isis"));
+    expect(resumeAgent).toHaveBeenCalledWith("isis");
+    await find("terminal.close").run(ctx("thot"));
+    expect(requestClose).toHaveBeenCalledWith("thot");
+  });
+
+  it("shows the terminal without taking the keyboard, then opens its name editor", async () => {
+    await find("terminal.rename").run(ctx("thot"));
+    expect(showNode).toHaveBeenCalledWith("thot");
+    expect(pendingUiRequest()).toEqual({ kind: "renameTerminal", id: "thot" });
+  });
+
+  it("acts on the group of the moment, as its menu does", async () => {
+    await find("group.orchestrate").run(ctx("isis"));
+    expect(orchestrateGroup).toHaveBeenCalledWith("g1");
+    await find("group.ungroup").run(ctx("isis"));
+    expect(ungroup).toHaveBeenCalledWith("g1");
+    await find("group.close").run(ctx("isis"));
+    expect(requestCloseGroup).toHaveBeenCalledWith("g1");
+    agentsPanelStore.setState({ open: false, filter: "waiting" });
+    await find("group.addAgent").run(ctx("isis"));
+    expect(agentsPanelStore.getState()).toMatchObject({ open: true, filter: "all" });
+    expect(pendingUiRequest()).toEqual({ kind: "groupMenu", id: "g1" });
+    await find("group.rename").run(ctx("isis"));
+    expect(focusGroup).toHaveBeenCalledWith("g1");
+  });
+});

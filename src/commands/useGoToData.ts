@@ -1,0 +1,59 @@
+import { useEffect, useState } from "react";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import { toast } from "sonner";
+import { useStore } from "zustand";
+import { canvasStore } from "@/canvas/canvasStore";
+import { loadScene } from "@/canvas/sceneCache";
+import { useNodes } from "@/store/nodes";
+import { useProjects } from "@/store/projects";
+import { countRunning } from "@/store/running";
+import { terminalStatusStore } from "@/store/terminalStatus";
+import { useWorkspaces } from "@/store/workspaces";
+import { goToItems, type GoToItem } from "./goTo";
+
+/**
+ * The items of « Aller à » for the palette that just opened (spec fenêtre
+ * §7.2): the scene on screen as it is, the other workspaces' scenes read by
+ * the scene cache (one SQLite read per workspace and session); their lines
+ * come as they are read. An unreadable scene leaves its items out.
+ */
+export function useGoToData(): { items: GoToItem[]; loading: boolean } {
+  const view = useProjects((s) => s.view);
+  const projects = useProjects((s) => s.projects);
+  const activeProjectId = useProjects((s) => s.activeId);
+  const workspaces = useWorkspaces((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaces((s) => s.activeId);
+  const nodes = useNodes((s) => s.nodes);
+  const statuses = useStore(terminalStatusStore, (s) => s.statuses);
+  const [scenes, setScenes] = useState<Record<string, readonly ExcalidrawElement[]>>({});
+  const home = view !== "project";
+
+  useEffect(() => {
+    if (home) return;
+    let alive = true;
+    const keep = (id: string, elements: readonly ExcalidrawElement[]) => alive && setScenes((s) => ({ ...s, [id]: elements }));
+    const api = canvasStore.getState().api;
+    for (const workspace of workspaces) {
+      if (workspace.id === activeWorkspaceId && api) {
+        keep(workspace.id, api.getSceneElements());
+        continue;
+      }
+      loadScene(workspace.id).then(
+        (scene) => keep(workspace.id, scene.initialData.elements ?? []),
+        () => {
+          if (!alive) return;
+          toast.error(`Workspace ${workspace.name} illisible`);
+          keep(workspace.id, []);
+        },
+      );
+    }
+    return () => {
+      alive = false;
+    };
+  }, [home, workspaces, activeWorkspaceId]);
+
+  const live = Object.fromEntries(workspaces.map((w) => [w.id, countRunning(nodes, statuses, [w.id])]));
+  // At home no project is open, even if « Tous les projets… » kept the last one's id.
+  const items = goToItems({ home, projects, activeProjectId: home ? null : activeProjectId, workspaces, activeWorkspaceId, scenes, nodes, live });
+  return { items, loading: !home && workspaces.some((w) => !(w.id in scenes)) };
+}
