@@ -6,7 +6,7 @@
 @import "./theme/tokens.css";
 @import "./theme/excalidraw.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -158,4 +158,56 @@
     border: 1px solid var(--ov-line);
     background: var(--ov-surface);
   }
+}
+
+/* Menus, popovers, lists and dialogs in dense glass (spec identité §5.10).
+   Outside any layer: it wins over the utility classes of the shadcn components. */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="popover-content"],
+[data-slot="select-content"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 12px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+[data-slot="dialog-content"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 16px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
+}
+
+[data-slot="dialog-overlay"] {
+  background: rgb(0 0 0 / 0.25);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/* The veil follows the transparency setting too. */
+:root[data-transparency="off"] [data-slot="dialog-overlay"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="dialog-overlay"] {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Toasts, in the bottom-right corner (spec identité §5.8). */
+[data-sonner-toast][data-styled="true"] {
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border-color: var(--ov-glass-line);
+  border-radius: 14px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
 }

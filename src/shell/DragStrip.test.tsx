@@ -18,7 +18,7 @@ it("moves the window from its own empty space only, across the top row", async (
   expect(strip.getAttribute("data-tauri-drag-region")).toBe("");
   expect(strip.childElementCount).toBe(0);
   expect(strip.style.height).toBe(`${TOP_ROW_HEIGHT}px`);
-  expect(TOP_ROW_HEIGHT).toBe(56);
+  expect(TOP_ROW_HEIGHT).toBe(72);
   await act(async () => root.unmount());
   host.remove();
 });
