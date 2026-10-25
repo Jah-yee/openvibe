@@ -5,7 +5,7 @@ import { useProjects } from "@/store/projects";
 
 const POLL_MS = 5000;
 
-/** "⑂ main 7": branch and changed files of the project folder (spec habillage §5.6). */
+/** "⑂ main 7": branch and changed files of the project folder (spec identité §5.8). */
 export function GitChip() {
   const path = useProjects((s) => s.projects.find((p) => p.id === s.activeId)?.path);
   const [status, setStatus] = useState<GitStatus | null>(null);
@@ -32,18 +32,16 @@ export function GitChip() {
     };
   }, [path]);
 
-  // An empty span keeps the zoom control on the right of the bottom row.
-  if (!status) return <span />;
+  // Outside a git repository, no chip (spec identité §5.8).
+  if (!status) return null;
   return (
     <div
       title={path}
-      className="pointer-events-auto flex h-8 items-center gap-1.5 rounded-full border border-ov-line bg-ov-surface px-3 font-mono text-xs text-ov-text shadow-ov"
+      className="ov-glass pointer-events-auto flex h-8 items-center gap-1.5 rounded-[14px] px-2.5 font-mono text-[11.5px] text-ov-text-2"
     >
-      <GitBranch className="size-3.5 text-ov-text-2" />
+      <GitBranch className="size-3.5" />
       {status.branch}
-      {status.changed > 0 && (
-        <span className="rounded-full bg-ov-accent px-1.5 text-[10px] text-white">{status.changed}</span>
-      )}
+      {status.changed > 0 && <span className="text-ov-accent">{status.changed}</span>}
     </div>
   );
 }

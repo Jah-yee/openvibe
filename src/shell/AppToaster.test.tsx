@@ -4,24 +4,23 @@ import { createRoot } from "react-dom/client";
 import { toast } from "sonner";
 import { expect, it } from "vitest";
 import { themeStore } from "@/app/theme";
-import { AppToaster } from "./AppToaster";
-import { TOP_ROW_HEIGHT } from "./layout";
+import { AppToaster, TOAST_BOTTOM } from "./AppToaster";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-it("starts the toasts shown at the top below the top row, clear of the window buttons", async () => {
+it("keeps every toast in the bottom-right corner, above the zoom control (spec identité §5.8)", async () => {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   await act(async () => root.render(<AppToaster />));
-  // Like the offer to resume every conversation, shown at launch in the top-right corner.
   await act(async () => {
-    toast.custom(() => <div>Reprendre toutes les conversations ?</div>, { position: "top-right", duration: Infinity });
+    toast.custom(() => <div>Reprendre toutes les conversations ?</div>, { duration: Infinity });
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
-  const top = host.querySelector<HTMLElement>('[data-sonner-toaster][data-y-position="top"]');
-  expect(top).not.toBeNull();
-  expect(parseFloat(top!.style.getPropertyValue("--offset-top"))).toBeGreaterThan(TOP_ROW_HEIGHT);
+  const toaster = host.querySelector<HTMLElement>('[data-sonner-toaster][data-y-position="bottom"][data-x-position="right"]');
+  expect(toaster).not.toBeNull();
+  expect(parseFloat(toaster!.style.getPropertyValue("--offset-bottom"))).toBe(TOAST_BOTTOM);
+  expect(TOAST_BOTTOM).toBeGreaterThanOrEqual(14 + 32 + 12);
   await act(async () => root.unmount());
   host.remove();
 });

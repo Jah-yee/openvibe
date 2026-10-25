@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { groupAt } from "@/canvas/groups";
+import { TOP_ROW_HEIGHT } from "@/shell/layout";
 import { uiStore, useUi } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
 import { freeCell } from "./groupLayout";
@@ -58,7 +59,10 @@ export function PlacementGhost() {
       {rect && (
         <div className="pointer-events-none fixed rounded-xl border-2 border-dashed border-ov-accent/80 bg-ov-accent/5" style={rect} />
       )}
-      <div className="pointer-events-none fixed left-1/2 top-16 -translate-x-1/2 rounded-full border border-ov-line bg-ov-surface-2 px-3 py-1 text-xs text-ov-text-2 shadow-ov">
+      <div
+        className="ov-glass-strong pointer-events-none fixed left-1/2 -translate-x-1/2 rounded-[10px] px-3 py-1 text-xs text-ov-text-2"
+        style={{ top: TOP_ROW_HEIGHT + 14 }}
+      >
         {group
           ? `Clique pour l'ajouter au groupe ${group.name} · Échap pour annuler`
           : `Clique pour poser ${orchestrator ? "l'orchestrateur" : "l'agent"} · Échap pour annuler`}

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { TABS_HEIGHT, TITLE_BAR_HEIGHT, TOP_ROW_HEIGHT } from "@/shell/layout";
-import { readSource } from "./cssBlocks";
+import { readSource, sourceFiles } from "./cssBlocks";
 
 const index = readSource("index.css");
 
@@ -23,6 +23,22 @@ it("puts menus, popovers, lists, dialogs and toasts in dense glass (spec identit
 it("docks Excalidraw's properties panel in glass, right of the tool rail (spec identité §5.7)", () => {
   const excalidraw = readSource("theme/excalidraw.css");
   expect(excalidraw).toMatch(/\.excalidraw \.App-menu__left \{[^}]*left: 70px;[^}]*var\(--ov-glass-strong\)[^}]*var\(--ov-blur\)[^}]*border-radius: 14px/);
+});
+
+it("leaves nothing at the top of the canvas but the bars: no top toast, no banner under the tabs", () => {
+  const sources = sourceFiles();
+  for (const [file, text] of Object.entries(sources)) {
+    expect(/position: "top-right"/.test(text), `${file} : toast en haut`).toBe(false);
+    expect(/\btop-16\b/.test(text), `${file} : bandeau à 64 px, sous les onglets`).toBe(false);
+  }
+});
+
+it("draws the bottom row and its command bar in glass (spec identité §5.8)", () => {
+  for (const file of ["shell/CommandBar.tsx", "shell/GitChip.tsx", "shell/ZoomControl.tsx"]) {
+    expect(readSource(file), file).toMatch(/ov-glass\b/);
+  }
+  expect(readSource("shell/CommandBar.tsx")).toContain("w-[680px]");
+  expect(readSource("fleet/CommandInput.tsx")).toContain("rounded-[10px]");
 });
 
 it("stacks the title bar and the tabs: 72 px of canvas under them (spec identité §7)", () => {

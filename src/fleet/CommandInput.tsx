@@ -203,12 +203,13 @@ export function CommandInput(props: {
         disabled={!canSend}
         onClick={send}
         className={cn(
-          "grid shrink-0 place-items-center rounded-full",
-          compact ? "size-7" : "size-8",
-          canSend ? "bg-ov-accent text-white" : "bg-ov-card text-ov-text-2",
+          "flex shrink-0 items-center justify-center gap-1.5 font-semibold",
+          compact ? "size-7 rounded-[8px]" : "h-8 rounded-[10px] px-3 text-[12.5px]",
+          canSend ? "bg-ov-accent text-ov-on-accent" : "bg-ov-field text-ov-text-3",
         )}
       >
         <ArrowUp className="size-4" />
+        {!compact && "Envoyer"}
       </button>
     </div>
   );

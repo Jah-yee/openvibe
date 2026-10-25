@@ -41,7 +41,7 @@ export function CommandBar() {
   );
 
   return (
-    <div className="pointer-events-auto flex w-[560px] items-end gap-3 rounded-2xl bg-ov-command px-3 py-2 shadow-ov">
+    <div className="ov-glass pointer-events-auto flex min-h-[46px] w-[680px] max-w-[calc(100vw-360px)] items-end gap-3 rounded-[16px] py-[7px] pl-3.5 pr-[7px]">
       <span className="mb-1.5 shrink-0 text-base font-bold text-ov-accent" aria-hidden>
         ›
       </span>
@@ -73,7 +73,7 @@ export function CommandHint() {
 
   if (!shown) return null;
   return (
-    <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-ov-line bg-ov-surface-2 py-1 pl-3 pr-1 text-xs text-ov-text-2 shadow-ov">
+    <div className="ov-glass-strong pointer-events-auto flex items-center gap-2 rounded-[10px] py-1 pl-3 pr-1 text-xs text-ov-text-2">
       Essaie « @tous lance les tests »
       <button
         type="button"
@@ -82,7 +82,7 @@ export function CommandHint() {
           setShown(false);
           void setSetting(HINT_KEY, true).catch(() => undefined);
         }}
-        className="grid size-5 place-items-center rounded-full hover:bg-ov-card hover:text-ov-text"
+        className="grid size-5 place-items-center rounded-[6px] hover:bg-ov-hover hover:text-ov-text"
       >
         <X className="size-3" />
       </button>

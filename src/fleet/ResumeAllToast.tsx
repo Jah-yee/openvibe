@@ -43,7 +43,7 @@ function ResumeAllToast({ workspaceId }: { workspaceId: string }) {
   };
 
   return (
-    <div className="flex w-[360px] items-start gap-3 rounded-xl border border-ov-line bg-ov-surface-2 p-3 text-ov-text shadow-ov">
+    <div className="ov-glass-strong flex w-[360px] items-start gap-3 rounded-[14px] p-3 text-ov-text">
       <History className="mt-0.5 size-4 shrink-0 text-ov-accent" />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">Reprendre toutes les conversations ?</p>
@@ -51,10 +51,10 @@ function ResumeAllToast({ workspaceId }: { workspaceId: string }) {
           {plural(ids.length, "console peut reprendre sa", "consoles peuvent reprendre leur")} dernière discussion
         </p>
         <div className="mt-2 flex gap-2">
-          <button type="button" className="h-7 rounded-full bg-ov-accent px-3 text-xs font-semibold text-white" onClick={resumeAll}>
+          <button type="button" className="h-7 rounded-[8px] bg-ov-accent px-3 text-xs font-semibold text-ov-on-accent" onClick={resumeAll}>
             Oui
           </button>
-          <button type="button" className="h-7 rounded-full bg-ov-card px-3 text-xs text-ov-text" onClick={answer}>
+          <button type="button" className="h-7 rounded-[8px] bg-ov-field px-3 text-xs text-ov-text" onClick={answer}>
             Non
           </button>
         </div>
@@ -75,7 +75,6 @@ export function offerResumeAll(workspaceId: string) {
   toast.custom(() => <ResumeAllToast workspaceId={workspaceId} />, {
     id: toastId(workspaceId),
     duration: Infinity,
-    position: "top-right",
   });
 }
 

@@ -2,9 +2,9 @@ import { Minus, Plus } from "lucide-react";
 import type { NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { stepZoom, zoomAroundCenter } from "@/canvas/zoom";
-import { RoundButton } from "./ui";
+import { IconButton } from "./buttons";
 
-/** "− 56 % +" at the bottom right (spec habillage §5.6); the percentage resets to 100 %. */
+/** "− 56 % +" at the bottom right (spec identité §5.8); the percentage resets to 100 %. */
 export function ZoomControl() {
   const zoom = useCanvas((s) => s.view.zoom);
 
@@ -22,10 +22,10 @@ export function ZoomControl() {
   };
 
   return (
-    <div className="pointer-events-auto flex h-8 items-center rounded-full border border-ov-line bg-ov-surface px-0.5 shadow-ov">
-      <RoundButton label="Dézoomer" className="size-7" onClick={() => apply(stepZoom(zoom, -1))}>
+    <div className="ov-glass pointer-events-auto flex h-8 items-center rounded-[14px] px-0.5">
+      <IconButton label="Dézoomer" onClick={() => apply(stepZoom(zoom, -1))}>
         <Minus />
-      </RoundButton>
+      </IconButton>
       <button
         type="button"
         title="Revenir à 100 %"
@@ -34,9 +34,9 @@ export function ZoomControl() {
       >
         {Math.round(zoom * 100)} %
       </button>
-      <RoundButton label="Zoomer" className="size-7" onClick={() => apply(stepZoom(zoom, 1))}>
+      <IconButton label="Zoomer" onClick={() => apply(stepZoom(zoom, 1))}>
         <Plus />
-      </RoundButton>
+      </IconButton>
     </div>
   );
 }
