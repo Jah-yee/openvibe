@@ -60,6 +60,19 @@ describe("Dessin (spec fenêtre §7.3)", () => {
       ["y", true],
     ]);
   });
+
+  it("sends the key before giving the keyboard back, so Excalidraw's undo cannot overwrite the release", async () => {
+    // Excalidraw computes an undo from the state of the moment: a release still
+    // pending would be overwritten, leaving the terminal active and selected.
+    const order: string[] = [];
+    container.addEventListener("keydown", (e) => order.push(`key ${e.key}`));
+    updateScene.mockImplementation(() => order.push("release"));
+    await DRAWING.find((c) => c.id === "edit.undo")!.run(busy);
+    await DRAWING.find((c) => c.id === "edit.redo")!.run(busy);
+    expect(order).toEqual(["key z", "release", "key y", "release"]);
+    expect(document.activeElement).toBe(container);
+    updateScene.mockReset();
+  });
 });
 
 describe("Scène", () => {

@@ -28,11 +28,15 @@ function pickTool(type: Tool) {
   releaseToCanvas();
 }
 
-/** Annuler / Rétablir: Excalidraw's own keys, sent to its container (its API has no undo). */
+/**
+ * Annuler / Rétablir: Excalidraw's own keys, sent to its container (its API has
+ * no undo). The keyboard goes back to the canvas after: Excalidraw computes the
+ * undo from the state of the moment, which would overwrite a release still pending.
+ */
 function pressCanvasKey(key: "z" | "y") {
-  releaseToCanvas();
   const container = document.querySelector<HTMLElement>(".excalidraw-container");
   container?.dispatchEvent(new KeyboardEvent("keydown", { key, code: key === "z" ? "KeyZ" : "KeyY", ctrlKey: true, bubbles: true, cancelable: true }));
+  releaseToCanvas();
 }
 
 export const DRAWING: readonly Command[] = [
