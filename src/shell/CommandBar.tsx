@@ -41,7 +41,7 @@ export function CommandBar() {
   );
 
   return (
-    <div className="ov-glass pointer-events-auto flex min-h-[46px] w-[680px] max-w-[calc(100vw-360px)] items-end gap-3 rounded-[16px] py-[7px] pl-3.5 pr-[7px]">
+    <div className="ov-glass-strong pointer-events-auto flex min-h-[46px] w-[680px] max-w-[calc(100vw-360px)] items-end gap-3 rounded-[16px] py-[7px] pl-3.5 pr-[7px]">
       <span className="mb-1.5 shrink-0 text-base font-bold text-ov-accent" aria-hidden>
         ›
       </span>

@@ -22,7 +22,7 @@ export function ZoomControl() {
   };
 
   return (
-    <div className="ov-glass pointer-events-auto flex h-8 items-center rounded-[14px] px-0.5">
+    <div className="ov-glass-strong pointer-events-auto flex h-8 items-center rounded-[14px] px-0.5">
       <IconButton label="Dézoomer" onClick={() => apply(stepZoom(zoom, -1))}>
         <Minus />
       </IconButton>
