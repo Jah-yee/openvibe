@@ -1,8 +1,6 @@
 import { useState } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { forgetWorkspaces } from "@/app/forget";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,34 +8,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { flushAll } from "@/lib/flush";
 import { plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRunningCount } from "@/store/running";
 import { useWorkspaces, workspacesStore, type Workspace } from "@/store/workspaces";
 import { IconButton } from "./buttons";
 import { TABS_HEIGHT } from "./layout";
+import { removeWorkspace } from "./workspaceActions";
 
 const fail = (what: string) => (error: unknown) => toast.error(`${what} : ${String(error)}`);
-
-/** Deletes a workspace after confirmation, stopping its terminals (spec V1 §8.5). */
-async function removeWorkspace(workspace: Workspace, running: number) {
-  const consequence =
-    running > 0
-      ? `${plural(running, "agent sera arrêté", "agents seront arrêtés")} et son contenu effacé.`
-      : "Son contenu sera effacé.";
-  const confirmed = await ask(`Supprimer « ${workspace.name} » ? ${consequence}`, {
-    title: "Supprimer le workspace",
-    kind: "warning",
-    okLabel: "Supprimer",
-    cancelLabel: "Annuler",
-  });
-  if (!confirmed) return;
-  // Pending saves are written first: once the row is gone they would fail.
-  await flushAll();
-  await workspacesStore.getState().remove(workspace.id);
-  forgetWorkspaces([workspace.id]);
-}
 
 function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove: boolean }) {
   const { workspace, active, canRemove } = props;

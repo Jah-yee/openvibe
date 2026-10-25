@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { WindowControls } from "./WindowControls";
+import { windowStore } from "./windowState";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -61,9 +62,12 @@ it("follows the maximized state, however it changed", async () => {
   await act(async () => emit("tauri://resize", { width: 1920, height: 1080 }));
   await settle();
   expect(button("Restaurer")).not.toBeNull();
+  // Published for the palette's « Agrandir » / « Restaurer ».
+  expect(windowStore.getState().maximized).toBe(true);
   expect(button("Agrandir")).toBeNull();
   maximized = false;
   await act(async () => emit("tauri://resize", { width: 1440, height: 900 }));
   await settle();
   expect(button("Agrandir")).not.toBeNull();
+  expect(windowStore.getState().maximized).toBe(false);
 });

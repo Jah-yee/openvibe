@@ -1,5 +1,6 @@
 import { Eraser, Hand, Image as ImageIcon, Maximize, MousePointer2, Plus, Type } from "lucide-react";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
+import { fitScene } from "@/canvas/viewActions";
 import { AgentMenu } from "@/fleet/AgentMenu";
 import { ToolButton } from "./buttons";
 import { PenMenu } from "./PenMenu";
@@ -9,14 +10,6 @@ import { railToolOf, type ShapeTool } from "./tools";
 type Tool = "selection" | "hand" | "text" | "eraser" | "image" | ShapeTool;
 
 const setTool = (type: Tool) => canvasStore.getState().api?.setActiveTool({ type });
-
-function fitAll() {
-  const api = canvasStore.getState().api;
-  const elements = api?.getSceneElements() ?? [];
-  if (api && elements.length > 0) {
-    api.scrollToContent(elements, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true });
-  }
-}
 
 const Separator = () => <span aria-hidden className="my-1 h-px w-6 bg-ov-line" />;
 
@@ -55,7 +48,7 @@ export function ToolRail() {
         )}
       />
       <Separator />
-      <ToolButton label="Ajuster la vue" onClick={fitAll}>
+      <ToolButton label="Ajuster la vue" onClick={fitScene}>
         <Maximize />
       </ToolButton>
     </nav>

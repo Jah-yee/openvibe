@@ -1,10 +1,7 @@
-import { getVersion } from "@tauri-apps/api/app";
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ReactElement } from "react";
 import { Download, ImageDown, Info, Upload } from "lucide-react";
-import { toast } from "sonner";
-import { canvasStore } from "@/canvas/canvasStore";
-import { currentTheme, readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
+import { showAbout } from "@/app/about";
+import { readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -16,14 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useWorkspaces } from "@/store/workspaces";
-import { exportPng, exportScene, importScene } from "./sceneFiles";
-
-function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure: string) {
-  const api = canvasStore.getState().api;
-  if (!api) return;
-  action(api).catch((error: unknown) => toast.error(`${failure} : ${String(error)}`));
-}
+import { exportCurrentPng, exportCurrentScene, importIntoScene } from "./sceneActions";
 
 /** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2), opened from `trigger`. */
 export function SettingsMenu({
@@ -35,7 +25,6 @@ export function SettingsMenu({
   side?: "bottom" | "left";
   align?: "start" | "end";
 }) {
-  const name = useWorkspaces((s) => s.workspaces.find((w) => w.id === s.activeId)?.name ?? "scene");
   const { choice, transparency } = useThemeSettings();
   return (
     <DropdownMenu>
@@ -51,22 +40,18 @@ export function SettingsMenu({
           Effets de transparence
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => run((api) => exportScene(api, name), "Export impossible")}>
+        <DropdownMenuItem onSelect={exportCurrentScene}>
           <Download /> Exporter la scène…
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => run(importScene, "Import impossible")}>
+        <DropdownMenuItem onSelect={importIntoScene}>
           <Upload /> Importer une scène…
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => run((api) => exportPng(api, name, currentTheme()), "Export impossible")}>
+        <DropdownMenuItem onSelect={exportCurrentPng}>
           <ImageDown /> Exporter en PNG…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() =>
-            void getVersion().then((version) =>
-              toast(`OpenVibe ${version}`, { description: "Canvas d'agents local et open source." }),
-            )
-          }
+          onSelect={() => void showAbout()}
         >
           <Info /> À propos d'OpenVibe
         </DropdownMenuItem>

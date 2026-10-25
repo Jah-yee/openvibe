@@ -1,21 +1,11 @@
 import { useEffect } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { FolderPlus } from "lucide-react";
-import { toast } from "sonner";
 import { AccentButton } from "@/shell/buttons";
 import { SearchField } from "@/shell/SearchField";
 import { TitleBar } from "@/shell/TitleBar";
 import { projectsStore, useProjects } from "@/store/projects";
+import { addProject } from "./addProject";
 import { ProjectCard } from "./ProjectCard";
-
-async function addProject() {
-  const picked = await open({ directory: true, title: "Dossier du projet" });
-  if (typeof picked !== "string") return;
-  await projectsStore
-    .getState()
-    .add(picked)
-    .catch((error: unknown) => toast.error(`Ajout impossible : ${String(error)}`));
-}
 
 /** Projects as glass cards under the title bar; a click opens one on its last workspace (spec identité §5.9). */
 export function HomeScreen() {
