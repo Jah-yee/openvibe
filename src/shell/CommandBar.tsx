@@ -49,7 +49,7 @@ export function CommandBar() {
         agents={agents}
         groups={groups}
         fallback={fallback}
-        placeholder="Écris une consigne · @ pour cibler…"
+        placeholder="Consigne aux agents · @ pour cibler · ↑ historique"
         emptyHint="Sélectionne des agents ou tape @"
       />
     </div>

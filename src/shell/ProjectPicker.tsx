@@ -26,7 +26,7 @@ export function ProjectPicker() {
           <ChevronDown className="size-3.5 text-ov-text-2" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
+      <DropdownMenuContent align="start" className="w-72">
         {recent.map((project) => (
           <DropdownMenuItem
             key={project.id}
@@ -34,7 +34,12 @@ export function ProjectPicker() {
             onSelect={() => void projectsStore.getState().open(project.id)}
           >
             <Folder />
-            <span className="truncate">{project.name}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">{project.name}</span>
+              <span data-path className="truncate font-mono text-[10.5px] text-ov-text-3">
+                {project.path}
+              </span>
+            </span>
             {project.id === activeId && <Check className="ml-auto" />}
           </DropdownMenuItem>
         ))}
