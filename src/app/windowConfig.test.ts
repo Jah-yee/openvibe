@@ -21,4 +21,10 @@ describe("window configuration (spec fenêtre §4.7)", () => {
       ]),
     );
   });
+
+  it("ships as a French per-user NSIS installer (spec fenêtre §5)", () => {
+    expect(conf.bundle.targets).toEqual(["nsis"]);
+    expect(conf.bundle.windows.nsis).toEqual({ installMode: "currentUser", languages: ["French"] });
+    expect(conf.identifier).toBe("dev.openvibe.app");
+  });
 });
