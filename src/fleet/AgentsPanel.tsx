@@ -20,6 +20,7 @@ import { pauseAll, resumeAll, workspaceTerminalIds } from "./broadcast";
 import { AGENTS } from "./catalog";
 import { ComposeGroup } from "./ComposeGroup";
 import { FLEET_FILTERS, filterCounts, fleetSections, fleetStateOf, type FleetAgent } from "./fleetView";
+import { GroupMenu } from "./GroupMenu";
 import { countsText } from "./groupSummary";
 import { launchFour, newConsole } from "./quickActions";
 
@@ -117,7 +118,7 @@ export function AgentsPanel() {
           </IconButton>
         </div>
       </header>
-      <div className="flex shrink-0 gap-px px-2 pb-1.5 pt-2">
+      <div className="flex shrink-0 flex-wrap gap-px px-2 pb-1.5 pt-2">
         {FLEET_FILTERS.map(({ id, label }) => (
           <button
             key={id}
@@ -137,26 +138,43 @@ export function AgentsPanel() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
         {sections.length === 0 && orchestrators.length === 0 && (
-          <p className="py-4 text-center text-xs text-ov-text-2">Aucun agent</p>
+          <p className="py-4 text-center text-xs text-ov-text-2">
+            {agents.length > 0 ? "Aucun agent dans ce filtre" : "Aucun agent"}
+          </p>
         )}
         {sections.map((section) => {
           const key = keyOf(section.id);
           const open = !folded.has(key);
           return (
             <section key={key}>
-              <button
-                type="button"
-                data-section={key}
-                onClick={() => fold(key)}
-                className="flex h-[26px] w-full items-center gap-1.5 rounded-[6px] px-1.5 text-left text-[11.5px] hover:bg-ov-hover"
-              >
-                <ChevronDown className={cn("size-3.5 text-ov-text-2 transition-transform", !open && "-rotate-90")} />
-                <span className="size-2 rounded-[2px]" style={{ backgroundColor: section.color ?? "var(--ov-text-3)" }} />
-                <span className="font-semibold tracking-[0.03em] text-ov-text uppercase">{section.name}</span>
-                <span className="ml-auto font-mono text-[10.5px] text-ov-text-2">
-                  {countsText(section.agents.length, section.agents.filter((a) => a.state === "working").length)}
-                </span>
-              </button>
+              <div data-group-header className="group/section flex items-center rounded-[6px] pr-0.5 hover:bg-ov-hover">
+                <button
+                  type="button"
+                  data-section={key}
+                  onClick={() => fold(key)}
+                  className="flex h-[26px] min-w-0 flex-1 items-center gap-1.5 px-1.5 text-left text-[11.5px]"
+                >
+                  <ChevronDown className={cn("size-3.5 text-ov-text-2 transition-transform", !open && "-rotate-90")} />
+                  <span className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: section.color ?? "var(--ov-text-3)" }} />
+                  <span className="truncate font-semibold tracking-[0.03em] text-ov-text uppercase">{section.name}</span>
+                  <span className="ml-auto shrink-0 font-mono text-[10.5px] text-ov-text-2">
+                    {countsText(section.agents.length, section.agents.filter((a) => a.state === "working").length)}
+                  </span>
+                </button>
+                {section.id && (
+                  <GroupMenu
+                    groupId={section.id}
+                    trigger={
+                      <IconButton
+                        label="Menu du groupe"
+                        className="size-[22px] opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                      >
+                        <Ellipsis />
+                      </IconButton>
+                    }
+                  />
+                )}
+              </div>
               {open &&
                 section.agents.map((a) => (
                   <AgentRow

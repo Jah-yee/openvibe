@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -17,20 +18,25 @@ import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
 import { addAgentToGroup, groupMembers, requestCloseGroup, ungroup } from "./groups";
 import { orchestrateGroup } from "./orchestrators";
 
-/** The `⌄` of a group label (spec habillage §11.4). */
-export function GroupMenu({ groupId }: { groupId: string }) {
+/**
+ * The menu of a group: the `⌄` of its label on the canvas (spec habillage
+ * §11.4), or `trigger`, the ⋯ of its header in the agents panel (spec identité §5.6).
+ */
+export function GroupMenu({ groupId, trigger }: { groupId: string; trigger?: ReactElement }) {
   const agents = useAgents((s) => s.agents);
   const available = (id: string) => agents.some((agent) => agent.id === id && agent.available);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Menu du groupe"
-          className="pointer-events-auto ml-1 grid size-5 place-items-center rounded text-ov-text-2 hover:bg-ov-card hover:text-ov-text"
-        >
-          <ChevronDown className="size-3.5" />
-        </button>
+        {trigger ?? (
+          <button
+            type="button"
+            aria-label="Menu du groupe"
+            className="pointer-events-auto ml-1 grid size-5 place-items-center rounded text-ov-text-2 hover:bg-ov-card hover:text-ov-text"
+          >
+            <ChevronDown className="size-3.5" />
+          </button>
+        )}
       </DropdownMenuTrigger>
       {/* Focus must not come back to the trigger: it would close Excalidraw's name editor. */}
       <DropdownMenuContent align="start" className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>

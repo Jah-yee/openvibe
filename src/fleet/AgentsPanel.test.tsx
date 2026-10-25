@@ -28,6 +28,7 @@ beforeEach(async () => {
   });
   terminalStatusStore.getState().set("ada", { state: "stopped" });
   canvasStore.getState().setNodeIds(["ada"]);
+  canvasStore.setState({ frames: [] });
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -56,6 +57,31 @@ it("filters on the store's filter, labelled Prêts for idle agents", async () =>
   await act(async () => filters[4].click());
   expect(agentsPanelStore.getState().filter).toBe("stopped");
   expect(filters[4].dataset.on).toBe("true");
+});
+
+it("wraps its filters rather than clipping one, and says when a filter hides every agent", async () => {
+  const row = host.querySelector("[data-filter]")!.parentElement!;
+  expect(row.className).toContain("flex-wrap");
+  await act(async () => agentsPanelStore.setState({ filter: "working" }));
+  expect(host.textContent).toContain("Aucun agent dans ce filtre");
+  await act(async () => canvasStore.getState().setNodeIds([]));
+  await act(async () => agentsPanelStore.setState({ filter: "all" }));
+  expect(host.textContent).toContain("Aucun agent");
+  expect(host.textContent).not.toContain("dans ce filtre");
+});
+
+it("offers a group's menu on its header, on hover; « Hors groupe » has none (spec identité §5.6)", async () => {
+  expect(host.querySelector('[aria-label="Menu du groupe"]')).toBeNull();
+  await act(async () =>
+    canvasStore.setState({
+      frames: [{ id: "g1", name: "Backend", x: 0, y: 0, width: 10, height: 10, group: { role: "general", pantheon: "egypt" }, memberIds: ["ada"] }],
+    }),
+  );
+  const menu = host.querySelector<HTMLButtonElement>('[aria-label="Menu du groupe"]')!;
+  expect(menu.closest("[data-group-header]")!.querySelector("[data-section]")!.textContent).toContain("Backend");
+  expect(menu.className).toContain("group-hover/section:opacity-100");
+  await act(async () => menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })));
+  expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toContain("Renommer");
 });
 
 it("folds a group and closes", async () => {
