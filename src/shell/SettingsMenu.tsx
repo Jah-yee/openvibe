@@ -1,6 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import { Download, ImageDown, Info, Settings, Upload } from "lucide-react";
+import type { ReactElement } from "react";
+import { Download, ImageDown, Info, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
 import { currentTheme, readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useWorkspaces } from "@/store/workspaces";
 import { exportPng, exportScene, importScene } from "./sceneFiles";
-import { RoundButton } from "./ui";
 
 function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure: string) {
   const api = canvasStore.getState().api;
@@ -25,18 +25,22 @@ function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure
   action(api).catch((error: unknown) => toast.error(`${failure} : ${String(error)}`));
 }
 
-/** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2). */
-export function SettingsMenu() {
+/** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2), opened from `trigger`. */
+export function SettingsMenu({
+  trigger,
+  side = "bottom",
+  align = "end",
+}: {
+  trigger: ReactElement;
+  side?: "bottom" | "left";
+  align?: "start" | "end";
+}) {
   const name = useWorkspaces((s) => s.workspaces.find((w) => w.id === s.activeId)?.name ?? "scene");
   const { choice, transparency } = useThemeSettings();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <RoundButton label="Réglages" className="border border-ov-line bg-ov-surface shadow-ov">
-          <Settings />
-        </RoundButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent side={side} align={align} className="w-56">
         <DropdownMenuLabel className="ov-label">Thème</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={choice} onValueChange={(value) => void setThemeChoice(readThemeChoice(value))}>
           <DropdownMenuRadioItem value="system">Système</DropdownMenuRadioItem>

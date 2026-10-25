@@ -1,9 +1,9 @@
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Settings, X } from "lucide-react";
 import { projectsStore } from "@/store/projects";
 import { LiveCount } from "./LiveCount";
 import { ProjectPicker } from "./ProjectPicker";
 import { SettingsMenu } from "./SettingsMenu";
-import { PillButton } from "./ui";
+import { PillButton, RoundButton } from "./ui";
 import { WindowControls } from "./WindowControls";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 
@@ -23,7 +23,13 @@ export function TopBar() {
       </div>
       <div className="pointer-events-auto flex shrink-0 items-center gap-2">
         <LiveCount />
-        <SettingsMenu />
+        <SettingsMenu
+          trigger={
+            <RoundButton label="Réglages" className="border border-ov-line bg-ov-surface shadow-ov">
+              <Settings />
+            </RoundButton>
+          }
+        />
         <WindowControls />
       </div>
     </div>

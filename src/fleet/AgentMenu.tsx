@@ -1,19 +1,19 @@
-import { useEffect, useState } from "react";
-import { Asterisk, Check, Network } from "lucide-react";
+import { useEffect, useState, type ReactElement } from "react";
+import { Check, Layers, Network, SquareTerminal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
-import { RoundButton } from "@/shell/ui";
 import { uiStore } from "@/store/ui";
 import { agentsStore, useAgents } from "./agentsStore";
 import { AGENT_ORDER, agentInk, AGENTS, defaultAgent } from "./catalog";
 import { defaultLaunchOptions, type LaunchOptions } from "./launchAgent";
 import { LaunchOptionsForm } from "./LaunchOptionsForm";
 import { OllamaPicker } from "./OllamaPicker";
+import { launchFour, newConsole } from "./quickActions";
 
 type View = "agents" | "options" | "ollama";
 
-/** "Lancer un agent", opened from the rail (spec habillage §10.1). */
-export function AgentMenu() {
+/** "Lancer un agent", opened from the tool rail's ＋ or the agents panel (spec identité §5.4, §5.6). */
+export function AgentMenu({ trigger, side = "right" }: { trigger: (open: boolean) => ReactElement; side?: "right" | "left" | "bottom" }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("agents");
   const [options, setOptions] = useState<LaunchOptions | null>(null);
@@ -42,12 +42,8 @@ export function AgentMenu() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <RoundButton label="Lancer un agent" active={open}>
-          <Asterisk className={open ? undefined : "text-ov-accent"} />
-        </RoundButton>
-      </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-72 p-2">
+      <PopoverTrigger asChild>{trigger(open)}</PopoverTrigger>
+      <PopoverContent side={side} align="start" className="w-72 p-2">
         {view === "agents" && (
           <>
             <p className="ov-label px-2 pb-1 pt-1">Lancer un agent</p>
@@ -78,6 +74,32 @@ export function AgentMenu() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  newConsole();
+                }}
+                className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-ov-line px-2 py-1.5 text-left hover:bg-ov-hover"
+              >
+                <span className="grid size-7 place-items-center rounded-md bg-ov-field text-ov-text-2">
+                  <SquareTerminal className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">Nouvelle console</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  launchFour();
+                }}
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ov-hover"
+              >
+                <span className="grid size-7 place-items-center rounded-md bg-ov-field text-ov-text-2">
+                  <Layers className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">Lancer 4 agents</span>
+              </button>
               {/* Spec habillage §10.1: placed the same way as an agent. */}
               <button
                 type="button"
@@ -85,7 +107,7 @@ export function AgentMenu() {
                   setOpen(false);
                   uiStore.getState().setPlacing({ orchestrator: true });
                 }}
-                className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-ov-line px-2 py-1.5 text-left hover:bg-ov-hover"
+                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ov-hover"
               >
                 <span className="grid size-7 place-items-center rounded-md bg-ov-accent-soft text-ov-accent">
                   <Network className="size-4" />

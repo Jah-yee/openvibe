@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { toast } from "sonner";
-import { agentsPanelStore, loadAgentsPanel, readAgentsPanel, setAgentsPanel, showAgents } from "./agentsPanel";
+import { agentsPanelStore, loadAgentsPanel, readAgentsPanel, setAgentsPanel, showAgents } from "./agentsPanelState";
 
 let saved: unknown[];
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useWorkspaceAgentCounts } from "@/fleet/agentCounts";
-import { showAgents } from "@/fleet/agentsPanel";
+import { showAgents } from "@/fleet/agentsPanelState";
 import type { FleetFilter } from "@/fleet/fleetView";
 import { plural } from "@/lib/format";
 import { useRunningCount } from "@/store/running";

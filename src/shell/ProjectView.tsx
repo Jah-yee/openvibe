@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Asterisk } from "lucide-react";
 import { Canvas } from "@/canvas/Canvas";
 import { AgentMenu } from "@/fleet/AgentMenu";
 import { agentsStore } from "@/fleet/agentsStore";
@@ -13,6 +14,7 @@ import { GitChip } from "./GitChip";
 import { LeftRail } from "./LeftRail";
 import { RightRail } from "./RightRail";
 import { TopBar } from "./TopBar";
+import { RoundButton } from "./ui";
 import { ZoomControl } from "./ZoomControl";
 
 /** The open project: the canvas under the floating shell (spec habillage §5). */
@@ -30,7 +32,17 @@ export function ProjectView() {
       {status === "ready" && activeId ? (
         <>
           <Canvas key={activeId} workspaceId={activeId} />
-          <LeftRail agentButton={<AgentMenu />} />
+          <LeftRail
+            agentButton={
+              <AgentMenu
+                trigger={(open) => (
+                  <RoundButton label="Lancer un agent" active={open}>
+                    <Asterisk className={open ? undefined : "text-ov-accent"} />
+                  </RoundButton>
+                )}
+              />
+            }
+          />
           <RightRail />
           <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-4">
             <div className="justify-self-start">

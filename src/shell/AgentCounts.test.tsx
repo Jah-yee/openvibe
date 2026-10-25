@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { canvasStore } from "@/canvas/canvasStore";
 import { agentCounts } from "@/fleet/agentCounts";
-import { agentsPanelStore } from "@/fleet/agentsPanel";
+import { agentsPanelStore } from "@/fleet/agentsPanelState";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";

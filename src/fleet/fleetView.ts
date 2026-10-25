@@ -12,7 +12,7 @@ export const FLEET_FILTERS: readonly { id: FleetFilter; label: string }[] = [
   { id: "all", label: "Tous" },
   { id: "working", label: "En cours" },
   { id: "waiting", label: "Attend" },
-  { id: "idle", label: "Inactifs" },
+  { id: "idle", label: "Prêts" },
   { id: "stopped", label: "Arrêtés" },
 ];
 

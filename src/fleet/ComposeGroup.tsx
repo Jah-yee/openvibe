@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -10,7 +10,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { cn } from "@/lib/utils";
-import { ChipButton } from "@/shell/ui";
 import { agentsStore, useAgents } from "./agentsStore";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
 import { agentsOf, DEFAULT_GROUP_SIZE, MAX_GROUP_SIZE, nameAfterRoleChange, resizeSlots, type Slot } from "./composer";
@@ -56,8 +55,8 @@ function SlotButton(props: { agent: AgentId; choices: AgentId[]; onPick: (agent:
   );
 }
 
-/** "Composer un groupe", anchored above the « Groupe » chip (spec habillage §11.2). */
-export function ComposeGroup() {
+/** "Composer un groupe", anchored to its trigger (spec habillage §11.2). */
+export function ComposeGroup({ trigger, side = "top" }: { trigger: ReactElement; side?: "top" | "left" | "bottom" }) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<RoleId>("general");
   const [name, setName] = useState(ROLES.general.label);
@@ -89,10 +88,8 @@ export function ComposeGroup() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <ChipButton>Groupe</ChipButton>
-      </PopoverTrigger>
-      <PopoverContent side="top" sideOffset={10} className="flex w-[360px] flex-col gap-3 p-3">
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent side={side} sideOffset={10} className="flex w-[360px] flex-col gap-3 p-3">
         <p className="ov-label">Composer un groupe</p>
         <label className="flex h-9 items-center gap-2 rounded-lg border border-ov-line bg-ov-card px-2.5">
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
