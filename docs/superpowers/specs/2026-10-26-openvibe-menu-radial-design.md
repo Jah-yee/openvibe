@@ -53,10 +53,11 @@ Positions lues dans le sens des aiguilles d'une montre depuis le haut : ↑ ↗ 
 
 | ↑ | ↗ | → | ↘ | ↓ | ↙ | ← | ↖ |
 |---|---|---|---|---|---|---|---|
-| Lancer <agent par défaut> | Nouvelle console | Lancer 4 agents | Orchestrateur | Coller | Texte | Autre agent… | Vue d'ensemble |
-| icône de l'agent | `SquareTerminal` | `Layers` | `Network` | `ClipboardPaste` | `Type` | `Plus` | `Scan` |
+| Lancer <agent par défaut> | Lancer Shell | Lancer 4 agents | Orchestrateur | Coller | Texte | Autre agent… | Vue d'ensemble |
+| icône de l'agent | `Terminal` | `Layers` | `Network` | `ClipboardPaste` | `Type` | `Plus` | `Scan` |
 
 - **Lancer <agent par défaut>** : l'agent par défaut du menu Agent (`defaultAgent`, Claude quand il est installé), avec son icône et son nom (« Lancer Claude ») ; la position porte la fonction « Lancer <agent> » de cet agent, résolue à l'ouverture.
+- **Lancer Shell** : un shell nu (PowerShell). « Nouvelle console » lance l'agent par défaut (spec habillage §5.6) et ferait doublon avec ↑ (amendement à l'écriture du plan G1).
 - **Texte** : un texte commence au point du clic, en édition, comme un double-clic sur le canvas.
 - **Autre agent…** : ouvre le menu Agent du rail d'outils ; l'agent choisi est lancé au point du clic, sans passer par le mode pose. Ollama et la commande personnalisée gardent leur sous-panneau.
 - **Coller** : ce que contient le presse-papiers, posé au point du clic (dessins copiés, texte, image).
