@@ -7,7 +7,7 @@ import { useActivity } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { canPause, canResume, pauseAgents, resumeAgent } from "./broadcast";
-import { AGENTS, INDIGO } from "./catalog";
+import { agentInk, AGENTS, INDIGO } from "./catalog";
 import { requestClose } from "./terminals";
 
 /**
@@ -28,7 +28,7 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2 text-left">
         <span
           className="grid size-6 shrink-0 place-items-center rounded-md"
-          style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: meta.tint }}
+          style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: agentInk(meta.tint) }}
         >
           <meta.Icon className="size-3.5" />
         </span>

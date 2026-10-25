@@ -10,7 +10,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
-import { AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
+import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
@@ -107,7 +107,7 @@ export function TerminalHeader(props: {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label="Agent" className="flex items-center gap-0.5 rounded px-0.5 hover:bg-ov-card">
-            <meta.Icon className="size-3.5" style={{ color: meta.tint }} />
+            <meta.Icon className="size-3.5" style={{ color: agentInk(meta.tint) }} />
             <ChevronDown className="size-3 text-ov-text-2" />
           </button>
         </DropdownMenuTrigger>
@@ -117,7 +117,7 @@ export function TerminalHeader(props: {
             const Icon = AGENTS[id].Icon;
             return (
               <DropdownMenuItem key={id} onSelect={() => switchAgent(nodeId, payload, id)}>
-                <Icon style={{ color: AGENTS[id].tint }} /> {AGENTS[id].label}
+                <Icon style={{ color: agentInk(AGENTS[id].tint) }} /> {AGENTS[id].label}
                 {id === payload.agent && <span className="ml-auto text-ov-text-2">actuel</span>}
               </DropdownMenuItem>
             );

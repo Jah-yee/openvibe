@@ -12,7 +12,7 @@ import type { AgentId } from "@/ipc/pty";
 import { cn } from "@/lib/utils";
 import { ChipButton } from "@/shell/ui";
 import { agentsStore, useAgents } from "./agentsStore";
-import { AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
+import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
 import { agentsOf, DEFAULT_GROUP_SIZE, MAX_GROUP_SIZE, nameAfterRoleChange, resizeSlots, type Slot } from "./composer";
 import { launchGroup } from "./groups";
 import { ROLE_ORDER, ROLES, type RoleId } from "./roles";
@@ -22,7 +22,7 @@ function AgentLogo({ agent, className }: { agent: AgentId; className?: string })
   return (
     <span
       className={cn("grid size-7 place-items-center rounded-md", className)}
-      style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: meta.tint }}
+      style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: agentInk(meta.tint) }}
     >
       <meta.Icon className="size-4" />
     </span>
@@ -47,7 +47,7 @@ function SlotButton(props: { agent: AgentId; choices: AgentId[]; onPick: (agent:
           const meta = AGENTS[id];
           return (
             <DropdownMenuItem key={id} onSelect={() => props.onPick(id)}>
-              <meta.Icon style={{ color: meta.tint }} /> {meta.label}
+              <meta.Icon style={{ color: agentInk(meta.tint) }} /> {meta.label}
             </DropdownMenuItem>
           );
         })}
@@ -115,13 +115,13 @@ export function ComposeGroup() {
                 onClick={() => pickRole(id)}
                 className={cn(
                   "flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs",
-                  active ? "font-semibold text-ov-canvas" : "border-ov-line text-ov-text-2 hover:text-ov-text",
+                  active ? "font-semibold text-ov-on-role" : "border-ov-line text-ov-text-2 hover:text-ov-text",
                 )}
                 style={active ? { backgroundColor: ROLES[id].color, borderColor: ROLES[id].color } : undefined}
               >
                 <span
                   className="size-1.5 rounded-full"
-                  style={{ backgroundColor: active ? "var(--ov-canvas)" : ROLES[id].color }}
+                  style={{ backgroundColor: active ? "var(--ov-on-role)" : ROLES[id].color }}
                 />
                 {ROLES[id].label}
               </button>
@@ -180,7 +180,7 @@ export function ComposeGroup() {
           <button
             type="button"
             onClick={launch}
-            className="h-8 rounded-full px-4 text-[13px] font-semibold text-ov-canvas hover:brightness-110"
+            className="h-8 rounded-full px-4 text-[13px] font-semibold text-ov-on-role hover:brightness-110"
             style={{ backgroundColor: color }}
           >
             Lancer {slots.length}

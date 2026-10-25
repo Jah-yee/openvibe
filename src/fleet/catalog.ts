@@ -23,6 +23,15 @@ export interface AgentMeta {
   Icon: LucideIcon;
 }
 
+/**
+ * An agent's tint as an icon or text color: pulled toward the theme's text so
+ * that light tints (Ollama, Cursor) stay visible on Ivoire and dark ones on
+ * Argile (spec identité §3, "lisible dans les deux").
+ */
+export function agentInk(tint: string): string {
+  return `color-mix(in srgb, ${tint} 65%, var(--ov-text))`;
+}
+
 export const AGENTS: Record<AgentId, AgentMeta> = {
   claude: { label: "Claude", vendor: "Anthropic", tint: "#e8603a", binary: "claude", Icon: Asterisk },
   codex: { label: "Codex", vendor: "OpenAI", tint: "#707de3", binary: "codex", Icon: SquareTerminal },

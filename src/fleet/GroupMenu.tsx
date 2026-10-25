@@ -13,7 +13,7 @@ import {
 import { uiStore } from "@/store/ui";
 import { useAgents } from "./agentsStore";
 import { pauseAll, resumeAll } from "./broadcast";
-import { AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
+import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
 import { addAgentToGroup, groupMembers, requestCloseGroup, ungroup } from "./groups";
 import { orchestrateGroup } from "./orchestrators";
 
@@ -53,7 +53,7 @@ export function GroupMenu({ groupId }: { groupId: string }) {
                     )
                   }
                 >
-                  <meta.Icon style={{ color: meta.tint }} /> {meta.label}
+                  <meta.Icon style={{ color: agentInk(meta.tint) }} /> {meta.label}
                 </DropdownMenuItem>
               );
             })}

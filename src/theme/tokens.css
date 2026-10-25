@@ -30,6 +30,8 @@
   --ov-accent: #D97757;
   --ov-accent-soft: rgba(217,119,87,.18);
   --ov-on-accent: #1F1E1D;
+  /* Role colors do not change with the theme, nor does the ink written on them. */
+  --ov-on-role: #1F1E1D;
   --ov-wait: #D4A27F;
   --ov-ok: #8FA876;
   --ov-danger: #E5534B;
@@ -66,6 +68,7 @@
   --ov-accent: #C2603F;
   --ov-accent-soft: rgba(194,96,63,.13);
   --ov-on-accent: #FFFFFF;
+  --ov-on-role: #1F1E1D;
   --ov-wait: #B07D3A;
   --ov-ok: #5E7A43;
   --ov-danger: #C93C37;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AGENT_IDS } from "@/ipc/pty";
-import { AGENT_ORDER, AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
+import { AGENT_ORDER, AGENTS, AGENTS_WITHOUT_OPTIONS, agentInk, defaultAgent } from "./catalog";
 
 describe("agent catalog", () => {
   it("describes every agent, in menu order", () => {
@@ -20,4 +20,9 @@ describe("agent catalog", () => {
 
 it("lists the agents that start without options, in catalog order", () => {
   expect(AGENTS_WITHOUT_OPTIONS).toEqual(["claude", "codex", "gemini", "qwen", "cursor", "opencode", "aider", "shell"]);
+});
+
+it("draws an agent's icon in its tint pulled toward the theme's text, readable on light and dark", () => {
+  // Ollama's cream would vanish on Ivoire's white; Codex's indigo on Argile's dark.
+  expect(agentInk(AGENTS.ollama.tint)).toBe(`color-mix(in srgb, ${AGENTS.ollama.tint} 65%, var(--ov-text))`);
 });

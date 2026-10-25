@@ -5,7 +5,7 @@ import type { AgentId } from "@/ipc/pty";
 import { RoundButton } from "@/shell/ui";
 import { uiStore } from "@/store/ui";
 import { agentsStore, useAgents } from "./agentsStore";
-import { AGENT_ORDER, AGENTS, defaultAgent } from "./catalog";
+import { AGENT_ORDER, agentInk, AGENTS, defaultAgent } from "./catalog";
 import { defaultLaunchOptions, type LaunchOptions } from "./launchAgent";
 import { LaunchOptionsForm } from "./LaunchOptionsForm";
 import { OllamaPicker } from "./OllamaPicker";
@@ -66,7 +66,7 @@ export function AgentMenu() {
                   >
                     <span
                       className="grid size-7 place-items-center rounded-md"
-                      style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: meta.tint }}
+                      style={{ backgroundColor: `color-mix(in srgb, ${meta.tint} 18%, transparent)`, color: agentInk(meta.tint) }}
                     >
                       <meta.Icon className="size-4" />
                     </span>

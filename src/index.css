@@ -36,6 +36,7 @@
   --color-ov-field: var(--ov-field);
   --color-ov-text-3: var(--ov-text-3);
   --color-ov-on-accent: var(--ov-on-accent);
+  --color-ov-on-role: var(--ov-on-role);
   --color-ov-wait: var(--ov-wait);
   --color-ov-ok: var(--ov-ok);
   --shadow-ov: var(--ov-shadow);
