@@ -121,3 +121,15 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Les 8 px entre deux pastilles de la barre du haut ne cliquent ni ne déplacent la fenêtre : rendre les conteneurs `pointer-events-none` et leurs enfants `pointer-events-auto`.
 - La bande de déplacement suppose que ProjectView et HomeScreen ne créent pas de contexte d'empilement (TopBar z-30 au-dessus de DragStrip z-20) : le documenter par un commentaire avant que J7/J8 n'y ajoutent `isolate`, transform ou opacity.
 - Le test « sits on an opaque pill » de `WindowControls` ne vérifie que des noms de classes : fragile face à la refonte.
+
+## Constats du plan D1 (fondations de l'identité, relecture finale)
+
+- `index.html` garde `<html class="dark">` et la variante Tailwind `dark` vaut `&:is(.dark *)` : les `dark:` de shadcn (boutons outline/ghost, champs, listes) s'appliquent aussi en Ivoire. Retirer la classe et redéfinir la variante sur `[data-theme="dark"]` avant que R2 n'écrive des `dark:`.
+- `text-white` sur l'accent à 8 endroits (accueil, menu Agent, saisie de consigne, offre de reprise, orchestrateur, puce git, `ui.tsx`, onglets) au lieu de `text-ov-on-accent` (blanc sur `#D97757` : 3,1:1).
+- Le voile des dialogues shadcn (`backdrop-blur-xs`) ignore le réglage « Effets de transparence ».
+- Premier affichage : le choix enregistré n'est lu qu'au boot (une image dans le thème de Windows quand le thème est forcé) et, avant le JS, `<html>` n'a pas de `data-theme` (jetons sombres même si Windows est clair).
+- Commentaires périmés : « cream strokes » (`sceneDefaults.ts`), « The orange of the wires (spec habillage §13) » (`wires.ts`).
+- `hover:brightness-125` des puces (`ChipButton`) sans effet sur le blanc d'Ivoire (les puces disparaissent en R2).
+- `cssBlock` prend la première occurrence textuelle d'un sélecteur (dépend de l'ordre des blocs) ; le test du repli opaque vérifie la présence de la requête média, pas que le bloc opaque est dedans.
+- `cssBlocks.ts` (aide de test) référence les types Node dans le programme de l'application : déplacer les aides de test sous une configuration TypeScript dédiée.
+- `sceneDefaults.ts` (canvas) importe `PEN_COLORS` de `shell/tools` : la palette irait mieux dans `src/theme`.
