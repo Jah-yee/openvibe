@@ -44,8 +44,10 @@ export function arrivalView(rect: Rect, viewport: { width: number; height: numbe
 /**
  * Arrival on a terminal (spec fenêtre §6.4), shared by Ctrl+Tab and Ctrl+P:
  * the view moves only if needed; the terminal is activated as by a click in
- * its body, without selecting it; xterm takes the keyboard on the next frame,
- * once Excalidraw shows a terminal that was off screen; its border flashes.
+ * its body, without selecting it, and the selection left behind is cleared:
+ * the canvas keys (Suppr, arrows) must not act on a terminal out of sight.
+ * xterm takes the keyboard on the next frame, once Excalidraw shows a
+ * terminal that was off screen; its border flashes.
  */
 export function arrive(nodeId: string) {
   const api = canvasStore.getState().api;
@@ -54,7 +56,9 @@ export function arrive(nodeId: string) {
   const app = api.getAppState();
   const view = { scrollX: app.scrollX, scrollY: app.scrollY, zoom: app.zoom.value, width: app.width, height: app.height };
   const move = needsMove(element, view) ? arrivalView(element, view) : {};
-  api.updateScene({ appState: { ...move, activeEmbeddable: { element, state: "active" } } });
+  api.updateScene({
+    appState: { ...move, activeEmbeddable: { element, state: "active" }, selectedElementIds: {}, selectedGroupIds: {} },
+  });
   requestAnimationFrame(() => focusTerminal(nodeId));
   signalArrival(nodeId);
 }

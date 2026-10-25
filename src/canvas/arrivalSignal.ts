@@ -9,9 +9,16 @@ interface ArrivalState {
 
 export const arrivalStore = createStore<ArrivalState>()(() => ({ nodeId: null, seq: 0 }));
 
-/** The arriving terminal's border takes the accent, then fades back (spec fenêtre §6.4). */
+/** The flash's length; past it the ring is removed, or showing the terminal again would replay it. */
+export const ARRIVAL_FLASH_MS = 600;
+
+/** The arriving terminal's border takes the accent, then fades back (spec fenêtre §6.4), once. */
 export function signalArrival(nodeId: string) {
-  arrivalStore.setState((state) => ({ nodeId, seq: state.seq + 1 }));
+  const seq = arrivalStore.getState().seq + 1;
+  arrivalStore.setState({ nodeId, seq });
+  setTimeout(() => {
+    if (arrivalStore.getState().seq === seq) arrivalStore.setState({ nodeId: null });
+  }, ARRIVAL_FLASH_MS);
 }
 
 /** The flash of `nodeId`, as a key that changes on every arrival; null when another terminal arrived last. */

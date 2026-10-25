@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { signalArrival } from "@/canvas/arrivalSignal";
 import { readSource } from "@/theme/cssBlocks";
 import { ArrivalFlash } from "./ArrivalFlash";
@@ -36,6 +36,32 @@ it("flashes the border of the terminal that arrives, anew on each arrival (spec 
   expect(host.querySelector('[data-node="isis"] [data-arrival]')).toBeNull();
   await act(async () => root.unmount());
   host.remove();
+});
+
+it("plays once: the ring is gone after 600 ms, so scrolling back or returning to the tab does not replay it", async () => {
+  vi.useFakeTimers();
+  try {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => root.render(<ArrivalFlash nodeId="ada" />));
+    await act(async () => signalArrival("ada"));
+    expect(host.querySelector("[data-arrival]")).not.toBeNull();
+    await act(async () => vi.advanceTimersByTime(599));
+    expect(host.querySelector("[data-arrival]")).not.toBeNull();
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(host.querySelector("[data-arrival]")).toBeNull();
+    // A new arrival in the meantime keeps its own full 600 ms.
+    await act(async () => signalArrival("ada"));
+    await act(async () => vi.advanceTimersByTime(400));
+    await act(async () => signalArrival("ada"));
+    await act(async () => vi.advanceTimersByTime(400));
+    expect(host.querySelector("[data-arrival]")).not.toBeNull();
+    await act(async () => root.unmount());
+    host.remove();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("fades the accent back in 600 ms, inside every terminal", () => {

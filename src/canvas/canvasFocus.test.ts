@@ -34,13 +34,13 @@ describe("releaseToCanvas (spec fenêtre §6.5)", () => {
     document.querySelector("textarea")!.focus();
     releaseToCanvas();
     expect(document.activeElement).toBe(container);
-    expect(updateScene).toHaveBeenCalledWith({ appState: { activeEmbeddable: null } });
+    expect(updateScene).toHaveBeenCalledWith({ appState: { activeEmbeddable: null, selectedElementIds: {}, selectedGroupIds: {} } });
   });
 
-  it("creates no selection", () => {
+  it("creates no selection and leaves none behind: Suppr must not delete the terminal just left", () => {
     withScene([]);
     releaseToCanvas();
-    for (const [update] of updateScene.mock.calls) expect(update.appState).not.toHaveProperty("selectedElementIds");
+    for (const [update] of updateScene.mock.calls) expect(update.appState.selectedElementIds).toEqual({});
   });
 });
 

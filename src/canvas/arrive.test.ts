@@ -57,11 +57,14 @@ describe("arrive", () => {
       } as unknown as ExcalidrawImperativeAPI,
     });
 
-  it("activates the terminal without moving a view that already shows it, and flashes it", () => {
+  it("activates the terminal without moving a view that already shows it, clears the selection, and flashes it", () => {
     withScene(at100);
     const before = arrivalStore.getState().seq;
     arrive("isis");
-    expect(updateScene).toHaveBeenCalledWith({ appState: { activeEmbeddable: { element: isis, state: "active" } } });
+    // No stale selection left behind: the canvas keys (Suppr, arrows) must not act on a terminal out of sight.
+    expect(updateScene).toHaveBeenCalledWith({
+      appState: { activeEmbeddable: { element: isis, state: "active" }, selectedElementIds: {}, selectedGroupIds: {} },
+    });
     expect(arrivalStore.getState()).toEqual({ nodeId: "isis", seq: before + 1 });
   });
 

@@ -5,14 +5,16 @@ import { nodeKindOf } from "./nodeElement";
 
 /**
  * Maj+Échap (spec fenêtre §6.5): the terminal or field that has the keyboard
- * loses it, the active terminal is deactivated, nothing gets selected, and the
- * keyboard goes to Excalidraw's container, where Excalidraw reads its keys
- * (OpenVibe does not set `handleKeyboardGlobally`).
+ * loses it, the active terminal is deactivated, nothing gets selected (a
+ * click into a terminal selects it: that selection is cleared, or Suppr
+ * would delete the terminal just left), and the keyboard goes to Excalidraw's
+ * container, where Excalidraw reads its keys (OpenVibe does not set
+ * `handleKeyboardGlobally`).
  */
 export function releaseToCanvas(doc: Document = document) {
   const active = doc.activeElement;
   if (active instanceof HTMLElement) active.blur();
-  canvasStore.getState().api?.updateScene({ appState: { activeEmbeddable: null } });
+  canvasStore.getState().api?.updateScene({ appState: { activeEmbeddable: null, selectedElementIds: {}, selectedGroupIds: {} } });
   doc.querySelector<HTMLElement>(".excalidraw-container")?.focus();
 }
 
