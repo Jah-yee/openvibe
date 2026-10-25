@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { Toaster } from "@/components/ui/sonner";
 import { boot } from "@/app/boot";
 import { HomeScreen } from "@/home/HomeScreen";
+import { AppToaster } from "@/shell/AppToaster";
 import { DragStrip } from "@/shell/DragStrip";
 import { ProjectView } from "@/shell/ProjectView";
 import { WindowCorner } from "@/shell/WindowControls";
@@ -26,7 +26,7 @@ export default function App() {
       )}
       <DragStrip />
       {view !== "project" && <WindowCorner />}
-      <Toaster theme="dark" position="bottom-right" />
+      <AppToaster />
     </>
   );
 }
