@@ -19,12 +19,26 @@ export interface CommandContext {
  */
 export interface Command {
   id: string;
-  label: string;
-  section: string;
+  /** Fixed, or read when the palette lists it (« Agrandir » / « Restaurer »). */
+  label: string | ((ctx: CommandContext) => string);
+  /** Fixed, or named after the moment (« Terminal · Isis »). */
+  section: string | ((ctx: CommandContext) => string);
   keywords: readonly string[];
   shortcut?: Shortcut;
+  /** A key shown at the right for display only: Excalidraw's one-letter tools. */
+  keys?: string;
   available: (ctx: CommandContext) => boolean;
+  /** Listed but greyed, with why: an agent not found on this computer, as in the Agent menu. */
+  disabled?: (ctx: CommandContext) => string | null;
   run: (ctx: CommandContext) => void | Promise<void>;
+}
+
+export function labelOf(command: Command, ctx: CommandContext): string {
+  return typeof command.label === "function" ? command.label(ctx) : command.label;
+}
+
+export function sectionOf(command: Command, ctx: CommandContext): string {
+  return typeof command.section === "function" ? command.section(ctx) : command.section;
 }
 
 /** The available command of a shortcut, if any. */
@@ -34,7 +48,7 @@ export function commandFor(commands: readonly Command[], shortcut: Shortcut, ctx
 
 /** Runs a command; a failure says so, like the menus (spec fenêtre §9). */
 export function runCommand(command: Command, ctx: CommandContext) {
-  const fail = (error: unknown) => toast.error(`${command.label} impossible : ${String(error)}`);
+  const fail = (error: unknown) => toast.error(`${labelOf(command, ctx)} impossible : ${String(error)}`);
   try {
     void Promise.resolve(command.run(ctx)).catch(fail);
   } catch (error) {

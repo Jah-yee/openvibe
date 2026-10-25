@@ -31,7 +31,10 @@ function PaletteBody() {
   const goToData = useGoToData();
   const goToList = mode === "goTo" ? goToSections(goToData.items, search) : [];
   const functionList = mode === "functions" && context ? functionSections(COMMANDS, context, search) : [];
-  const keys = mode === "goTo" ? goToList.flatMap((s) => s.items.map((i) => i.key)) : functionList.flatMap((s) => s.items.map((c) => c.id));
+  const keys =
+    mode === "goTo"
+      ? goToList.flatMap((s) => s.items.map((i) => i.key))
+      : functionList.flatMap((s) => s.items.filter((l) => l.disabled === null).map((l) => l.command.id));
   const [chosen, setChosen] = useState("");
   // The first line is chosen when it opens and after each keystroke (spec fenêtre §7.1).
   useEffect(() => setChosen(""), [query]);
@@ -88,18 +91,23 @@ function PaletteBody() {
               context &&
               functionList.map((section) => (
                 <Command.Group key={section.label} heading={section.label}>
-                  {section.items.map((command) => (
+                  {section.items.map((line) => (
                     <Command.Item
-                      key={command.id}
-                      value={command.id}
-                      className={ITEM}
+                      key={line.command.id}
+                      value={line.command.id}
+                      disabled={line.disabled !== null}
+                      className={`${ITEM} data-[disabled=true]:opacity-50`}
                       onSelect={() => {
                         closePalette();
-                        runCommand(command, context);
+                        runCommand(line.command, context);
                       }}
                     >
-                      <span className="truncate text-ov-text">{command.label}</span>
-                      {command.shortcut && <span className="ml-auto shrink-0 font-mono text-[11px] text-ov-text-3">{command.shortcut}</span>}
+                      <span className="truncate text-ov-text">{line.label}</span>
+                      {line.disabled !== null ? (
+                        <span className="ml-auto shrink-0 text-[11px] text-ov-text-3">{line.disabled}</span>
+                      ) : (
+                        line.hint && <span className="ml-auto shrink-0 font-mono text-[11px] text-ov-text-3">{line.hint}</span>
+                      )}
                     </Command.Item>
                   ))}
                 </Command.Group>
