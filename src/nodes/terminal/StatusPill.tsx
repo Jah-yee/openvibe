@@ -6,8 +6,8 @@ import type { TerminalStatus } from "@/store/terminalStatus";
 import { pillOf, type PillTone } from "./pill";
 
 const TONES: Record<PillTone, string> = {
-  live: "bg-[#322f28] text-ov-text",
-  ready: "bg-[#322f28] text-ov-text",
+  live: "bg-ov-card text-ov-text",
+  ready: "bg-ov-card text-ov-text",
   working: "border border-ov-working/70 text-ov-working",
   workingIndigo: "border border-[#707de3]/70 text-[#707de3]",
   waiting: "border border-ov-waiting/70 text-ov-waiting",

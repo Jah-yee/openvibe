@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { toast } from "sonner";
 import { expect, it } from "vitest";
+import { themeStore } from "@/app/theme";
 import { AppToaster } from "./AppToaster";
 import { TOP_ROW_HEIGHT } from "./layout";
 
@@ -21,6 +22,24 @@ it("starts the toasts shown at the top below the top row, clear of the window bu
   const top = host.querySelector<HTMLElement>('[data-sonner-toaster][data-y-position="top"]');
   expect(top).not.toBeNull();
   expect(parseFloat(top!.style.getPropertyValue("--offset-top"))).toBeGreaterThan(TOP_ROW_HEIGHT);
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+it("follows the app's theme, live", async () => {
+  themeStore.setState({ choice: "light", systemDark: true });
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<AppToaster />));
+  await act(async () => {
+    toast("Consigne envoyée");
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+  const toaster = () => host.querySelector<HTMLElement>("[data-sonner-toaster]")!;
+  expect(toaster().dataset.sonnerTheme).toBe("light");
+  await act(async () => themeStore.setState({ choice: "dark" }));
+  expect(toaster().dataset.sonnerTheme).toBe("dark");
   await act(async () => root.unmount());
   host.remove();
 });

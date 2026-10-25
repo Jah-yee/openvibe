@@ -26,7 +26,7 @@ export function ProjectView() {
   }, []);
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-ov-canvas">
+    <div className="ov-ambient relative h-screen w-screen overflow-hidden">
       {status === "ready" && activeId ? (
         <>
           <Canvas key={activeId} workspaceId={activeId} />

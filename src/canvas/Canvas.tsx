@@ -4,6 +4,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
+import { useTheme } from "@/app/theme";
 import { assignMissingNames } from "@/fleet/naming";
 import { dismissResumeOffer, offerResumeAll } from "@/fleet/ResumeAllToast";
 import { adoptCopies } from "@/fleet/terminals";
@@ -54,6 +55,7 @@ function Centered({ children }: { children: ReactNode }) {
 
 function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: LoadedScene }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const theme = useTheme();
   const initialData = useMemo(() => withSceneDefaults(scene.initialData), [scene]);
 
   // The shell (rails, zoom, panels) drives the Excalidraw instance on screen.
@@ -144,7 +146,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       <GroupLabels />
       <div className="absolute inset-0">
         <Excalidraw
-          theme="dark"
+          theme={theme}
           langCode="fr-FR"
           excalidrawAPI={setApi}
           initialData={initialData}

@@ -1,12 +1,12 @@
 import { useCanvas } from "../canvasStore";
 import { dotGrid } from "./grid";
 
-/** The canvas color and its dots, painted under Excalidraw's transparent canvas. */
+/** The dots, painted under Excalidraw's transparent canvas; the color and the ambient lights are the root's (ov-ambient). */
 export function DotGridBackground({ step, x, y }: { step: number; x: number; y: number }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 bg-ov-canvas"
+      className="pointer-events-none absolute inset-0"
       style={{
         backgroundImage: "radial-gradient(circle, var(--ov-dot) 1.2px, transparent 1.6px)",
         backgroundSize: `${step}px ${step}px`,

@@ -27,7 +27,7 @@ export function HomeScreen() {
   }, []);
 
   return (
-    <div className="relative h-screen w-screen">
+    <div className="ov-ambient relative h-screen w-screen">
       <DotGridBackground {...dotGrid({ scrollX: 0, scrollY: 0, zoom: 1 })} />
       {/* The scroller starts below the window's drag strip: scrolled cards never slide under it. */}
       <div className="absolute inset-x-0 bottom-0 overflow-auto" style={{ top: TOP_ROW_HEIGHT }}>
