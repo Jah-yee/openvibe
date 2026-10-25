@@ -133,3 +133,16 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `cssBlock` prend la première occurrence textuelle d'un sélecteur (dépend de l'ordre des blocs) ; le test du repli opaque vérifie la présence de la requête média, pas que le bloc opaque est dedans.
 - `cssBlocks.ts` (aide de test) référence les types Node dans le programme de l'application : déplacer les aides de test sous une configuration TypeScript dédiée.
 - `sceneDefaults.ts` (canvas) importe `PEN_COLORS` de `shell/tools` : la palette irait mieux dans `src/theme`.
+
+## Constats du plan D2 (structure façon canvas libre, relecture finale)
+
+- Réglés par R2, parmi les constats D1 : variante `dark` liée à `data-theme` (plus de `class="dark"`), voile des dialogues qui suit « Effets de transparence », puces disparues ; `text-white` sur l'accent ne reste que dans le menu Agent (commande personnalisée) et l'orchestrateur (R3).
+- Le logo et le libellé « OpenVibe » de la barre de titre ne déplacent pas la fenêtre (attribut nu) : `data-tauri-drag-region="deep"` sur la barre, les boutons bloquant toujours.
+- En build release, le `<style>` injecté par sonner passe après la feuille de l'application : l'ombre de verre des toasts (même spécificité) est remplacée par celle de sonner. Monter la spécificité ou passer l'ombre par `toastOptions.style`, puis vérifier dans l'installateur.
+- Un nom de branche long dans la puce git passe sous la barre de consigne en dessous d'environ 1 210 px de large : tronquer (`max-w-[150px] truncate`, nom complet en info-bulle).
+- Les calques de pose et de liaison (`fixed inset-0 z-40`) couvrent la barre de titre pendant la pose ou la liaison : « Fermer OpenVibe » et le déplacement n'y répondent pas (antérieur à R2) ; les faire commencer sous `TOP_ROW_HEIGHT`.
+- L'offre « Reprendre toutes les conversations ? » peut couvrir le bas du panneau Agents à pleine hauteur (petit écran) jusqu'à la réponse.
+- « Ajuster la vue » (`viewportZoomFactor: 0.9`) laisse les bords de la scène sous les barres de 72 px et la bande du bas : à reprendre avec la zone utile de J7.
+- Restes d'ancien style dans des fichiers touchés par R2 : liste des mentions de la saisie de consigne opaque (`CommandInput`), boutons en pilule dans les options du menu Agent et dans « Composer un groupe », boutons de fenêtre de 38 px dans une barre de 37 px utiles, pastille d'attente absente du nom accessible du bouton Agents.
+- Le filtre du panneau reste celui posé par un compteur quand le panneau est rouvert depuis le rail (l'état vide l'annonce désormais : « Aucun agent dans ce filtre »).
+- Lignes d'agent du panneau (actions au survol Centrer, Pause/Reprendre, Fermer, spec identité §5.6) : avec R3, qui refait `AgentRow`.
