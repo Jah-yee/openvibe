@@ -51,7 +51,11 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   const count = linked.agentIds.length;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl bg-ov-surface-2" style={frameStyle("var(--ov-accent)", selected, false)}>
+    <div
+      data-orchestrator={nodeId}
+      className="flex h-full flex-col overflow-hidden rounded-xl bg-ov-surface-2"
+      style={frameStyle("var(--ov-accent)", selected, false)}
+    >
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-ov-line px-3">
         <Network className="size-4 shrink-0 text-ov-accent" />
         <NameField value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />

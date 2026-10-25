@@ -10,7 +10,8 @@ vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
 
 const viewport = { width: 1400, height: 900 };
 const at100 = { scrollX: 0, scrollY: 0, zoom: 1, ...viewport };
-const isis = { id: "isis", x: 100, y: 200, width: 720, height: 440 };
+const isis = { id: "isis", type: "embeddable", customData: { kind: "terminal" }, x: 100, y: 200, width: 720, height: 440 };
+const chef = { id: "chef", type: "embeddable", customData: { kind: "orchestrator" }, x: 100, y: 200, width: 320, height: 420 };
 
 describe("needsMove (spec fenêtre §6.4, zone utile of spec identité §7)", () => {
   it("keeps the view when the terminal shows whole at 100 % in the zone utile", () => {
@@ -51,7 +52,7 @@ describe("arrive", () => {
   const withScene = (appState: Record<string, unknown>) =>
     canvasStore.setState({
       api: {
-        getSceneElements: () => [isis],
+        getSceneElements: () => [isis, chef],
         getAppState: () => ({ ...appState, zoom: { value: appState.zoom } }),
         updateScene,
       } as unknown as ExcalidrawImperativeAPI,
@@ -79,9 +80,42 @@ describe("arrive", () => {
     expect(focusTerminal).toHaveBeenCalledWith("isis");
   });
 
+  it("keeps trying to give the keyboard for a few frames: a node shown late still gets it", () => {
+    withScene(at100);
+    expect(arrive("isis")).toBe(true);
+    for (let i = 0; i < 3; i++) frames.shift()!(0);
+    expect(vi.mocked(focusTerminal).mock.calls.length).toBe(3);
+    // Then it stops trying.
+    while (frames.length > 0) frames.shift()!(0);
+    expect(vi.mocked(focusTerminal).mock.calls.length).toBe(10);
+  });
+
+  it("stops trying once the terminal has the keyboard", () => {
+    withScene(at100);
+    document.body.innerHTML = '<div data-terminal="isis"><textarea></textarea></div>';
+    vi.mocked(focusTerminal).mockImplementation(() => document.querySelector("textarea")!.focus());
+    arrive("isis");
+    frames.shift()!(0);
+    expect(frames).toHaveLength(0);
+    vi.mocked(focusTerminal).mockReset();
+    document.body.replaceChildren();
+  });
+
+  it("puts the cursor in an orchestrator's field, without the terminals' flash (spec fenêtre §7.2)", () => {
+    withScene(at100);
+    document.body.innerHTML = '<div data-orchestrator="chef"><textarea></textarea></div>';
+    const before = arrivalStore.getState();
+    expect(arrive("chef")).toBe(true);
+    frames.shift()!(0);
+    expect(document.activeElement).toBe(document.querySelector("textarea"));
+    expect(focusTerminal).not.toHaveBeenCalled();
+    expect(arrivalStore.getState()).toEqual(before);
+    document.body.replaceChildren();
+  });
+
   it("does nothing for a terminal that is not on the canvas", () => {
     withScene(at100);
-    arrive("closed");
+    expect(arrive("closed")).toBe(false);
     expect(updateScene).not.toHaveBeenCalled();
     expect(frames).toHaveLength(0);
   });

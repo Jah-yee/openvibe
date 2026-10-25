@@ -3,6 +3,8 @@ import { focusTerminal } from "@/nodes/terminal/registry";
 import { BOTTOM_BAR_HEIGHT, TOP_ROW_HEIGHT } from "@/shell/layout";
 import { signalArrival } from "./arrivalSignal";
 import { canvasStore } from "./canvasStore";
+import { terminalWithKeyboard } from "./keyboardFocus";
+import { nodeKindOf, type NodeKind } from "./nodeElement";
 
 interface Rect {
   x: number;
@@ -41,24 +43,51 @@ export function arrivalView(rect: Rect, viewport: { width: number; height: numbe
   };
 }
 
+/** How many frames the keyboard is offered to an arriving node (plan F1, décision 3). */
+const FOCUS_FRAMES = 10;
+
 /**
- * Arrival on a terminal (spec fenêtre §6.4), shared by Ctrl+Tab and Ctrl+P:
- * the view moves only if needed; the terminal is activated as by a click in
- * its body, without selecting it, and the selection left behind is cleared:
- * the canvas keys (Suppr, arrows) must not act on a terminal out of sight.
- * xterm takes the keyboard on the next frame, once Excalidraw shows a
- * terminal that was off screen; its border flashes.
+ * Offers the keyboard on each of the next frames until `focus` succeeds:
+ * Excalidraw shows a node that was off screen once the view has moved, and
+ * after a workspace switch its terminal may only be mounted a frame later.
  */
-export function arrive(nodeId: string) {
+function focusSoon(focus: () => boolean, frames = FOCUS_FRAMES) {
+  requestAnimationFrame(() => {
+    if (!focus() && frames > 1) focusSoon(focus, frames - 1);
+  });
+}
+
+/** Gives the keyboard to a terminal's xterm, or to an orchestrator's field. */
+function focusNodeInput(nodeId: string, kind: NodeKind | null): boolean {
+  if (kind === "orchestrator") {
+    const field = document.querySelector<HTMLTextAreaElement>(`[data-orchestrator="${nodeId}"] textarea`);
+    field?.focus();
+    return field !== null && document.activeElement === field;
+  }
+  focusTerminal(nodeId);
+  return terminalWithKeyboard() === nodeId;
+}
+
+/**
+ * Arrival on a node (spec fenêtre §6.4, §7.2), shared by Ctrl+Tab and Ctrl+P:
+ * the view moves only if needed; the node is activated as by a click in its
+ * body, without selecting it, and the selection left behind is cleared: the
+ * canvas keys (Suppr, arrows) must not act on a node out of sight. A terminal
+ * takes the keyboard and flashes; an orchestrator gets the cursor in its
+ * field. False when the node is not on the canvas.
+ */
+export function arrive(nodeId: string): boolean {
   const api = canvasStore.getState().api;
   const element = api?.getSceneElements().find((e) => e.id === nodeId);
-  if (!api || !element) return;
+  if (!api || !element) return false;
   const app = api.getAppState();
   const view = { scrollX: app.scrollX, scrollY: app.scrollY, zoom: app.zoom.value, width: app.width, height: app.height };
   const move = needsMove(element, view) ? arrivalView(element, view) : {};
   api.updateScene({
     appState: { ...move, activeEmbeddable: { element, state: "active" }, selectedElementIds: {}, selectedGroupIds: {} },
   });
-  requestAnimationFrame(() => focusTerminal(nodeId));
-  signalArrival(nodeId);
+  const kind = nodeKindOf(element);
+  focusSoon(() => focusNodeInput(nodeId, kind));
+  if (kind === "terminal") signalArrival(nodeId);
+  return true;
 }

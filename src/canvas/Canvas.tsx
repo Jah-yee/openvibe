@@ -5,6 +5,7 @@ import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw
 import "@excalidraw/excalidraw/index.css";
 import { toast } from "sonner";
 import { useTheme } from "@/app/theme";
+import { completeArrival } from "@/commands/pendingArrival";
 import { assignMissingNames } from "@/fleet/naming";
 import { dismissResumeOffer, offerResumeAll } from "@/fleet/ResumeAllToast";
 import { adoptCopies } from "@/fleet/terminals";
@@ -65,6 +66,13 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       if (canvasStore.getState().api === api) canvasStore.getState().setApi(null);
     };
   }, [api]);
+
+  // A Ctrl+P target of this workspace waits for its scene to be on screen (spec fenêtre §7.2).
+  useEffect(() => {
+    if (!api) return;
+    const frame = requestAnimationFrame(() => completeArrival(workspaceId));
+    return () => cancelAnimationFrame(frame);
+  }, [api, workspaceId]);
 
   // The next workspace must not show this one's groups before its first change.
   useEffect(

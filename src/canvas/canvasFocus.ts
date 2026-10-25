@@ -38,3 +38,13 @@ export function overview() {
   if (targets.length > 0) api.scrollToContent(targets, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true });
   releaseToCanvas();
 }
+
+/** A group of « Aller à » (spec fenêtre §7.2): its frame fitted, at 100 % at most, then the keyboard to the canvas. False when it is gone. */
+export function focusGroup(frameId: string): boolean {
+  const api = canvasStore.getState().api;
+  const frame = api?.getSceneElements().find((e) => e.id === frameId && e.type === "frame");
+  if (!api || !frame) return false;
+  api.scrollToContent(frame, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true, maxZoom: 1 });
+  releaseToCanvas();
+  return true;
+}

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "./canvasStore";
-import { overview, overviewTargets, releaseToCanvas } from "./canvasFocus";
+import { focusGroup, overview, overviewTargets, releaseToCanvas } from "./canvasFocus";
 
 const element = (fields: Record<string, unknown>) =>
   ({ x: 0, y: 0, width: 100, height: 100, isDeleted: false, frameId: null, ...fields }) as unknown as ExcalidrawElement;
@@ -75,6 +75,22 @@ describe("overview (spec fenêtre §6.6)", () => {
   it("leaves an empty canvas alone", () => {
     withScene([]);
     overview();
+    expect(scrollToContent).not.toHaveBeenCalled();
+  });
+});
+
+describe("focusGroup (spec fenêtre §7.2)", () => {
+  it("fits the group's frame, at 100 % at most, and gives the keyboard to the canvas", () => {
+    const frame = groupFrame("backend");
+    withScene([frame]);
+    expect(focusGroup("backend")).toBe(true);
+    expect(scrollToContent).toHaveBeenCalledWith(frame, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true, maxZoom: 1 });
+    expect(document.activeElement).toBe(container);
+  });
+
+  it("reports a group that is gone", () => {
+    withScene([]);
+    expect(focusGroup("backend")).toBe(false);
     expect(scrollToContent).not.toHaveBeenCalled();
   });
 });
