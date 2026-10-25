@@ -13,6 +13,7 @@ import { CloseGroupDialog } from "./CloseGroupDialog";
 import { CommandBar, CommandHint } from "./CommandBar";
 import { GitChip } from "./GitChip";
 import { ProjectPicker } from "./ProjectPicker";
+import { SearchField } from "./SearchField";
 import { TitleBar } from "./TitleBar";
 import { ToolRail } from "./ToolRail";
 import { WorkspaceTabs } from "./WorkspaceTabs";
@@ -59,7 +60,7 @@ export function ProjectView() {
         </div>
       )}
       <div className="absolute inset-x-0 top-0 z-30">
-        <TitleBar leading={<ProjectPicker />} trailing={<AgentCounts />} />
+        <TitleBar leading={<ProjectPicker />} center={<SearchField />} trailing={<AgentCounts />} />
         <WorkspaceTabs />
       </div>
       <CloseAgentDialog />

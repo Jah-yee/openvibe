@@ -31,3 +31,15 @@ it("moves the window from its empty space only, with the logo, its content and t
   await act(async () => root.unmount());
   host.remove();
 });
+
+it("centers its middle element on the window, which does not drag", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<TitleBar leading={<span>OpenVibe</span>} center={<button type="button">Rechercher</button>} />));
+  const center = [...host.querySelectorAll("button")].find((b) => b.textContent === "Rechercher")!;
+  expect(center.parentElement!.className).toContain("left-1/2");
+  expect(center.closest("[data-tauri-drag-region]")).toBe(host.firstElementChild);
+  await act(async () => root.unmount());
+  host.remove();
+});

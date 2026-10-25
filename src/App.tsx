@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { boot } from "@/app/boot";
+import { Palette } from "@/commands/Palette";
 import { HomeScreen } from "@/home/HomeScreen";
 import { AppToaster } from "@/shell/AppToaster";
 import { ProjectView } from "@/shell/ProjectView";
@@ -20,6 +21,7 @@ export default function App() {
       {view === "project" && <ProjectView />}
       {view === "loading" && <StatusScreen message="Chargement…" />}
       {view === "error" && <StatusScreen message={`Impossible de charger les projets : ${error}`} />}
+      <Palette />
       <AppToaster />
     </>
   );
