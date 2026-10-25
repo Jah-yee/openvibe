@@ -179,7 +179,8 @@ Le panneau Flotte garde son comportement (« Centrer » centre toujours, spec ha
   - **Aller à** (Ctrl+P) : champ vide, invite « Aller à un terminal, un groupe, un workspace… (> pour les fonctions) ».
   - **Fonctions** (Ctrl+Maj+P) : champ prérempli par `> `, invite « Rechercher une fonction… ».
   - Le mode suit le champ : texte commençant par `>` → Fonctions, sinon Aller à. Palette ouverte, Ctrl+P et Ctrl+Maj+P basculent de mode en conservant la recherche.
-- **Recherche** : insensible à la casse et aux accents (« hermes » trouve Hermès) ; approximative (lettres dans l'ordre, pas forcément contiguës), les correspondances en début de mot d'abord. Chaque élément porte des mots-clés en plus de son libellé (agent, groupe, workspace pour un terminal ; par exemple « isis cl » trouve Isis, agent Claude).
+- **Recherche** : insensible à la casse et aux accents (« hermes » trouve Hermès) ; approximative (lettres dans l'ordre, pas forcément contiguës), les correspondances en début de mot d'abord ; à égalité, celle qui couvre la plus grande part du libellé (« renommer » : Renommer avant Renommer le workspace). Chaque élément porte des mots-clés en plus de son libellé (agent, groupe, workspace pour un terminal ; par exemple « isis cl » trouve Isis, agent Claude).
+- Avec une recherche, la section qui contient la meilleure correspondance passe en tête (amendement après J8b : sinon « pause » choisissait « Masquer le panneau Agents », section Navigation, avant « Mettre en pause » du terminal) ; sans recherche, les sections gardent leur ordre.
 - La première ligne est choisie à l'ouverture et après chaque frappe. Entrée exécute la ligne choisie ; la palette se ferme avant l'exécution.
 - **Échap** ou clic hors de la palette : fermeture ; le clavier revient là où il était à l'ouverture (terminal, orchestrateur, champ ou canvas).
 
@@ -195,7 +196,7 @@ Dans un projet, sur tous ses workspaces, par sections et dans cet ordre :
 | Workspaces | nom, nombre d'agents vivants, « affiché » pour l'onglet courant | bascule sur l'onglet |
 | Projets | les autres projets : nom, chemin en Geist Mono | ouvre le projet |
 
-- **Ordre sans recherche** : terminaux du workspace affiché dans l'ordre de Ctrl+Tab, puis ceux des autres workspaces dans l'ordre des onglets (chacun dans l'ordre de Ctrl+Tab) ; même règle pour groupes et orchestrateurs ; workspaces dans l'ordre des onglets ; projets du plus récemment ouvert au plus ancien. Avec une recherche, le classement de pertinence prime dans chaque section.
+- **Ordre sans recherche** : terminaux du workspace affiché dans l'ordre de Ctrl+Tab, puis ceux des autres workspaces dans l'ordre des onglets (chacun dans l'ordre de Ctrl+Tab) ; même règle pour groupes et orchestrateurs ; workspaces dans l'ordre des onglets ; projets du plus récemment ouvert au plus ancien. Avec une recherche, le classement de pertinence prime dans chaque section, et la section de la meilleure correspondance passe en tête (§7.1).
 - **Autres workspaces** : à l'ouverture de la palette, la scène de chaque workspace du projet est lue par le cache de scènes existant (`loadScene` : une lecture SQLite par workspace et par session, comme une visite de l'onglet). Les lignes apparaissent au fil des chargements ; une ligne « Chargement… » discrète signale ceux en cours.
 - **Élément d'un autre workspace** : la palette bascule sur son onglet, attend que sa scène soit chargée à l'écran, puis exécute l'arrivée.
 - **À l'accueil** : seulement la section Projets.

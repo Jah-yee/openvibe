@@ -32,15 +32,45 @@ export function matchScore(query: string, label: string, keywords: readonly stri
   return score;
 }
 
+type Text = { label: string; keywords: readonly string[] };
+type Relevance = { score: number; coverage: number };
+
+/** The share of the label's words a term starts: « renommer » is all of « Renommer », a third of « Renommer le workspace ». */
+function coverage(query: string, label: string): number {
+  const terms = words(query);
+  const labelWords = words(label);
+  if (labelWords.length === 0) return 0;
+  return labelWords.filter((w) => terms.some((t) => w.startsWith(t))).length / labelWords.length;
+}
+
+function relevance(query: string, { label, keywords }: Text): Relevance | null {
+  const score = matchScore(query, label, keywords);
+  return score === null ? null : { score, coverage: coverage(query, label) };
+}
+
+/** Negative when `a` is the better match: the score, then the share of the label covered. */
+const better = (a: Relevance, b: Relevance) => b.score - a.score || b.coverage - a.coverage;
+
 /** The items matching `query`, best first, ties in their order; every item, in order, without a query. */
-export function rank<T>(items: readonly T[], query: string, textOf: (item: T) => { label: string; keywords: readonly string[] }): T[] {
+export function rank<T>(items: readonly T[], query: string, textOf: (item: T) => Text): T[] {
   if (words(query).length === 0) return [...items];
   return items
-    .map((item, index) => {
-      const { label, keywords } = textOf(item);
-      return { item, index, score: matchScore(query, label, keywords) };
-    })
-    .filter((entry): entry is { item: T; index: number; score: number } => entry.score !== null)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item, index) => ({ item, index, relevance: relevance(query, textOf(item)) }))
+    .filter((entry): entry is { item: T; index: number; relevance: Relevance } => entry.relevance !== null)
+    .sort((a, b) => better(a.relevance, b.relevance) || a.index - b.index)
     .map((entry) => entry.item);
+}
+
+/**
+ * Ranked sections, the one holding the best match first while searching, so
+ * that the first line, the one chosen, is the best of all (retours J8b,
+ * amending spec fenêtre §7.1); in their own order without a search and on ties.
+ */
+export function rankSections<T, S extends { items: readonly T[] }>(sections: readonly S[], query: string, textOf: (item: T) => Text): S[] {
+  if (words(query).length === 0) return [...sections];
+  const NONE: Relevance = { score: -1, coverage: 0 };
+  return sections
+    .map((section, index) => ({ section, index, best: (section.items[0] && relevance(query, textOf(section.items[0]))) || NONE }))
+    .sort((a, b) => better(a.best, b.best) || a.index - b.index)
+    .map((entry) => entry.section);
 }

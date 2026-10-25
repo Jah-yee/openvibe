@@ -9,7 +9,7 @@ import type { Project, Workspace } from "@/ipc/db";
 import type { AgentId } from "@/ipc/pty";
 import { readOrchestratorPayload } from "@/nodes/types";
 import { terminalOf, type NodeRecord } from "@/store/nodes";
-import { rank } from "./search";
+import { rank, rankSections } from "./search";
 
 export type GoToKind = "terminal" | "group" | "orchestrator" | "workspace" | "project";
 
@@ -145,9 +145,10 @@ export interface GoToSection {
   items: GoToItem[];
 }
 
-/** The sections of « Aller à », each ranked by the search; empty ones left out. */
+/** The sections of « Aller à », each ranked by the search, the best match's first while searching; empty ones left out. */
 export function goToSections(items: readonly GoToItem[], query: string): GoToSection[] {
-  return GO_TO_SECTIONS.map(({ kind, label }) => ({ kind, label, items: rank(items.filter((i) => i.kind === kind), query, (i) => i) })).filter(
+  const sections = GO_TO_SECTIONS.map(({ kind, label }) => ({ kind, label, items: rank(items.filter((i) => i.kind === kind), query, (i) => i) })).filter(
     (section) => section.items.length > 0,
   );
+  return rankSections(sections, query, (i: GoToItem) => i);
 }

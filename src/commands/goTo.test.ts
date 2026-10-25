@@ -97,4 +97,9 @@ describe("goToSections", () => {
     const sections = goToSections(goToItems(input()), "isis cl");
     expect(sections.map((s) => [s.label, s.items.map((i) => i.label)])).toEqual([["Terminaux", ["Isis"]]]);
   });
+
+  it("puts the section of the best match first while searching", () => {
+    // Thot and Hermès are found by their group's name, the group by its own.
+    expect(goToSections(goToItems(input()), "serveurs").map((s) => s.label)).toEqual(["Groupes", "Terminaux"]);
+  });
 });

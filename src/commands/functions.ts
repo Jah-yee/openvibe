@@ -1,5 +1,5 @@
 import { labelOf, sectionOf, type Command, type CommandContext } from "./command";
-import { rank } from "./search";
+import { rank, rankSections } from "./search";
 
 /** A line of the functions mode, as listed at this moment. */
 export interface FunctionLine {
@@ -14,8 +14,9 @@ export interface FunctionLine {
 
 /**
  * The functions mode (spec fenêtre §7.3): the commands available at that
- * moment, by section in the registry's order, each ranked by the search. The
- * palette's own command is not listed in it.
+ * moment, by section in the registry's order, each ranked by the search, the
+ * section of the best match first while searching. The palette's own command
+ * is not listed in it.
  */
 export function functionSections(commands: readonly Command[], ctx: CommandContext, query: string): { label: string; items: FunctionLine[] }[] {
   const lines = commands
@@ -29,16 +30,11 @@ export function functionSections(commands: readonly Command[], ctx: CommandConte
         disabled: command.disabled?.(ctx) ?? null,
       }),
     );
+  const textOf = (l: FunctionLine) => ({ label: l.label, keywords: l.command.keywords });
   const labels: string[] = [];
   for (const line of lines) if (!labels.includes(line.section)) labels.push(line.section);
-  return labels
-    .map((label) => ({
-      label,
-      items: rank(
-        lines.filter((l) => l.section === label),
-        query,
-        (l) => ({ label: l.label, keywords: l.command.keywords }),
-      ),
-    }))
+  const sections = labels
+    .map((label) => ({ label, items: rank(lines.filter((l) => l.section === label), query, textOf) }))
     .filter((section) => section.items.length > 0);
+  return rankSections(sections, query, textOf);
 }

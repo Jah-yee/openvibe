@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchScore, normalize, rank } from "./search";
+import { matchScore, normalize, rank, rankSections } from "./search";
 
 describe("normalize", () => {
   it("drops case and accents", () => {
@@ -41,5 +41,33 @@ describe("rank", () => {
   it("keeps the matches only, best first, ties in their order", () => {
     expect(rank(items, "th", textOf).map((i) => i.label)).toEqual(["Thot", "Arthur"]);
     expect(rank(items, "zz", textOf)).toEqual([]);
+  });
+
+  it("breaks a tie by the share of the label the search covers", () => {
+    const tied = [
+      { label: "Renommer le workspace", keywords: [] },
+      { label: "Renommer", keywords: [] },
+      { label: "Tout mettre en pause", keywords: [] },
+      { label: "Mettre en pause", keywords: [] },
+    ];
+    expect(rank(tied, "renommer", textOf).map((i) => i.label)).toEqual(["Renommer", "Renommer le workspace"]);
+    expect(rank(tied, "pause", textOf).map((i) => i.label)).toEqual(["Mettre en pause", "Tout mettre en pause"]);
+  });
+});
+
+describe("rankSections", () => {
+  const textOf = (item: { label: string; keywords: string[] }) => item;
+  const sections = [
+    { label: "Navigation", items: [{ label: "Masquer le panneau Agents", keywords: [] }] },
+    { label: "Agents", items: [{ label: "Tout mettre en pause", keywords: [] }] },
+    { label: "Terminal · Isis", items: [{ label: "Mettre en pause", keywords: [] }] },
+  ];
+
+  it("puts the section of the best match first while searching: its first line is the one chosen", () => {
+    expect(rankSections(sections, "pause", textOf).map((s) => s.label)).toEqual(["Terminal · Isis", "Agents", "Navigation"]);
+  });
+
+  it("keeps the sections in their order without a search", () => {
+    expect(rankSections(sections, " ", textOf).map((s) => s.label)).toEqual(["Navigation", "Agents", "Terminal · Isis"]);
   });
 });
