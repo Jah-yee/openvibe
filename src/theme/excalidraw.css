@@ -3,7 +3,7 @@
    upgrading Excalidraw. */
 
 .excalidraw {
-  --ui-font: "Geist Variable", sans-serif;
+  --ui-font: "Inter Variable", sans-serif;
 }
 
 .excalidraw.theme--dark {
@@ -123,7 +123,7 @@
    groups transparent and draws its label over them. */
 .excalidraw [id*="-frame-name-"] {
   padding-left: 28px;
-  font-family: "Geist Variable", sans-serif;
+  font-family: "Inter Variable", sans-serif;
   font-size: 11px !important;
   font-weight: 600;
   letter-spacing: 0.08em;
