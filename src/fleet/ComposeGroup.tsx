@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUiRequest } from "@/commands/uiRequests";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { cn } from "@/lib/utils";
@@ -56,11 +57,28 @@ function SlotButton(props: { agent: AgentId; choices: AgentId[]; onPick: (agent:
 }
 
 /** "Composer un groupe", anchored to its trigger (spec habillage §11.2). */
-export function ComposeGroup({ trigger, side = "top" }: { trigger: ReactElement; side?: "top" | "left" | "bottom" }) {
+export function ComposeGroup({
+  trigger,
+  side = "top",
+  answersRequests = false,
+}: {
+  trigger: ReactElement;
+  side?: "top" | "left" | "bottom";
+  /** The agents panel's copy answers the palette's « Composer un groupe… ». */
+  answersRequests?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<RoleId>("general");
   const [name, setName] = useState(ROLES.general.label);
   const [slots, setSlots] = useState<Slot[]>(resizeSlots([], DEFAULT_GROUP_SIZE));
+  useUiRequest(
+    "composeGroup",
+    () => {
+      setOpen(true);
+      return true;
+    },
+    answersRequests,
+  );
   const agents = useAgents((s) => s.agents);
   const fallback = defaultAgent(agents);
   const choices = AGENTS_WITHOUT_OPTIONS.filter((id) => agents.some((a) => a.id === id && a.available));

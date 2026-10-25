@@ -41,6 +41,7 @@ export function ToolRail() {
       </ToolButton>
       <Separator />
       <AgentMenu
+        answersRequests
         trigger={(open) => (
           <ToolButton label="Lancer un agent" active={open} className={open ? undefined : "text-ov-accent"}>
             <Plus />

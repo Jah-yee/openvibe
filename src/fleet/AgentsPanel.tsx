@@ -87,6 +87,7 @@ export function AgentsPanel() {
           </IconButton>
           <ComposeGroup
             side="left"
+            answersRequests
             trigger={
               <IconButton label="Composer un groupe">
                 <Layers />
@@ -164,6 +165,7 @@ export function AgentsPanel() {
                 {section.id && (
                   <GroupMenu
                     groupId={section.id}
+                    answersRequests
                     trigger={
                       <IconButton
                         label="Menu du groupe"

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { focusTerminal } from "@/nodes/terminal/registry";
 import { arrivalStore } from "./arrivalSignal";
-import { arrivalView, arrive, needsMove } from "./arrive";
+import { arrivalView, arrive, needsMove, showNode } from "./arrive";
 import { canvasStore } from "./canvasStore";
 
 vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
@@ -118,5 +118,32 @@ describe("arrive", () => {
     expect(arrive("closed")).toBe(false);
     expect(updateScene).not.toHaveBeenCalled();
     expect(frames).toHaveLength(0);
+  });
+});
+
+describe("showNode", () => {
+  const updateScene = vi.fn();
+  const withScene = (appState: Record<string, unknown>) =>
+    canvasStore.setState({
+      api: {
+        getSceneElements: () => [isis],
+        getAppState: () => ({ ...appState, zoom: { value: appState.zoom } }),
+        updateScene,
+      } as unknown as ExcalidrawImperativeAPI,
+    });
+
+  beforeEach(() => updateScene.mockClear());
+
+  it("shows the terminal without taking the keyboard or activating it (a rename in its header takes it)", () => {
+    withScene({ ...at100, zoom: 0.5 });
+    expect(showNode("isis")).toBe(true);
+    const { appState } = updateScene.mock.calls[0][0];
+    expect(appState.zoom.value).toBe(1);
+    expect(appState).not.toHaveProperty("activeEmbeddable");
+    withScene(at100);
+    updateScene.mockClear();
+    showNode("isis");
+    expect(updateScene).not.toHaveBeenCalled();
+    expect(showNode("closed")).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { requestUi } from "@/commands/uiRequests";
 import { workspacesStore } from "@/store/workspaces";
 import { TABS_HEIGHT } from "./layout";
 import { WorkspaceTabs } from "./WorkspaceTabs";
@@ -89,4 +90,11 @@ it("deletes a workspace from its × after the existing confirmation, never the l
   expect(workspacesStore.getState().workspaces).toHaveLength(2);
   await act(async () => workspacesStore.setState({ workspaces: workspacesStore.getState().workspaces.slice(0, 1) }));
   expect(host.querySelector('[aria-label="Supprimer le workspace"]')).toBeNull();
+});
+
+it("opens a tab's name editor on request (« Renommer le workspace »)", async () => {
+  await act(async () => requestUi({ kind: "renameWorkspace", id: "w2" }));
+  const field = row().querySelector("input")!;
+  expect(field.value).toBe("Backend");
+  expect(document.activeElement).toBe(field);
 });

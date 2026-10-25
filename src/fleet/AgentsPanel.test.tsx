@@ -7,6 +7,7 @@ import { canvasStore } from "@/canvas/canvasStore";
 import { BOTTOM_BAR_HEIGHT, TOP_ROW_HEIGHT } from "@/shell/layout";
 import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { requestUi } from "@/commands/uiRequests";
 import { agentsPanelStore } from "./agentsPanelState";
 import { AgentsPanel } from "./AgentsPanel";
 
@@ -19,7 +20,8 @@ let host: HTMLDivElement;
 let root: Root;
 
 beforeEach(async () => {
-  mockIPC(() => undefined);
+  // The composer loads the agents and shells when it opens.
+  mockIPC((cmd) => (cmd.startsWith("list_") ? [] : undefined));
   agentsPanelStore.setState({ open: true, filter: "all" });
   await nodesStore.getState().create("ada", {
     workspaceId: "w1",
@@ -90,4 +92,17 @@ it("folds a group and closes", async () => {
   expect(host.textContent).not.toContain("Ada");
   await act(async () => byLabel("Fermer le panneau")!.click());
   expect(agentsPanelStore.getState().open).toBe(false);
+});
+
+it("opens « Composer un groupe » and a group's menu on request", async () => {
+  await act(async () => requestUi({ kind: "composeGroup" }));
+  expect(document.querySelector('[data-slot="popover-content"]')).not.toBeNull();
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await act(async () =>
+    canvasStore.setState({
+      frames: [{ id: "g1", name: "Backend", x: 0, y: 0, width: 10, height: 10, group: { role: "general", pantheon: "egypt" }, memberIds: ["ada"] }],
+    }),
+  );
+  await act(async () => requestUi({ kind: "groupMenu", id: "g1" }));
+  expect([...document.querySelectorAll('[role="menuitem"]')].map((i) => i.textContent)).toContain("Renommer");
 });

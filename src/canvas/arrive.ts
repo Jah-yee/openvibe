@@ -91,3 +91,14 @@ export function arrive(nodeId: string): boolean {
   if (kind === "terminal") signalArrival(nodeId);
   return true;
 }
+
+/** Brings a node whole into the zone utile at 100 % if it is not, without activating it or taking the keyboard. False when it is gone. */
+export function showNode(nodeId: string): boolean {
+  const api = canvasStore.getState().api;
+  const element = api?.getSceneElements().find((e) => e.id === nodeId);
+  if (!api || !element) return false;
+  const app = api.getAppState();
+  const view = { scrollX: app.scrollX, scrollY: app.scrollY, zoom: app.zoom.value, width: app.width, height: app.height };
+  if (needsMove(element, view)) api.updateScene({ appState: arrivalView(element, view) });
+  return true;
+}

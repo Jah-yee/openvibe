@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -11,6 +11,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUiRequest } from "@/commands/uiRequests";
 import { uiStore } from "@/store/ui";
 import { useAgents } from "./agentsStore";
 import { pauseAll, resumeAll } from "./broadcast";
@@ -22,11 +23,22 @@ import { orchestrateGroup } from "./orchestrators";
  * The menu of a group: the `⌄` of its label on the canvas (spec habillage
  * §11.4), or `trigger`, the ⋯ of its header in the agents panel (spec identité §5.6).
  */
-export function GroupMenu({ groupId, trigger }: { groupId: string; trigger?: ReactElement }) {
+export function GroupMenu({ groupId, trigger, answersRequests = false }: { groupId: string; trigger?: ReactElement; answersRequests?: boolean }) {
+  const [open, setOpen] = useState(false);
   const agents = useAgents((s) => s.agents);
   const available = (id: string) => agents.some((agent) => agent.id === id && agent.available);
+  // « Ajouter un agent… » of the palette opens the panel's copy of this menu.
+  useUiRequest(
+    "groupMenu",
+    (request) => {
+      if (request.id !== groupId) return false;
+      setOpen(true);
+      return true;
+    },
+    answersRequests,
+  );
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         {trigger ?? (
           <button

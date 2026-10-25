@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useUiRequest } from "@/commands/uiRequests";
 import { plural } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRunningCount } from "@/store/running";
@@ -23,6 +24,12 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const running = useRunningCount([workspace.id]);
+  // « Renommer le workspace » of the palette.
+  useUiRequest("renameWorkspace", (request) => {
+    if (request.id !== workspace.id) return false;
+    setEditing(true);
+    return true;
+  });
 
   if (editing) {
     return (

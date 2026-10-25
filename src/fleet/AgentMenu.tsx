@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Check, Layers, Network, SquareTerminal } from "lucide-react";
+import { useUiRequest } from "@/commands/uiRequests";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { uiStore } from "@/store/ui";
@@ -13,7 +14,16 @@ import { launchFour, newConsole } from "./quickActions";
 type View = "agents" | "options" | "ollama";
 
 /** "Lancer un agent", opened from the tool rail's ＋ or the agents panel (spec identité §5.4, §5.6). */
-export function AgentMenu({ trigger, side = "right" }: { trigger: (open: boolean) => ReactElement; side?: "right" | "left" | "bottom" }) {
+export function AgentMenu({
+  trigger,
+  side = "right",
+  answersRequests = false,
+}: {
+  trigger: (open: boolean) => ReactElement;
+  side?: "right" | "left" | "bottom";
+  /** The tool rail's menu answers the palette's « Lancer un agent personnalisé… » and « Lancer Ollama… ». */
+  answersRequests?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("agents");
   const [options, setOptions] = useState<LaunchOptions | null>(null);
@@ -23,11 +33,24 @@ export function AgentMenu({ trigger, side = "right" }: { trigger: (open: boolean
   const fallback = defaultAgent(agents);
   const available = (id: AgentId) => agents.find((a) => a.id === id)?.available ?? false;
 
+  const requestedView = useRef<View | null>(null);
+
   useEffect(() => {
     if (!open) return;
-    setView("agents");
+    setView(requestedView.current ?? "agents");
+    requestedView.current = null;
     void agentsStore.getState().load();
   }, [open]);
+
+  useUiRequest(
+    "agentMenu",
+    (request) => {
+      requestedView.current = request.view;
+      setOpen(true);
+      return true;
+    },
+    answersRequests,
+  );
 
   const place = (agent: AgentId, launch: LaunchOptions) => {
     setOpen(false);

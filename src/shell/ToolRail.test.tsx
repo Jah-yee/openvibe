@@ -6,6 +6,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { launchFour, newConsole } from "@/fleet/quickActions";
+import { requestUi } from "@/commands/uiRequests";
 import { ToolRail } from "./ToolRail";
 
 // Excalidraw does not load under Vitest (roughjs); the rail drives it through the store's api only.
@@ -65,4 +66,9 @@ it("holds the catalog, Nouvelle console, Lancer 4 agents and Orchestrateur in it
   await act(async () => byLabel("Lancer un agent").click());
   await act(async () => click("Lancer 4 agents"));
   expect(launchFour).toHaveBeenCalledTimes(1);
+});
+
+it("opens the ＋ menu on request, on the custom command's options or on Ollama's models", async () => {
+  await act(async () => requestUi({ kind: "agentMenu", view: "options" }));
+  expect(document.querySelector('[data-slot="popover-content"]')!.textContent).toContain("Lancer la commande personnalisée");
 });

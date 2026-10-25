@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { useUiRequest } from "@/commands/uiRequests";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
@@ -96,6 +97,12 @@ export function TerminalHeader(props: {
   const { nodeId, payload, status, activity, actions } = props;
   const [editing, setEditing] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // « Renommer » of the palette.
+  useUiRequest("renameTerminal", (request) => {
+    if (request.id !== nodeId) return false;
+    setEditing(true);
+    return true;
+  });
   const meta = AGENTS[payload.agent];
   const role = useCanvas((s) => groupOf(s.frames, nodeId)?.group.role);
 
