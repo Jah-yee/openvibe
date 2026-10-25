@@ -36,7 +36,7 @@ function WindowButton({ label, danger, className, ...props }: ComponentProps<"bu
       title={label}
       aria-label={label}
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-[8px] text-ov-text-2 transition-colors hover:bg-ov-hover hover:text-ov-text [&_svg]:size-4",
+        "grid size-7 shrink-0 place-items-center rounded-full text-ov-text-2 transition-colors hover:bg-ov-hover hover:text-ov-text [&_svg]:size-4",
         danger && "hover:bg-ov-danger hover:text-white",
         className,
       )}
@@ -45,12 +45,16 @@ function WindowButton({ label, danger, className, ...props }: ComponentProps<"bu
   );
 }
 
-/** Réduire, Agrandir / Restaurer, Fermer (spec fenêtre §4.3). */
+/**
+ * Réduire, Agrandir / Restaurer, Fermer (spec fenêtre §4.3), on one opaque pill
+ * like the rest of the top bar: bare buttons vanish over a terminal scrolled
+ * under the top row.
+ */
 export function WindowControls() {
   const maximized = useMaximized();
   const appWindow = getCurrentWindow();
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-ov-line bg-ov-surface px-px shadow-ov">
       <WindowButton label="Réduire" onClick={() => perform(() => appWindow.minimize(), "Réduction impossible")}>
         <Minus />
       </WindowButton>

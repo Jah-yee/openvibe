@@ -49,6 +49,12 @@ it("minimizes, maximizes and asks to close the window", async () => {
   expect(calls).toEqual(["minimize", "toggle_maximize", "close"]);
 });
 
+it("sits on an opaque pill, readable over a terminal scrolled under the top row", () => {
+  const pill = host.firstElementChild as HTMLElement;
+  expect(pill.className).toContain("bg-ov-surface");
+  expect(pill.className).toContain("rounded-full");
+});
+
 it("follows the maximized state, however it changed", async () => {
   expect(button("Agrandir")).not.toBeNull();
   maximized = true; // double-click on the strip, Win+Up, snapping…
