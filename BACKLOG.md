@@ -146,3 +146,12 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Restes d'ancien style dans des fichiers touchés par R2 : liste des mentions de la saisie de consigne opaque (`CommandInput`), boutons en pilule dans les options du menu Agent et dans « Composer un groupe », boutons de fenêtre de 38 px dans une barre de 37 px utiles, pastille d'attente absente du nom accessible du bouton Agents.
 - Le filtre du panneau reste celui posé par un compteur quand le panneau est rouvert depuis le rail (l'état vide l'annonce désormais : « Aucun agent dans ce filtre »).
 - Lignes d'agent du panneau (actions au survol Centrer, Pause/Reprendre, Fermer, spec identité §5.6) : avec R3, qui refait `AgentRow`.
+
+## Constats du plan E1 (navigation au clavier, relecture finale)
+
+- Un menu déroulant ouvert (Radix, modal par défaut) n'est pas traité comme un dialogue : Ctrl+Tab déplace la vue et fait clignoter le terminal, mais le menu reprend le clavier. Fermer les menus ouverts avant d'exécuter la commande.
+- Maj+Échap est consommé avant les écouteurs d'Échap du mode pose et du mode liaison (`PlacementGhost`, `LinkMode`) : il ne les quitte plus (Échap seul, oui). `canvas.release` pourrait aussi vider `placing` et `linking`. Dans un champ de renommage, Maj+Échap valide (perte du focus) au lieu d'annuler.
+- La vue d'ensemble (et « Ajuster la vue ») ignore les barres de verre : passer `canvasOffsets: { top: TOP_ROW_HEIGHT, bottom: BOTTOM_BAR_HEIGHT }` à `scrollToContent`.
+- Ctrl+Tab maintenu : une répétition arrivée avant l'image suivante repart de l'ancien terminal et vise deux fois le même (progression ralentie, jamais fausse). Retenir la cible en attente dans `arrive`.
+- J8 : l'arrivée différée sur un autre workspace ne partira pas d'une touche ; le focus « à l'image suivante » peut y précéder le montage du terminal. Rendre le focus robuste (réessayer, ou focus au montage du terminal attendu).
+- À vérifier à la main : WebView2 transmet-il Ctrl+Tab et Ctrl+Maj+Tab à la page (risque §12.1 de la spec fenêtre).
