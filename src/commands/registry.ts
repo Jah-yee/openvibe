@@ -6,12 +6,13 @@ import { workspacesStore } from "@/store/workspaces";
 import { AGENT_COMMANDS } from "./catalog/agents";
 import { APP } from "./catalog/app";
 import { CURRENT } from "./catalog/current";
+import { DRAWING, SCENE } from "./catalog/drawing";
 import { NAVIGATION } from "./catalog/navigation";
 import { WORKSPACES } from "./catalog/workspaces";
 import type { Command, CommandContext } from "./command";
 
 /** Every function of the application, by section in the spec's order (spec fenêtre §7.3). */
-export const COMMANDS: readonly Command[] = [...NAVIGATION, ...WORKSPACES, ...AGENT_COMMANDS, ...CURRENT, ...APP];
+export const COMMANDS: readonly Command[] = [...NAVIGATION, ...WORKSPACES, ...AGENT_COMMANDS, ...CURRENT, ...DRAWING, ...SCENE, ...APP];
 
 /** The context of a command, read at this moment from the stores and the keyboard focus. */
 export function commandContext(): CommandContext {
