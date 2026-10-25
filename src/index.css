@@ -206,3 +206,17 @@
   border-radius: 14px;
   box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
 }
+
+/* Arrival on a terminal: its border takes the accent, then fades back (spec fenêtre §6.4). */
+@keyframes ov-arrival {
+  from {
+    box-shadow: inset 0 0 0 2px var(--ov-accent);
+  }
+  to {
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
+.ov-arrival {
+  animation: ov-arrival 600ms ease-out forwards;
+}

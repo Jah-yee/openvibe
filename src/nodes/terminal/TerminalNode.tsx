@@ -7,6 +7,7 @@ import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import { useActivity } from "@/store/agentActivity";
 import { nodesStore, terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
+import { ArrivalFlash } from "./ArrivalFlash";
 import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
 import { frameStyle, WAITING_GLOW } from "./frame";
 import { layoutTerminal, mountTerminal } from "./registry";
@@ -90,6 +91,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
         <ResumeCard nodeId={nodeId} payload={payload} status={status} />
       </div>
       {waiting && <div className="pointer-events-none absolute inset-0 z-20 rounded-xl" style={{ boxShadow: WAITING_GLOW }} />}
+      <ArrivalFlash nodeId={nodeId} />
     </div>
   );
 }
