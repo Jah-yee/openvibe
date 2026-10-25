@@ -155,3 +155,15 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Ctrl+Tab maintenu : une répétition arrivée avant l'image suivante repart de l'ancien terminal et vise deux fois le même (progression ralentie, jamais fausse). Retenir la cible en attente dans `arrive`.
 - J8 : l'arrivée différée sur un autre workspace ne partira pas d'une touche ; le focus « à l'image suivante » peut y précéder le montage du terminal. Rendre le focus robuste (réessayer, ou focus au montage du terminal attendu).
 - À vérifier à la main : WebView2 transmet-il Ctrl+Tab et Ctrl+Maj+Tab à la page (risque §12.1 de la spec fenêtre).
+
+## Constats du plan F1 (palette et recherche, relecture finale)
+
+- Clic hors de la palette : la fermeture se fait au `pointerdown` ; le `mousedown` qui suit peut encore déplacer le clavier dans WebView2. Empêcher le `mousedown` sur le fond et fermer au clic, puis vérifier dans la build.
+- Échap dans la palette termine aussi le mode pose et le mode liaison (leurs écouteurs `window` le reçoivent) : arrêter la propagation dans la branche Échap.
+- Ctrl+P maintenu : les répétitions passent jusqu'à `cmdk` (élément précédent, avec retour à la fin) ; consommer les répétitions des raccourcis reconnus sans les exécuter.
+- Une arrivée différée peut rester en attente si l'utilisateur change d'onglet ou de projet avant le chargement de la scène visée : elle se déclencherait plus tard. Le premier canvas monté devrait l'utiliser ou l'abandonner.
+- Les boucles de focus de deux arrivées peuvent se chevaucher (Ctrl+Tab maintenu) : un jeton de génération arrêterait l'ancienne.
+- `focusGroup` cadre sur toute la vue : l'étiquette d'un grand groupe peut passer sous les onglets ; `canvasOffsets` le corrigerait.
+- Recherche : pas de bonus pour la correspondance exacte (« tho » à égalité entre Thot et Thor) ; l'apostrophe ne sépare pas les mots (« d'ensemble ») ; « œ » et « æ » non dépliés.
+- Affichage : après une flèche, l'ancien choix se voit une image à chaque frappe ; « Aucun résultat » côtoie « Chargement… » pendant la lecture des scènes.
+- Ouvrir la palette pendant que le canvas lit une scène lance une deuxième lecture SQLite ; mettre en cache la promesse en cours dans `sceneCache`.
