@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
-import { Ellipsis, Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { forgetWorkspaces } from "@/app/forget";
 import {
@@ -78,34 +78,42 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
           : "border-transparent text-ov-text-2 hover:bg-ov-hover hover:text-ov-text",
       )}
     >
+      {/* The whole tab selects, padding and badge included, like a browser tab. */}
       <button
         type="button"
-        className="max-w-40 truncate"
+        className="flex items-center self-stretch"
         onClick={() => workspacesStore.getState().select(workspace.id)}
         onDoubleClick={() => setEditing(true)}
       >
-        {workspace.name}
+        <span className="max-w-40 truncate">{workspace.name}</span>
+        {(active || running > 0) && (
+          <span
+            data-badge
+            title={plural(running, "agent actif", "agents actifs")}
+            className={cn(
+              "ml-2 rounded-full px-1.5 font-mono text-[10px]",
+              active ? "bg-ov-accent-soft text-ov-accent" : "bg-ov-field text-ov-text-2",
+            )}
+          >
+            {running}
+          </span>
+        )}
       </button>
-      {(active || running > 0) && (
-        <span
-          title={plural(running, "agent actif", "agents actifs")}
-          className={cn(
-            "ml-2 rounded-full px-1.5 font-mono text-[10px]",
-            active ? "bg-ov-accent-soft text-ov-accent" : "bg-ov-field text-ov-text-2",
-          )}
+      {canRemove && (
+        <button
+          type="button"
+          aria-label="Supprimer le workspace"
+          title="Supprimer le workspace"
+          onClick={() => void removeWorkspace(workspace, running).catch(fail("Suppression impossible"))}
+          className="ml-1 grid size-5 place-items-center rounded-[4px] text-ov-text-2 opacity-0 group-hover:opacity-100 hover:bg-ov-hover hover:text-ov-text focus-visible:opacity-100"
         >
-          {running}
-        </span>
+          <X className="size-3.5" />
+        </button>
       )}
+      {/* The context menu (right click) anchors on the tab itself. */}
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Actions du workspace"
-            className="ml-1 grid size-5 place-items-center rounded-[4px] opacity-0 group-hover:opacity-100 hover:bg-ov-hover data-[state=open]:opacity-100"
-          >
-            <Ellipsis className="size-3.5" />
-          </button>
+          <span aria-hidden className="pointer-events-none absolute inset-0" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem onSelect={() => setEditing(true)}>Renommer</DropdownMenuItem>
@@ -122,14 +130,21 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
   );
 }
 
-/** Workspace tabs of the open project, then "+" (spec identité §5.2). The row's empty space moves the window. */
+/**
+ * Workspace tabs of the open project, then "+", then the empty space that
+ * moves the window (spec identité §5.2). The row scrolls sideways, by the
+ * wheel, without a scrollbar: it must not drag itself, or a press on it would
+ * move the window instead of scrolling.
+ */
 export function WorkspaceTabs() {
   const workspaces = useWorkspaces((s) => s.workspaces);
   const activeId = useWorkspaces((s) => s.activeId);
   return (
     <div
-      data-tauri-drag-region=""
-      className="ov-glass-strong flex w-full items-end gap-0.5 overflow-x-auto overflow-y-hidden rounded-none border-x-0 border-t-0 px-2.5"
+      onWheel={(e) => {
+        if (e.deltaX === 0) e.currentTarget.scrollLeft += e.deltaY;
+      }}
+      className="ov-glass-strong flex w-full items-end gap-0.5 overflow-x-auto overflow-y-hidden rounded-none border-x-0 border-t-0 px-2.5 [scrollbar-width:none]"
       style={{ height: TABS_HEIGHT }}
     >
       {workspaces.map((workspace) => (
@@ -147,6 +162,7 @@ export function WorkspaceTabs() {
       >
         <Plus />
       </IconButton>
+      <div data-tauri-drag-region="" className="h-full min-w-6 flex-1" />
     </div>
   );
 }
