@@ -7,6 +7,7 @@ import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
 import type { Command, CommandContext } from "./command";
+import { openPalette } from "./palette";
 
 const inProject = (ctx: CommandContext) => ctx.project;
 const withTerminals = (ctx: CommandContext) => ctx.project && ctx.terminalCount > 0;
@@ -56,6 +57,24 @@ export const COMMANDS: readonly Command[] = [
     shortcut: "Ctrl+Maj+A",
     available: inProject,
     run: () => overview(),
+  },
+  {
+    id: "palette.goTo",
+    label: "Aller à…",
+    section: "Navigation",
+    keywords: ["chercher", "rechercher", "terminal", "groupe", "workspace", "projet"],
+    shortcut: "Ctrl+P",
+    available: () => true,
+    run: (ctx) => openPalette("goTo", ctx),
+  },
+  {
+    id: "palette.functions",
+    label: "Rechercher une fonction…",
+    section: "Navigation",
+    keywords: ["fonction", "commande", "action"],
+    shortcut: "Ctrl+Maj+P",
+    available: () => true,
+    run: (ctx) => openPalette("functions", ctx),
   },
 ];
 

@@ -11,6 +11,7 @@ import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
 import { commandFor, runCommand, type Command, type CommandContext } from "./command";
+import { paletteStore } from "./palette";
 import { COMMANDS, commandContext } from "./registry";
 
 vi.mock("@/canvas/arrive", () => ({ arrive: vi.fn() }));
@@ -56,14 +57,24 @@ describe("the registry (spec fenêtre §6.1, §8)", () => {
       ["Terminal précédent", "Ctrl+Maj+Tab"],
       ["Rendre la main au canvas", "Maj+Échap"],
       ["Vue d'ensemble", "Ctrl+Maj+A"],
+      ["Aller à…", "Ctrl+P"],
+      ["Rechercher une fonction…", "Ctrl+Maj+P"],
     ]);
   });
 
   it("offers nothing at home, the canvas commands in an empty workspace, everything with terminals", () => {
     const available = (ctx: CommandContext) => COMMANDS.filter((c) => c.available(ctx)).map((c) => c.id);
-    expect(available(home)).toEqual([]);
-    expect(available(empty)).toEqual(["canvas.release", "canvas.overview"]);
-    expect(available(busy)).toEqual(["terminal.next", "terminal.previous", "canvas.release", "canvas.overview"]);
+    expect(available(home)).toEqual(["palette.goTo", "palette.functions"]);
+    expect(available(empty)).toEqual(["canvas.release", "canvas.overview", "palette.goTo", "palette.functions"]);
+    expect(available(busy)).toEqual(["terminal.next", "terminal.previous", "canvas.release", "canvas.overview", "palette.goTo", "palette.functions"]);
+  });
+
+  it("opens the palette from anywhere, in either mode", async () => {
+    await command("palette.functions").run(home);
+    expect(paletteStore.getState()).toMatchObject({ open: true, query: "> ", context: home });
+    await command("palette.goTo").run(home);
+    expect(paletteStore.getState().query).toBe("");
+    paletteStore.setState({ open: false });
   });
 
   it("goes to the next and the previous terminal in reading order, from the current one", async () => {
@@ -80,7 +91,7 @@ describe("the registry (spec fenêtre §6.1, §8)", () => {
   it("finds the command of a shortcut only where it is available", () => {
     expect(commandFor(COMMANDS, "Ctrl+Tab", busy)?.id).toBe("terminal.next");
     expect(commandFor(COMMANDS, "Ctrl+Tab", empty)).toBeNull();
-    expect(commandFor(COMMANDS, "Ctrl+P", busy)).toBeNull();
+    expect(commandFor(COMMANDS, "Ctrl+P", home)?.id).toBe("palette.goTo");
   });
 
   it("says when a command fails", async () => {
