@@ -153,12 +153,6 @@
       radial-gradient(720px 560px at 86% 84%, var(--ov-glow-2), transparent 70%),
       radial-gradient(520px 420px at 62% 12%, var(--ov-glow-3), transparent 70%);
   }
-
-  /* Chips of the bottom row, until R2 replaces them (spec identité §5.11). */
-  .ov-chip {
-    border: 1px solid var(--ov-line);
-    background: var(--ov-surface);
-  }
 }
 
 /* Menus, popovers, lists and dialogs in dense glass (spec identité §5.10).

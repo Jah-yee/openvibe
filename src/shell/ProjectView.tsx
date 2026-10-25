@@ -1,27 +1,32 @@
 import { useEffect } from "react";
-import { Asterisk } from "lucide-react";
 import { Canvas } from "@/canvas/Canvas";
-import { AgentMenu } from "@/fleet/AgentMenu";
+import { AgentsPanel } from "@/fleet/AgentsPanel";
+import { useAgentsPanel } from "@/fleet/agentsPanelState";
 import { agentsStore } from "@/fleet/agentsStore";
 import { LinkMode } from "@/fleet/LinkMode";
 import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
-import { ActionChips } from "./ActionChips";
+import { ActivityRail } from "./ActivityRail";
+import { AgentCounts } from "./AgentCounts";
 import { CloseAgentDialog } from "./CloseAgentDialog";
 import { CloseGroupDialog } from "./CloseGroupDialog";
 import { CommandBar, CommandHint } from "./CommandBar";
 import { GitChip } from "./GitChip";
-import { LeftRail } from "./LeftRail";
-import { RightRail } from "./RightRail";
-import { TopBar } from "./TopBar";
-import { RoundButton } from "./ui";
+import { ProjectPicker } from "./ProjectPicker";
+import { TitleBar } from "./TitleBar";
+import { ToolRail } from "./ToolRail";
+import { WorkspaceTabs } from "./WorkspaceTabs";
 import { ZoomControl } from "./ZoomControl";
 
-/** The open project: the canvas under the floating shell (spec habillage §5). */
+/**
+ * The open project (spec identité §5): the canvas fills the window, under the
+ * glass bars; everything else floats on it.
+ */
 export function ProjectView() {
   const status = useWorkspaces((s) => s.status);
   const error = useWorkspaces((s) => s.error);
   const activeId = useWorkspaces((s) => s.activeId);
+  const panelOpen = useAgentsPanel((s) => s.open);
 
   useEffect(() => {
     void agentsStore.getState().load();
@@ -32,30 +37,18 @@ export function ProjectView() {
       {status === "ready" && activeId ? (
         <>
           <Canvas key={activeId} workspaceId={activeId} />
-          <LeftRail
-            agentButton={
-              <AgentMenu
-                trigger={(open) => (
-                  <RoundButton label="Lancer un agent" active={open}>
-                    <Asterisk className={open ? undefined : "text-ov-accent"} />
-                  </RoundButton>
-                )}
-              />
-            }
-          />
-          <RightRail />
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-30 grid grid-cols-[1fr_auto_1fr] items-end gap-4">
-            <div className="justify-self-start">
-              <GitChip />
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <CommandHint />
-              <ActionChips />
-              <CommandBar />
-            </div>
-            <div className="justify-self-end">
-              <ZoomControl />
-            </div>
+          <ToolRail />
+          <ActivityRail />
+          {panelOpen && <AgentsPanel />}
+          <div className="absolute bottom-[14px] left-3 z-30">
+            <GitChip />
+          </div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-[14px] z-30 flex flex-col items-center gap-2">
+            <CommandHint />
+            <CommandBar />
+          </div>
+          <div className="absolute bottom-[14px] right-3 z-30">
+            <ZoomControl />
           </div>
           <PlacementGhost />
           <LinkMode />
@@ -65,7 +58,10 @@ export function ProjectView() {
           {status === "error" ? `Impossible de charger les workspaces : ${error}` : "Chargement…"}
         </div>
       )}
-      <TopBar />
+      <div className="absolute inset-x-0 top-0 z-30">
+        <TitleBar leading={<ProjectPicker />} trailing={<AgentCounts />} />
+        <WorkspaceTabs />
+      </div>
       <CloseAgentDialog />
       <CloseGroupDialog />
     </div>

@@ -2,11 +2,8 @@ import { useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderPlus } from "lucide-react";
 import { toast } from "sonner";
-import { DotGridBackground } from "@/canvas/overlay/DotGrid";
-import { dotGrid } from "@/canvas/overlay/grid";
-import { TOP_ROW_HEIGHT } from "@/shell/layout";
-import { Logo } from "@/shell/Logo";
-import { PillButton } from "@/shell/ui";
+import { AccentButton } from "@/shell/buttons";
+import { TitleBar } from "@/shell/TitleBar";
 import { projectsStore, useProjects } from "@/store/projects";
 import { ProjectCard } from "./ProjectCard";
 
@@ -19,7 +16,7 @@ async function addProject() {
     .catch((error: unknown) => toast.error(`Ajout impossible : ${String(error)}`));
 }
 
-/** Projects as cards; a click opens one on its last workspace (spec habillage §5.1). */
+/** Projects as glass cards under the title bar; a click opens one on its last workspace (spec identité §5.9). */
 export function HomeScreen() {
   const projects = useProjects((s) => s.projects);
 
@@ -28,22 +25,16 @@ export function HomeScreen() {
   }, []);
 
   return (
-    <div className="ov-ambient relative h-screen w-screen">
-      <DotGridBackground {...dotGrid({ scrollX: 0, scrollY: 0, zoom: 1 })} />
-      {/* The scroller starts below the window's drag strip: scrolled cards never slide under it. */}
-      <div className="absolute inset-x-0 bottom-0 overflow-auto" style={{ top: TOP_ROW_HEIGHT }}>
-        <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-2">
-          <header className="mb-10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Logo size={32} />
-              <h1 className="text-xl font-semibold text-ov-text">OpenVibe</h1>
-            </div>
-            <PillButton
-              className="border-ov-accent bg-ov-accent text-white hover:bg-ov-accent/90"
-              onClick={() => void addProject()}
-            >
+    <div className="ov-ambient flex h-screen w-screen flex-col">
+      <TitleBar leading={<span className="text-[13px] font-semibold text-ov-text">OpenVibe</span>} />
+      {/* The scroller starts below the title bar: scrolled cards never slide under it. */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-8">
+          <header className="mb-6 flex items-center justify-between">
+            <h1 className="text-xl font-semibold text-ov-text">Projets</h1>
+            <AccentButton onClick={() => void addProject()}>
               <FolderPlus /> Ajouter un projet
-            </PillButton>
+            </AccentButton>
           </header>
           {projects.length === 0 ? (
             <div className="mt-24 grid place-items-center gap-3 text-center">

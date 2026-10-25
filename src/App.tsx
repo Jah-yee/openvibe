@@ -2,9 +2,8 @@ import { useEffect } from "react";
 import { boot } from "@/app/boot";
 import { HomeScreen } from "@/home/HomeScreen";
 import { AppToaster } from "@/shell/AppToaster";
-import { DragStrip } from "@/shell/DragStrip";
 import { ProjectView } from "@/shell/ProjectView";
-import { WindowCorner } from "@/shell/WindowControls";
+import { StatusScreen } from "@/shell/StatusScreen";
 import { useProjects } from "@/store/projects";
 
 export default function App() {
@@ -19,13 +18,8 @@ export default function App() {
     <>
       {view === "home" && <HomeScreen />}
       {view === "project" && <ProjectView />}
-      {(view === "loading" || view === "error") && (
-        <div className="grid h-screen place-items-center bg-ov-canvas text-sm text-ov-text-2">
-          {view === "error" ? `Impossible de charger les projets : ${error}` : "Chargement…"}
-        </div>
-      )}
-      <DragStrip />
-      {view !== "project" && <WindowCorner />}
+      {view === "loading" && <StatusScreen message="Chargement…" />}
+      {view === "error" && <StatusScreen message={`Impossible de charger les projets : ${error}`} />}
       <AppToaster />
     </>
   );

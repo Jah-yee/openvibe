@@ -43,7 +43,7 @@ export function ProjectCard({ project }: { project: Project }) {
       onClick={openProject}
       onKeyDown={(e) => e.key === "Enter" && openProject()}
       className={cn(
-        "group rounded-2xl border border-ov-line bg-ov-surface p-4 shadow-ov transition-colors",
+        "ov-glass-strong group rounded-[14px] p-4 transition-colors",
         openable && "cursor-pointer hover:border-ov-accent/60",
       )}
     >

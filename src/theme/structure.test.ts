@@ -41,6 +41,16 @@ it("draws the bottom row and its command bar in glass (spec identité §5.8)", (
   expect(readSource("fleet/CommandInput.tsx")).toContain("rounded-[10px]");
 });
 
+it("keeps nothing of the habillage shell (spec identité §5.11)", () => {
+  const files = sourceFiles();
+  for (const gone of ["shell/TopBar.tsx", "shell/DragStrip.tsx", "shell/LeftRail.tsx", "shell/RightRail.tsx", "shell/ActionChips.tsx", "shell/LiveCount.tsx", "shell/ui.tsx", "fleet/FleetPanel.tsx"]) {
+    expect(files[gone], gone).toBeUndefined();
+  }
+  for (const [file, text] of Object.entries(files)) {
+    expect(/\bov-chip\b|PillButton|ChipButton|RoundButton|fleetOpen|WindowCorner/.test(text), file).toBe(false);
+  }
+});
+
 it("stacks the title bar and the tabs: 72 px of canvas under them (spec identité §7)", () => {
   expect([TITLE_BAR_HEIGHT, TABS_HEIGHT, TOP_ROW_HEIGHT]).toEqual([38, 34, 72]);
 });

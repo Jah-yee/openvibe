@@ -2,41 +2,39 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { TOP_ROW_HEIGHT } from "@/shell/layout";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { HomeScreen } from "./HomeScreen";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 beforeEach(() => {
-  mockIPC((cmd) => (cmd === "list_projects" ? [] : undefined));
+  mockWindows("main");
+  mockIPC(
+    (cmd) => {
+      if (cmd === "list_projects") return [];
+      if (cmd === "plugin:window|is_maximized") return false;
+    },
+    { shouldMockEvents: true },
+  );
 });
 afterEach(() => clearMocks());
 
-it("scrolls its header and cards below the window's drag strip, never under it", async () => {
+it("puts the title bar on top and scrolls the projects under it, never into it (spec identité §5.9)", async () => {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   await act(async () => root.render(<HomeScreen />));
-  // Spec fenêtre §4.4: "Ajouter un projet", the cards and the scrollbar never sit
-  // under the strip or the window buttons, even scrolled: the scroller itself
-  // starts below the top row, so nothing it holds can scroll into it.
-  let scroller = host.querySelector("header")!.parentElement;
+  const bar = host.querySelector("[data-tauri-drag-region]")!;
+  expect(bar.querySelector("svg path")!.getAttribute("stroke")).toBe("#D97757");
+  expect(bar.textContent).toContain("OpenVibe");
+  const header = host.querySelector("header")!;
+  expect(header.textContent).toContain("Projets");
+  expect(header.textContent).toContain("Ajouter un projet");
+  let scroller = header.parentElement;
   while (scroller && !scroller.className.includes("overflow-auto")) scroller = scroller.parentElement;
-  expect(scroller).not.toBeNull();
-  expect(parseFloat(scroller!.style.top)).toBeGreaterThanOrEqual(TOP_ROW_HEIGHT);
-  await act(async () => root.unmount());
-  host.remove();
-});
-
-it("shows the wave logo next to the name", async () => {
-  const host = document.createElement("div");
-  document.body.append(host);
-  const root = createRoot(host);
-  await act(async () => root.render(<HomeScreen />));
-  const logo = host.querySelector("header svg")!;
-  expect(logo.querySelector("path")!.getAttribute("d")).toBe("M10 36 C 18 14, 26 14, 32 32 S 46 50, 54 26");
-  expect(logo.querySelector("path")!.getAttribute("stroke")).toBe("#D97757");
+  expect(bar.compareDocumentPosition(scroller!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(scroller!.contains(bar)).toBe(false);
+  expect(host.innerHTML).not.toContain("var(--ov-dot)");
   await act(async () => root.unmount());
   host.remove();
 });

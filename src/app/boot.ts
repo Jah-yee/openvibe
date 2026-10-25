@@ -1,5 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
+import { loadAgentsPanel } from "@/fleet/agentsPanelState";
 import { agentActivitySnapshot, onAgentActivity } from "@/ipc/activity";
 import { onPtyExit, ptyList } from "@/ipc/pty";
 import { setLivePtys } from "@/nodes/terminal/registry";
@@ -21,6 +22,7 @@ let booting: Promise<void> | undefined;
 export function boot(): Promise<void> {
   booting ??= (async () => {
     await loadThemeSettings();
+    await loadAgentsPanel();
     await onPtyExit(({ nodeId, exitCode }) => {
       terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode });
       agentActivityStore.getState().remove(nodeId);

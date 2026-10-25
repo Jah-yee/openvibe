@@ -69,12 +69,3 @@ export function WindowControls() {
     </div>
   );
 }
-
-/** The window buttons outside a project (home, loading, error), in the top-right corner (spec fenêtre §4.4). */
-export function WindowCorner() {
-  return (
-    <div className="fixed right-4 top-4 z-30">
-      <WindowControls />
-    </div>
-  );
-}
