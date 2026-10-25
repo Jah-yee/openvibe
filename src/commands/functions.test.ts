@@ -55,6 +55,22 @@ describe("functionSections (spec fenêtre §7.3)", () => {
     expect(sectionOf(codex, ctx)).toBe("Agents");
   });
 
+  it("puts the recent functions first, most recent first, when nothing is typed, without repeating them below", () => {
+    const sections = functionSections(commands, ctx, "", ["workspace.new", "canvas.overview", "gone"]);
+    expect(sections.map((s) => [s.label, s.items.map((c) => c.label)])).toEqual([
+      ["Récentes", ["Nouveau workspace", "Vue d'ensemble"]],
+      ["Navigation", ["Terminal suivant"]],
+    ]);
+    expect(sections[0].items[0].section).toBe("Workspaces");
+  });
+
+  it("keeps a recent function first while searching when the words typed start its words, never for a loose match", () => {
+    expect(functionSections(commands, ctx, "vue", ["canvas.overview"])[0].label).toBe("Récentes");
+    expect(functionSections(commands, ctx, "nouv", ["canvas.overview"]).map((s) => s.label)).toEqual(["Workspaces"]);
+    // « tsv » finds Terminal suivant by its letters only: no promotion.
+    expect(functionSections(commands, ctx, "tsv", ["terminal.next"])[0].label).toBe("Navigation");
+  });
+
   it("ranks each section by the search", () => {
     expect(functionSections(commands, ctx, "ens").map((s) => [s.label, s.items.map((c) => c.label)])).toEqual([["Navigation", ["Vue d'ensemble", "Terminal suivant"]]]);
   });

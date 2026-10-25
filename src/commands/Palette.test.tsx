@@ -6,6 +6,7 @@ import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { toast } from "sonner";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
+import { agentsPanelStore } from "@/fleet/agentsPanelState";
 import { agentsStore } from "@/fleet/agentsStore";
 import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
@@ -14,6 +15,7 @@ import type { CommandContext } from "./command";
 import { goTo } from "./goToRun";
 import { openPalette, paletteStore, setPaletteQuery } from "./paletteState";
 import { Palette } from "./Palette";
+import { recentStore } from "./recent";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
@@ -161,5 +163,20 @@ describe("the palette (spec fenêtre §7.1, §7.2)", () => {
     expect(line.getAttribute("data-disabled")).toBe("true");
     expect(line.textContent).toContain("claude introuvable dans le PATH");
     expect(selected()).not.toBe(line);
+  });
+
+  it("offers the last function again first: Ctrl+Maj+P then Entrée repeats it (retours J8b)", async () => {
+    recentStore.setState({ ids: [] });
+    agentsPanelStore.setState({ open: false });
+    await act(async () => openPalette("functions", busy));
+    await act(async () => setPaletteQuery("> panneau"));
+    await act(async () => press("Enter"));
+    expect(agentsPanelStore.getState().open).toBe(true);
+    await act(async () => openPalette("functions", busy));
+    const first = items()[0];
+    expect(first.closest("[cmdk-group]")!.textContent).toContain("Récentes");
+    expect(first.textContent).toContain("Masquer le panneau Agents");
+    expect(first.textContent).toContain("Navigation");
+    expect(selected()).toBe(first);
   });
 });

@@ -205,6 +205,7 @@ Dans un projet, sur tous ses workspaces, par sections et dans cet ordre :
 
 - Chaque ligne : libellé, et à droite son raccourci en Geist Mono gris (« Ctrl+Maj+A »). Les touches à une lettre d'Excalidraw sont affichées pour les outils de dessin ; elles agissent quand le canvas a le clavier.
 - Une fonction indisponible dans le contexte n'est pas listée. Le contexte est pris à l'ouverture de la palette : écran (accueil ou projet), workspace affiché, **terminal courant** (celui qui avait le clavier à l'ouverture, à défaut le dernier du workspace affiché à l'avoir eu) et son groupe.
+- **Récentes** (amendement après J8b) : les 3 dernières fonctions lancées depuis la palette (hors « Aller à… »), gardées d'un lancement à l'autre, forment une première section « Récentes », la plus récente d'abord, chaque ligne suivie de sa section d'origine (« Renommer · Terminal · Isis ») ; Ctrl+Maj+P puis Entrée relance donc la dernière. Pendant une recherche, une fonction récente reste en tête si chaque mot tapé commence un de ses mots (pas pour une correspondance lâche). Elles ne sont pas répétées plus bas.
 
 | Section | Fonctions | Condition |
 |---|---|---|

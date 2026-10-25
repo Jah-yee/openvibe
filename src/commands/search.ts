@@ -33,6 +33,12 @@ export function matchScore(query: string, label: string, keywords: readonly stri
 }
 
 type Text = { label: string; keywords: readonly string[] };
+
+/** Every term starts a word of the label or of a keyword: no match inside a word, no letters spread. */
+export function startsWords(query: string, { label, keywords }: Text): boolean {
+  const score = matchScore(query, label, keywords);
+  return score !== null && score >= 3 * words(query).length;
+}
 type Relevance = { score: number; coverage: number };
 
 /** The share of the label's words a term starts: « renommer » is all of « Renommer », a third of « Renommer le workspace ». */

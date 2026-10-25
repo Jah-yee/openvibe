@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Command } from "cmdk";
 import { TITLE_BAR_HEIGHT } from "@/shell/layout";
 import { runCommand } from "./command";
-import { functionSections } from "./functions";
+import { functionSections, RECENT_SECTION } from "./functions";
 import { goToSections } from "./goTo";
 import { GoToRow } from "./GoToRow";
 import { goTo } from "./goToRun";
 import { closePalette, modeOf, setPaletteQuery, stripPrefix, usePalette } from "./paletteState";
+import { rememberFunction, useRecentFunctions } from "./recent";
 import { COMMANDS } from "./registry";
 import { useGoToData } from "./useGoToData";
 
@@ -29,8 +30,9 @@ function PaletteBody() {
   const mode = modeOf(query);
   const search = stripPrefix(query);
   const goToData = useGoToData();
+  const recent = useRecentFunctions();
   const goToList = mode === "goTo" ? goToSections(goToData.items, search) : [];
-  const functionList = mode === "functions" && context ? functionSections(COMMANDS, context, search) : [];
+  const functionList = mode === "functions" && context ? functionSections(COMMANDS, context, search, recent) : [];
   const keys =
     mode === "goTo"
       ? goToList.flatMap((s) => s.items.map((i) => i.key))
@@ -98,11 +100,14 @@ function PaletteBody() {
                       disabled={line.disabled !== null}
                       className={`${ITEM} data-[disabled=true]:opacity-50`}
                       onSelect={() => {
+                        rememberFunction(line.command.id);
                         closePalette();
                         runCommand(line.command, context);
                       }}
                     >
                       <span className="truncate text-ov-text">{line.label}</span>
+                      {/* A recent line tells where it comes from: « Renommer » of which terminal. */}
+                      {section.label === RECENT_SECTION && <span className="shrink-0 text-[11.5px] text-ov-text-3">{line.section}</span>}
                       {line.disabled !== null ? (
                         <span className="ml-auto shrink-0 text-[11px] text-ov-text-3">{line.disabled}</span>
                       ) : (
