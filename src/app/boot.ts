@@ -8,6 +8,7 @@ import { terminalStatusStore } from "@/store/terminalStatus";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
+import { syncWindowTitle } from "./windowTitle";
 
 let booting: Promise<void> | undefined;
 
@@ -30,6 +31,7 @@ export function boot(): Promise<void> {
     setLivePtys(await ptyList());
     await getCurrentWindow().onCloseRequested(saveBeforeClose);
     setForgetWorkspaces(forgetWorkspaces);
+    syncWindowTitle();
     await projectsStore.getState().init();
   })();
   return booting;
