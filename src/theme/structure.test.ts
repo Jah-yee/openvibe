@@ -20,6 +20,11 @@ it("puts menus, popovers, lists, dialogs and toasts in dense glass (spec identit
   expect(index).toMatch(/\[data-sonner-toast\]\[data-styled="true"\] \{[^}]*var\(--ov-glass-strong\)[^}]*border-radius: 14px/);
 });
 
+it("docks Excalidraw's properties panel in glass, right of the tool rail (spec identité §5.7)", () => {
+  const excalidraw = readSource("theme/excalidraw.css");
+  expect(excalidraw).toMatch(/\.excalidraw \.App-menu__left \{[^}]*left: 70px;[^}]*var\(--ov-glass-strong\)[^}]*var\(--ov-blur\)[^}]*border-radius: 14px/);
+});
+
 it("stacks the title bar and the tabs: 72 px of canvas under them (spec identité §7)", () => {
   expect([TITLE_BAR_HEIGHT, TABS_HEIGHT, TOP_ROW_HEIGHT]).toEqual([38, 34, 72]);
 });

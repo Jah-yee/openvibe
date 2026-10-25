@@ -12,7 +12,7 @@ describe("railToolOf", () => {
     expect(railToolOf("freedraw")).toBe("pen");
     expect(railToolOf("eraser")).toBe("eraser");
     expect(railToolOf("image")).toBe("image");
-    expect(railToolOf("hand")).toBeNull();
+    expect(railToolOf("hand")).toBe("hand");
   });
 });
 

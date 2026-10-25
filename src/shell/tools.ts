@@ -1,5 +1,5 @@
-/** Buttons of the left rail (spec habillage §5.3). */
-export type RailTool = "selection" | "shapes" | "text" | "pen" | "eraser" | "image";
+/** Buttons of the tool rail (spec identité §5.4). */
+export type RailTool = "selection" | "hand" | "shapes" | "text" | "pen" | "eraser" | "image";
 
 /** Excalidraw tools of the SHAPES menu. */
 export type ShapeTool = "rectangle" | "ellipse" | "diamond" | "line" | "arrow" | "frame";
@@ -10,6 +10,8 @@ export function railToolOf(tool: string): RailTool | null {
     case "selection":
     case "lasso":
       return "selection";
+    case "hand":
+      return "hand";
     case "rectangle":
     case "ellipse":
     case "diamond":

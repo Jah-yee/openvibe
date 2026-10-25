@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/theme";
 import { displayColorFor, sceneColorFor } from "@/theme/sceneColors";
 import { PEN_COLORS, PEN_WIDTHS } from "./tools";
-import { RoundButton } from "./ui";
+import { ToolButton } from "./buttons";
 
 /** Pen tool with its COLOR and WIDTH menu (spec habillage §5.3). */
 export function PenMenu({ active }: { active: boolean }) {
@@ -37,9 +37,9 @@ export function PenMenu({ active }: { active: boolean }) {
       }}
     >
       <PopoverTrigger asChild>
-        <RoundButton label="Stylo (P)" active={active}>
+        <ToolButton label="Stylo (P)" active={active}>
           <PenLine />
-        </RoundButton>
+        </ToolButton>
       </PopoverTrigger>
       <PopoverContent side="right" className="w-60">
         <p className="ov-label mb-2">Couleur</p>

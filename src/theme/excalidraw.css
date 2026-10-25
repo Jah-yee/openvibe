@@ -63,19 +63,21 @@
   display: none !important;
 }
 
-/* The properties panel is kept, restyled and docked next to the left rail. */
+/* The properties panel is kept, in dense glass, docked right of the tool rail (spec identité §5.7). */
 .excalidraw .App-menu__left {
   position: fixed;
-  left: 76px;
+  left: 70px;
   top: 50%;
   transform: translateY(-50%);
   width: 232px;
   max-height: calc(100vh - 160px) !important;
   padding: 12px !important;
-  border: 1px solid var(--ov-line);
-  border-radius: 12px;
-  background: var(--ov-surface-2);
-  box-shadow: var(--ov-shadow);
+  background: var(--ov-glass-strong);
+  backdrop-filter: var(--ov-blur);
+  -webkit-backdrop-filter: var(--ov-blur);
+  border: 1px solid var(--ov-glass-line);
+  border-radius: 14px;
+  box-shadow: var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow);
 }
 
 .excalidraw .App-menu__left legend,

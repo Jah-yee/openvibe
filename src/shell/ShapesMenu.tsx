@@ -3,7 +3,7 @@ import { Circle, Diamond, Frame, Minus, MoveUpRight, Shapes, Square, type Lucide
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { ShapeTool } from "./tools";
-import { RoundButton } from "./ui";
+import { ToolButton } from "./buttons";
 
 const SHAPES: { tool: ShapeTool; label: string; Icon: LucideIcon }[] = [
   { tool: "rectangle", label: "Rectangle", Icon: Square },
@@ -21,9 +21,9 @@ export function ShapesMenu(props: { active: boolean; current: string; onPick: (t
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <RoundButton label="Formes" active={active}>
+        <ToolButton label="Formes" active={active}>
           <Shapes />
-        </RoundButton>
+        </ToolButton>
       </PopoverTrigger>
       <PopoverContent side="right" className="w-60">
         <p className="ov-label mb-2">Formes</p>
