@@ -8,9 +8,9 @@ export type Placement = { agent: AgentId; options: LaunchOptions } | { orchestra
 interface UiState {
   placing: Placement | null;
   setPlacing: (placing: Placement | null) => void;
-  /** The running terminal whose closing waits for confirmation. */
-  closing: string | null;
-  setClosing: (nodeId: string | null) => void;
+  /** The running agents whose closing waits for confirmation, and what goes with them once confirmed. */
+  closing: { agents: string[]; remove: string[] } | null;
+  setClosing: (closing: { agents: string[]; remove: string[] } | null) => void;
   /** The group whose closing waits for confirmation (some of its agents run). */
   closingGroup: string | null;
   setClosingGroup: (groupId: string | null) => void;

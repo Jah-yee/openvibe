@@ -247,6 +247,7 @@ Au chargement d'un workspace contenant au moins un terminal arrêté, un toast p
 ### 7.5 Fermer et dupliquer
 
 - Fermer un terminal dont le processus vit : dialogue « Fermer Isis ? — Isis est en cours. La fermer met fin à sa session. » (ou « …est prête. » si inactive), Annuler / Fermer l'agent (rouge). Terminal arrêté : fermeture directe (annulable par Ctrl+Z comme aujourd'hui).
+- Un agent en cours ne quitte jamais le canvas sans cette confirmation, quelle qu'en soit la cause : Ctrl+Z ou « Annuler » qui défait son lancement, Rétablir, Suppr, la gomme, l'import d'une scène. Il est remis en place tel qu'il était, hors de l'historique (avec son groupe si celui-ci partait ou rétrécissait avec lui), puis le dialogue s'ouvre : « Fermer Isis ? », « Fermer 2 agents ? » s'ils sont plusieurs, « Fermer le groupe Backend ? » quand tout le groupe partait. Refuser le garde ; l'étape d'annulation est consommée. (Amendement après J8b.)
 - Dupliquer : crée un nouveau terminal à droite du nœud (même agent, dossier, shell, groupe ; nouveau prénom ; Claude : nouvelle session) et le lance. Dans un groupe, la copie prend la première case libre de la grille du groupe (§11.3).
 - La duplication et le copier-coller par Excalidraw d'un élément terminal créent désormais un vrai nouveau terminal (nouvel identifiant, nouvelle charge utile) au lieu d'un nœud vide (correction du mineur du plan 2).
 

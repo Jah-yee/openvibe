@@ -2,6 +2,7 @@ import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { groupInfoOf, groupOf, insertIntoFrame } from "@/canvas/groups";
+import { allowRemoval } from "@/canvas/removalGuard";
 import { createNodeElement, nodeKindOf } from "@/canvas/nodeElement";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import type { TerminalPayload } from "@/nodes/types";
@@ -117,20 +118,29 @@ function alignCopies(elements: readonly ExcalidrawElement[], copyIds: ReadonlySe
   return result;
 }
 
-/** Deletes a node element; undo brings it back (spec V1 §8.5). */
-export function removeNode(nodeId: string) {
+/**
+ * Deletes elements in one step, their closing confirmed or needing none: the
+ * removal guard lets them go. Undo brings them back, stopped (spec V1 §8.5).
+ */
+export function removeNodes(ids: readonly string[]) {
   const api = canvasStore.getState().api;
   if (!api) return;
+  allowRemoval(ids);
+  const removed = new Set(ids);
   api.updateScene({
     elements: api
       .getSceneElementsIncludingDeleted()
-      .map((e) => (e.id === nodeId ? newElementWith(e, { isDeleted: true }) : e)),
+      .map((e) => (removed.has(e.id) && !e.isDeleted ? newElementWith(e, { isDeleted: true }) : e)),
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
 }
 
+export function removeNode(nodeId: string) {
+  removeNodes([nodeId]);
+}
+
 /** "Fermer" of the header: a running agent asks for confirmation first (spec habillage §7.5). */
 export function requestClose(nodeId: string) {
-  if (isRunning(nodeId)) uiStore.getState().setClosing(nodeId);
+  if (isRunning(nodeId)) uiStore.getState().setClosing({ agents: [nodeId], remove: [nodeId] });
   else removeNode(nodeId);
 }

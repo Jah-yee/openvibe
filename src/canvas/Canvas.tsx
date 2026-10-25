@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CaptureUpdateAction, Excalidraw, getSceneVersion, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -15,11 +15,14 @@ import { onFlushAll } from "@/lib/flush";
 import { NodeHost } from "@/nodes/NodeHost";
 import { disposeTerminal, focusTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
+import { isRunning } from "@/store/terminalStatus";
+import { uiStore } from "@/store/ui";
 import { createActivationTracker } from "./activation";
 import { canvasStore, fullSizeView, viewFrom } from "./canvasStore";
 import { framesFromScene } from "./groups";
 import { isOpenVibeLink } from "./nodeElement";
 import { classifyAddedNodes } from "./nodeCopies";
+import { createRemovalGuard, type RemovalVerdict } from "./removalGuard";
 import { DotGrid } from "./overlay/DotGrid";
 import { GroupBackdrops } from "./overlay/GroupBackdrops";
 import { GroupLabels } from "./overlay/GroupLabels";
@@ -58,6 +61,9 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const theme = useTheme();
   const initialData = useMemo(() => withSceneDefaults(scene.initialData), [scene]);
+  // A running agent never leaves unasked (retours J8b); sceneSync tells which nodes left.
+  const guardRemovals = useMemo(() => createRemovalGuard(isRunning, scene.initialData.elements ?? []), [scene]);
+  const removedNow = useRef<string[]>([]);
 
   // The shell (rails, zoom, panels) drives the Excalidraw instance on screen.
   useEffect(() => {
@@ -101,7 +107,9 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
             added.restored.forEach((id) => void nodesStore.getState().persist(id).catch(reportSaveError));
             if (added.copies.length) void adoptCopies(workspaceId, added.copies).catch(reportSaveError);
           },
-          onNodesRemoved: (ids) => ids.forEach(disposeTerminal),
+          onNodesRemoved: (ids) => {
+            removedNow.current = ids;
+          },
         },
       ),
     [workspaceId, scene],
@@ -134,6 +142,9 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
   const onChange = useCallback(
     (elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       sync.onChange(elements, appState, files, getSceneVersion(elements));
+      const verdict = guardRemovals(elements, removedNow.current);
+      removedNow.current = [];
+      settleRemovals(verdict);
       canvasStore.getState().setView(viewFrom(appState));
       canvasStore.getState().setFrames(framesFromScene(elements));
       canvasStore.getState().setNodeIds(liveNodeIds(elements));
@@ -144,7 +155,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       // Deferred: changing the view from inside onChange would re-enter it.
       if (activated && api) requestAnimationFrame(() => showAtFullSize(api, activated));
     },
-    [sync, trackActivation, api],
+    [sync, guardRemovals, trackActivation, api],
   );
 
   return (
@@ -178,6 +189,30 @@ function showAtFullSize(api: ExcalidrawImperativeAPI, nodeId: string) {
   const element = api.getSceneElements().find((e) => e.id === nodeId);
   if (!element) return;
   api.updateScene({ appState: fullSizeView(element, api.getAppState()) });
+}
+
+/**
+ * Frees the terminals that may go; puts back the running agents that left
+ * unasked, as they were and outside the undo history, then asks (retours J8b).
+ */
+function settleRemovals({ dispose, restore, ask }: RemovalVerdict) {
+  dispose.forEach(disposeTerminal);
+  if (restore.length === 0) return;
+  // Deferred: changing the scene from inside onChange would re-enter it.
+  requestAnimationFrame(() => {
+    const api = canvasStore.getState().api;
+    if (!api) return;
+    const current = api.getSceneElementsIncludingDeleted();
+    const now = new Map(current.map((e) => [e.id, e]));
+    // The earlier state, its version above the one it replaces.
+    const back = new Map(restore.map((e) => [e.id, { ...newElementWith(e, {}, true), version: Math.max(e.version, now.get(e.id)?.version ?? 0) + 1 }]));
+    api.updateScene({
+      elements: [...current.map((e) => back.get(e.id) ?? e), ...restore.filter((e) => !now.has(e.id)).map((e) => back.get(e.id)!)],
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+    if (ask && "group" in ask) uiStore.getState().setClosingGroup(ask.group);
+    else if (ask) uiStore.getState().setClosing(ask);
+  });
 }
 
 /** Hand-drawn wires get their mark, outside the undo history (spec habillage §13). */

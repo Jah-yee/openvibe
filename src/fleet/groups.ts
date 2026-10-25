@@ -2,6 +2,7 @@ import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { createGroupFrame, isGroup } from "@/canvas/groups";
+import { allowRemoval } from "@/canvas/removalGuard";
 import { createNodeElement } from "@/canvas/nodeElement";
 import type { AgentId } from "@/ipc/pty";
 import { newTerminalPayload } from "@/nodes/terminal/launch";
@@ -108,10 +109,12 @@ export function ungroup(groupId: string) {
   });
 }
 
-/** "Fermer le groupe": the frame and its terminals go; one undo brings them back, stopped. */
+/** "Fermer le groupe", confirmed: the frame and its terminals go; one undo brings them back, stopped. */
 export function closeGroup(groupId: string) {
   const api = canvasStore.getState().api;
   if (!api) return;
+  const going = api.getSceneElementsIncludingDeleted().filter((e) => !e.isDeleted && (e.id === groupId || e.frameId === groupId));
+  allowRemoval(going.map((e) => e.id));
   api.updateScene({
     elements: api
       .getSceneElementsIncludingDeleted()

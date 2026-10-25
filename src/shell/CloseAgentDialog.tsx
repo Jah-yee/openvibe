@@ -7,22 +7,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { removeNode } from "@/fleet/terminals";
+import { removeNodes } from "@/fleet/terminals";
 import { useNodes } from "@/store/nodes";
 import { uiStore, useUi } from "@/store/ui";
 
-/** "Fermer Isis ?" before closing a running agent (spec habillage §7.5). */
+/**
+ * "Fermer Isis ?" before closing a running agent (spec habillage §7.5), or
+ * "Fermer 2 agents ?" when an undo or Suppr took several at once (retours J8b).
+ */
 export function CloseAgentDialog() {
   const closing = useUi((s) => s.closing);
-  const name = useNodes((s) => (closing ? s.nodes[closing]?.payload.name : undefined)) || "cet agent";
+  const nodes = useNodes((s) => s.nodes);
+  const names = (closing?.agents ?? []).map((id) => nodes[id]?.payload.name || "Agent");
   const close = () => uiStore.getState().setClosing(null);
+  const one = names.length <= 1;
+  const name = names[0] ?? "cet agent";
 
   return (
     <Dialog open={closing !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Fermer {name} ?</DialogTitle>
-          <DialogDescription>{name} tourne encore. La fermer met fin à sa session.</DialogDescription>
+          <DialogTitle>{one ? `Fermer ${name} ?` : `Fermer ${names.length} agents ?`}</DialogTitle>
+          <DialogDescription>
+            {one
+              ? `${name} tourne encore. La fermer met fin à sa session.`
+              : `Ces agents tournent encore ; les fermer met fin à leur session : ${names.join(", ")}.`}
+          </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={close}>
@@ -31,11 +41,11 @@ export function CloseAgentDialog() {
           <Button
             className="bg-ov-danger text-white hover:bg-ov-danger/90"
             onClick={() => {
-              if (closing) removeNode(closing);
+              if (closing) removeNodes(closing.remove);
               close();
             }}
           >
-            Fermer l'agent
+            {one ? "Fermer l'agent" : "Fermer les agents"}
           </Button>
         </DialogFooter>
       </DialogContent>
