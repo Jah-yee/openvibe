@@ -3,8 +3,12 @@ import { openPalette } from "@/commands/paletteState";
 import { commandContext } from "@/commands/registry";
 import { useProjects } from "@/store/projects";
 
-/** « ⌕ Rechercher dans <projet>   Ctrl+P » at the center of the title bar (spec identité §5.1): it opens « Aller à ». */
+/**
+ * « ⌕ Rechercher dans <projet>   Ctrl+P » at the center of a project's title
+ * bar, « Rechercher un projet » at home (spec identité §5.1, §5.9): it opens « Aller à ».
+ */
 export function SearchField() {
+  const home = useProjects((s) => s.view !== "project");
   const name = useProjects((s) => s.projects.find((p) => p.id === s.activeId)?.name ?? "");
   return (
     <button
@@ -15,7 +19,7 @@ export function SearchField() {
       className="flex h-[26px] w-[440px] max-w-[34vw] items-center gap-2 rounded-[8px] border border-ov-glass-line bg-ov-field px-2.5 text-[12.5px] text-ov-text-3 transition-colors hover:text-ov-text-2"
     >
       <Search className="size-3.5 shrink-0" />
-      <span className="truncate">Rechercher dans {name}</span>
+      <span className="truncate">{home ? "Rechercher un projet" : `Rechercher dans ${name}`}</span>
       <span className="ml-auto shrink-0 font-mono text-[11px]">Ctrl+P</span>
     </button>
   );

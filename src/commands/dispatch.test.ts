@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readSource } from "@/theme/cssBlocks";
 import type { Command, CommandContext } from "./command";
 import { installShortcuts } from "./dispatch";
+import { openPalette, paletteStore } from "./paletteState";
 
 vi.mock("./registry", () => ({ COMMANDS: [], commandContext: () => ({}) }));
 
@@ -58,6 +59,13 @@ it("lets every key through while a modal dialog is open", () => {
   expect(press({ key: "Tab", ctrlKey: true }).defaultPrevented).toBe(false);
   expect(run).not.toHaveBeenCalled();
   expect(reachedXterm).toHaveBeenCalled();
+});
+
+it("closes the palette before a command that moves the keyboard: no key typed after it reaches an agent", () => {
+  openPalette("goTo", ctx);
+  press({ key: "Tab", ctrlKey: true });
+  expect(run).toHaveBeenCalled();
+  expect(paletteStore.getState().open).toBe(false);
 });
 
 it("stops listening once uninstalled", () => {

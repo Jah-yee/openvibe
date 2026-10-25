@@ -1,4 +1,5 @@
 import { commandFor, runCommand, type Command, type CommandContext } from "./command";
+import { closePalette, paletteStore } from "./paletteState";
 import { COMMANDS, commandContext } from "./registry";
 import { isModalOpen, shortcutOf } from "./shortcuts";
 
@@ -21,6 +22,9 @@ export function installShortcuts(
     if (!command) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    // A command that moves the keyboard closes the palette first: an open
+    // palette never shows while the keys go to a terminal (Échap included).
+    if (paletteStore.getState().open && !command.id.startsWith("palette.")) closePalette();
     runCommand(command, ctx);
   };
   target.addEventListener("keydown", listener, { capture: true });

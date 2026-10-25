@@ -53,6 +53,7 @@ export function useGoToData(): { items: GoToItem[]; loading: boolean } {
   }, [home, workspaces, activeWorkspaceId]);
 
   const live = Object.fromEntries(workspaces.map((w) => [w.id, countRunning(nodes, statuses, [w.id])]));
-  const items = goToItems({ home, projects, activeProjectId, workspaces, activeWorkspaceId, scenes, nodes, live });
+  // At home no project is open, even if « Tous les projets… » kept the last one's id.
+  const items = goToItems({ home, projects, activeProjectId: home ? null : activeProjectId, workspaces, activeWorkspaceId, scenes, nodes, live });
   return { items, loading: !home && workspaces.some((w) => !(w.id in scenes)) };
 }

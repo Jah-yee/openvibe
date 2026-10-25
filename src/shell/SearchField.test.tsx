@@ -16,7 +16,7 @@ vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
 beforeEach(() => {
   mockIPC(() => undefined);
   paletteStore.setState({ open: false, query: "", context: null, returnFocus: null });
-  projectsStore.setState({ projects: [{ id: "p1", name: "mk-webapp", path: "C:/code/mk-webapp" }], activeId: "p1" } as never);
+  projectsStore.setState({ view: "project", projects: [{ id: "p1", name: "mk-webapp", path: "C:/code/mk-webapp" }], activeId: "p1" } as never);
 });
 afterEach(() => {
   clearMocks();
@@ -41,7 +41,18 @@ it("names the project and its shortcut, and opens « Aller à » (spec identité
   await act(async () => root.unmount());
 });
 
-it("sits in the project's title bar, the palette being mounted once for the whole app", () => {
+it("reads « Rechercher un projet » at home (spec identité §5.9)", async () => {
+  projectsStore.setState({ view: "home" } as never);
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<SearchField />));
+  expect(host.querySelector("button")!.textContent).toContain("Rechercher un projet");
+  await act(async () => root.unmount());
+});
+
+it("sits in the title bar of a project and of the home screen, the palette being mounted once for the whole app", () => {
   expect(readSource("shell/ProjectView.tsx")).toContain("center={<SearchField />}");
+  expect(readSource("home/HomeScreen.tsx")).toContain("center={<SearchField />}");
   expect(readSource("App.tsx")).toContain("<Palette />");
 });

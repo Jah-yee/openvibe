@@ -98,6 +98,32 @@ describe("the palette (spec fenêtre §7.1, §7.2)", () => {
     expect(rows.some((r) => r?.startsWith("Rechercher une fonction"))).toBe(false);
   });
 
+  it("keeps Tab in the field: the keyboard never leaves an open palette", async () => {
+    await act(async () => openPalette("goTo", home));
+    const tab = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
+    await act(async () => input().dispatchEvent(tab));
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(input());
+  });
+
+  it("reopens on « Aller à » with the keyboard in its field when chosen from the functions", async () => {
+    const xterm = document.createElement("textarea");
+    document.body.append(xterm);
+    xterm.focus();
+    await act(async () => openPalette("functions", busy));
+    await act(async () => setPaletteQuery("> aller"));
+    await act(async () => press("Enter"));
+    expect(paletteStore.getState()).toMatchObject({ open: true, query: "" });
+    expect(document.activeElement).toBe(input());
+  });
+
+  it("lists every project at home, the one just left included", async () => {
+    // « Tous les projets… » keeps the last project's id: it is no longer open.
+    projectsStore.setState({ view: "home", activeId: "p1" } as never);
+    await act(async () => openPalette("goTo", home));
+    expect(items().map((i) => i.textContent)).toEqual(["apiC:/code/api", "mk-webappC:/code/mk-webapp"]);
+  });
+
   it("lists the readable workspaces when one is unreadable (spec fenêtre §9)", async () => {
     const error = vi.spyOn(toast, "error").mockImplementation(() => "");
     mockIPC((cmd, args) => {

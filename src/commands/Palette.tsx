@@ -19,7 +19,8 @@ const ITEM =
 /** The palette (spec fenêtre §7.1), under the title bar, centered; rendered only while open. */
 export function Palette() {
   const open = usePalette((s) => s.open);
-  return open ? <PaletteBody /> : null;
+  const openings = usePalette((s) => s.openings);
+  return open ? <PaletteBody key={openings} /> : null;
 }
 
 function PaletteBody() {
@@ -53,6 +54,8 @@ function PaletteBody() {
               e.preventDefault();
               closePalette();
             }
+            // The keyboard never leaves an open palette.
+            if (e.key === "Tab") e.preventDefault();
           }}
         >
           <Command.Input

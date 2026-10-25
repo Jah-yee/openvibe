@@ -11,9 +11,11 @@ interface PaletteState {
   context: CommandContext | null;
   /** Where the keyboard was when it opened, and goes back when it closes. */
   returnFocus: HTMLElement | null;
+  /** Counts openings: a palette closed then reopened at once (« Aller à… » from the functions) is a new one, with the keyboard. */
+  openings: number;
 }
 
-export const paletteStore = createStore<PaletteState>()(() => ({ open: false, query: "", context: null, returnFocus: null }));
+export const paletteStore = createStore<PaletteState>()(() => ({ open: false, query: "", context: null, returnFocus: null, openings: 0 }));
 
 export function usePalette<T>(selector: (state: PaletteState) => T): T {
   return useStore(paletteStore, selector);
@@ -38,7 +40,13 @@ export function openPalette(mode: PaletteMode, context: CommandContext) {
     return;
   }
   const active = document.activeElement;
-  paletteStore.setState({ open: true, query, context, returnFocus: active instanceof HTMLElement ? active : null });
+  paletteStore.setState((s) => ({
+    open: true,
+    query,
+    context,
+    returnFocus: active instanceof HTMLElement ? active : null,
+    openings: s.openings + 1,
+  }));
 }
 
 export function setPaletteQuery(query: string) {
