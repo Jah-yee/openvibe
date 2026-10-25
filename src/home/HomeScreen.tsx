@@ -4,6 +4,7 @@ import { FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { DotGridBackground } from "@/canvas/overlay/DotGrid";
 import { dotGrid } from "@/canvas/overlay/grid";
+import { TOP_ROW_HEIGHT } from "@/shell/layout";
 import { PillButton } from "@/shell/ui";
 import { projectsStore, useProjects } from "@/store/projects";
 import { ProjectCard } from "./ProjectCard";
@@ -28,7 +29,7 @@ export function HomeScreen() {
   return (
     <div className="relative h-screen w-screen overflow-auto">
       <DotGridBackground {...dotGrid({ scrollX: 0, scrollY: 0, zoom: 1 })} />
-      <div className="relative mx-auto max-w-5xl px-8 py-12">
+      <div className="relative mx-auto max-w-5xl px-8 pb-12" style={{ paddingTop: TOP_ROW_HEIGHT + 8 }}>
         <header className="mb-10 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="ov-orb size-8" aria-hidden />

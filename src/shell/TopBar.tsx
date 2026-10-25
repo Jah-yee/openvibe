@@ -4,6 +4,7 @@ import { LiveCount } from "./LiveCount";
 import { ProjectPicker } from "./ProjectPicker";
 import { SettingsMenu } from "./SettingsMenu";
 import { PillButton } from "./ui";
+import { WindowControls } from "./WindowControls";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 
 /** Floating pills over the canvas, no band (spec habillage §5.2). */
@@ -23,6 +24,7 @@ export function TopBar() {
       <div className="pointer-events-auto flex shrink-0 items-center gap-2">
         <LiveCount />
         <SettingsMenu />
+        <WindowControls />
       </div>
     </div>
   );

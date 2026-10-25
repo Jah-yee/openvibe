@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { boot } from "@/app/boot";
 import { HomeScreen } from "@/home/HomeScreen";
+import { DragStrip } from "@/shell/DragStrip";
 import { ProjectView } from "@/shell/ProjectView";
+import { WindowCorner } from "@/shell/WindowControls";
 import { useProjects } from "@/store/projects";
 
 export default function App() {
@@ -22,6 +24,8 @@ export default function App() {
           {view === "error" ? `Impossible de charger les projets : ${error}` : "Chargement…"}
         </div>
       )}
+      <DragStrip />
+      {view !== "project" && <WindowCorner />}
       <Toaster theme="dark" position="bottom-right" />
     </>
   );
