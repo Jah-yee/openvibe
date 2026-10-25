@@ -2,6 +2,10 @@
 
 Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-openvibe-habillage-et-flotte-design.md` (habillage Symvibe et flotte d'agents). Les références « vidéo » renvoient aux démos de Symvibe analysées le 2026-10-24.
 
+## Priorité haute
+
+- **Reprendre une session Claude qui n'a jamais eu de conversation** (constaté après J8b, le 2026-10-26) : « Relancer » de la palette, « Reprendre la session » de l'en-tête et « Reprendre toutes les conversations » lancent `claude --resume <id>` (`src-tauri/src/pty/shell.rs`, `ClaudeMode::Resume`). Si l'agent n'a encore reçu aucun message, Claude n'a rien enregistré sous cet identifiant : il affiche « No conversation found with session ID » et rend la main au shell nu. Correctif proposé : avant le lancement, vérifier que la conversation existe (fichier `<id>.jsonl` dans `~/.claude/projects/<dossier>/`) et, sinon, démarrer une nouvelle session sous le même identifiant (`--session-id <id>`).
+
 ## Fonctionnalités inspirées de Symvibe
 
 ### Widgets du canvas (remplacent les nœuds Note, Kanban et Git Watcher de la spec V1)
