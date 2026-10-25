@@ -28,3 +28,15 @@ it("scrolls its header and cards below the window's drag strip, never under it",
   await act(async () => root.unmount());
   host.remove();
 });
+
+it("shows the wave logo next to the name", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<HomeScreen />));
+  const logo = host.querySelector("header svg")!;
+  expect(logo.querySelector("path")!.getAttribute("d")).toBe("M10 36 C 18 14, 26 14, 32 32 S 46 50, 54 26");
+  expect(logo.querySelector("path")!.getAttribute("stroke")).toBe("#D97757");
+  await act(async () => root.unmount());
+  host.remove();
+});

@@ -1,5 +1,6 @@
 /// <reference types="node" />
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /**
  * Test helper: a source file of `src/`, as text. Vitest does not load
@@ -7,6 +8,15 @@ import { readFileSync } from "node:fs";
  */
 export function readSource(pathInSrc: string): string {
   return readFileSync(new URL(`../${pathInSrc}`, import.meta.url), "utf8");
+}
+
+/** Test helper: every `.ts`, `.tsx` and `.css` file of `src/` but the tests, by path, as text. */
+export function sourceFiles(): Record<string, string> {
+  const src = fileURLToPath(new URL("../", import.meta.url));
+  const files = readdirSync(src, { recursive: true, encoding: "utf8" })
+    .map((path) => path.replace(/\\/g, "/"))
+    .filter((path) => /\.(ts|tsx|css)$/.test(path) && !/\.test\.tsx?$/.test(path));
+  return Object.fromEntries(files.map((path) => [path, readFileSync(`${src}${path}`, "utf8")]));
 }
 
 /**

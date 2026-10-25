@@ -152,29 +152,9 @@
       radial-gradient(520px 420px at 62% 12%, var(--ov-glow-3), transparent 70%);
   }
 
-  /* Pills of the bottom row: dark fill, multicolor gradient outline. */
+  /* Chips of the bottom row, until R2 replaces them (spec identité §5.11). */
   .ov-chip {
-    border: 1px solid transparent;
-    background:
-      linear-gradient(var(--ov-surface), var(--ov-surface)) padding-box,
-      linear-gradient(90deg, #4fc2c2, #d9b35a, #f4602e, #e07a9a, #a57be0) border-box;
-  }
-
-  /* The orange orb of the home screen, the command bar and the orchestrator. */
-  .ov-orb {
-    border-radius: 9999px;
-    background: radial-gradient(circle at 35% 30%, #ffd48a, #f4602e 55%, #8a2a10);
-    box-shadow: 0 0 18px rgb(244 96 46 / 0.45);
-  }
-
-  /* The command bar's and the orchestrator's orb turn slowly (spec habillage §5.6). */
-  .ov-orb-live {
-    animation: ov-orb-spin 12s linear infinite;
-  }
-
-  @keyframes ov-orb-spin {
-    to {
-      transform: rotate(360deg);
-    }
+    border: 1px solid var(--ov-line);
+    background: var(--ov-surface);
   }
 }

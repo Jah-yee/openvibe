@@ -42,7 +42,9 @@ export function CommandBar() {
 
   return (
     <div className="pointer-events-auto flex w-[560px] items-end gap-3 rounded-2xl bg-ov-command px-3 py-2 shadow-ov">
-      <span className="ov-orb ov-orb-live mb-1.5 size-5 shrink-0" />
+      <span className="mb-1.5 shrink-0 text-base font-bold text-ov-accent" aria-hidden>
+        ›
+      </span>
       <CommandInput
         agents={agents}
         groups={groups}

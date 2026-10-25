@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DotGridBackground } from "@/canvas/overlay/DotGrid";
 import { dotGrid } from "@/canvas/overlay/grid";
 import { TOP_ROW_HEIGHT } from "@/shell/layout";
+import { Logo } from "@/shell/Logo";
 import { PillButton } from "@/shell/ui";
 import { projectsStore, useProjects } from "@/store/projects";
 import { ProjectCard } from "./ProjectCard";
@@ -34,7 +35,7 @@ export function HomeScreen() {
         <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-2">
           <header className="mb-10 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="ov-orb size-8" aria-hidden />
+              <Logo size={32} />
               <h1 className="text-xl font-semibold text-ov-text">OpenVibe</h1>
             </div>
             <PillButton
