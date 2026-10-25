@@ -39,6 +39,7 @@
   --color-ov-on-role: var(--ov-on-role);
   --color-ov-wait: var(--ov-wait);
   --color-ov-ok: var(--ov-ok);
+  --color-ov-tab-on: var(--ov-tab-on);
   --shadow-ov: var(--ov-shadow);
   --shadow-ov-float: var(--ov-float-shadow);
   --color-sidebar-ring: var(--sidebar-ring);
