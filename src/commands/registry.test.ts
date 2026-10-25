@@ -11,7 +11,7 @@ import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
 import { commandFor, runCommand, type Command, type CommandContext } from "./command";
-import { paletteStore } from "./palette";
+import { paletteStore } from "./paletteState";
 import { COMMANDS, commandContext } from "./registry";
 
 vi.mock("@/canvas/arrive", () => ({ arrive: vi.fn() }));

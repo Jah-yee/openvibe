@@ -7,7 +7,7 @@ import { nodesStore } from "@/store/nodes";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
 import type { Command, CommandContext } from "./command";
-import { openPalette } from "./palette";
+import { openPalette } from "./paletteState";
 
 const inProject = (ctx: CommandContext) => ctx.project;
 const withTerminals = (ctx: CommandContext) => ctx.project && ctx.terminalCount > 0;

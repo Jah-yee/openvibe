@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CommandContext } from "./command";
-import { closePalette, modeOf, openPalette, paletteStore, setPaletteQuery, stripPrefix } from "./palette";
+import { closePalette, modeOf, openPalette, paletteStore, setPaletteQuery, stripPrefix } from "./paletteState";
 
 const ctx: CommandContext = { project: true, workspaceId: "w1", terminalCount: 2, terminalId: "isis" };
 
