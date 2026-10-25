@@ -13,14 +13,18 @@ beforeEach(() => {
 });
 afterEach(() => clearMocks());
 
-it("starts its header below the window's drag strip, at any width", async () => {
+it("scrolls its header and cards below the window's drag strip, never under it", async () => {
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
   await act(async () => root.render(<HomeScreen />));
-  const content = host.querySelector("header")!.parentElement!;
-  // Spec fenêtre §4.4: "Ajouter un projet" never sits under the strip or the window buttons.
-  expect(parseFloat(content.style.paddingTop)).toBeGreaterThan(TOP_ROW_HEIGHT);
+  // Spec fenêtre §4.4: "Ajouter un projet", the cards and the scrollbar never sit
+  // under the strip or the window buttons, even scrolled: the scroller itself
+  // starts below the top row, so nothing it holds can scroll into it.
+  let scroller = host.querySelector("header")!.parentElement;
+  while (scroller && !scroller.className.includes("overflow-auto")) scroller = scroller.parentElement;
+  expect(scroller).not.toBeNull();
+  expect(parseFloat(scroller!.style.top)).toBeGreaterThanOrEqual(TOP_ROW_HEIGHT);
   await act(async () => root.unmount());
   host.remove();
 });

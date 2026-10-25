@@ -27,35 +27,38 @@ export function HomeScreen() {
   }, []);
 
   return (
-    <div className="relative h-screen w-screen overflow-auto">
+    <div className="relative h-screen w-screen">
       <DotGridBackground {...dotGrid({ scrollX: 0, scrollY: 0, zoom: 1 })} />
-      <div className="relative mx-auto max-w-5xl px-8 pb-12" style={{ paddingTop: TOP_ROW_HEIGHT + 8 }}>
-        <header className="mb-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="ov-orb size-8" aria-hidden />
-            <h1 className="text-xl font-semibold text-ov-text">OpenVibe</h1>
-          </div>
-          <PillButton
-            className="border-ov-accent bg-ov-accent text-white hover:bg-ov-accent/90"
-            onClick={() => void addProject()}
-          >
-            <FolderPlus /> Ajouter un projet
-          </PillButton>
-        </header>
-        {projects.length === 0 ? (
-          <div className="mt-24 grid place-items-center gap-3 text-center">
-            <p className="text-lg font-semibold text-ov-text">Aucun projet</p>
-            <p className="max-w-sm text-sm text-ov-text-2">
-              Un projet est un dossier de dépôt : tes agents y démarrent et la puce git le suit.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
-            {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        )}
+      {/* The scroller starts below the window's drag strip: scrolled cards never slide under it. */}
+      <div className="absolute inset-x-0 bottom-0 overflow-auto" style={{ top: TOP_ROW_HEIGHT }}>
+        <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-2">
+          <header className="mb-10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="ov-orb size-8" aria-hidden />
+              <h1 className="text-xl font-semibold text-ov-text">OpenVibe</h1>
+            </div>
+            <PillButton
+              className="border-ov-accent bg-ov-accent text-white hover:bg-ov-accent/90"
+              onClick={() => void addProject()}
+            >
+              <FolderPlus /> Ajouter un projet
+            </PillButton>
+          </header>
+          {projects.length === 0 ? (
+            <div className="mt-24 grid place-items-center gap-3 text-center">
+              <p className="text-lg font-semibold text-ov-text">Aucun projet</p>
+              <p className="max-w-sm text-sm text-ov-text-2">
+                Un projet est un dossier de dépôt : tes agents y démarrent et la puce git le suit.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
+              {projects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
