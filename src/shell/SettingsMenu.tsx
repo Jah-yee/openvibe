@@ -3,10 +3,15 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Download, ImageDown, Info, Settings, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
+import { readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -23,6 +28,7 @@ function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure
 /** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2). */
 export function SettingsMenu() {
   const name = useWorkspaces((s) => s.workspaces.find((w) => w.id === s.activeId)?.name ?? "scene");
+  const { choice, transparency } = useThemeSettings();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -31,6 +37,16 @@ export function SettingsMenu() {
         </RoundButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel className="ov-label">Thème</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={choice} onValueChange={(value) => void setThemeChoice(readThemeChoice(value))}>
+          <DropdownMenuRadioItem value="system">Système</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">Clair (Ivoire)</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">Sombre (Argile)</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuCheckboxItem checked={transparency} onCheckedChange={(on) => void setTransparency(on === true)}>
+          Effets de transparence
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => run((api) => exportScene(api, name), "Export impossible")}>
           <Download /> Exporter la scène…
         </DropdownMenuItem>

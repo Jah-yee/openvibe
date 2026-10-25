@@ -8,6 +8,7 @@ import { terminalStatusStore } from "@/store/terminalStatus";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
+import { loadThemeSettings } from "./theme";
 import { syncWindowTitle } from "./windowTitle";
 
 let booting: Promise<void> | undefined;
@@ -19,6 +20,7 @@ let booting: Promise<void> | undefined;
  */
 export function boot(): Promise<void> {
   booting ??= (async () => {
+    await loadThemeSettings();
     await onPtyExit(({ nodeId, exitCode }) => {
       terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode });
       agentActivityStore.getState().remove(nodeId);
