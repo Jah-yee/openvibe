@@ -132,3 +132,37 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Lecture seule : l'agent corrige, l'utilisateur relit. Un fichier ne peut pas être lu hors de la racine du dépôt (chemins absolus et `..` refusés, chemin canonique vérifié). Une base qui commence par `-` est refusée : elle serait lue comme une option de git.
 - Un diff ou un fichier de plus de 1 Mo est coupé ; l'affichage s'arrête à 4 000 lignes. L'onglet Fichiers liste 400 fichiers au plus, le filtre trouve les autres.
 - git est lancé avec `--no-optional-locks` (les agents commitent dans ces dépôts) et `core.quotePath=false` (accents dans les chemins).
+
+## 6. L'usage dans la barre du haut (`feat/barre-usage`)
+
+**Demande** : « Mettre dans la barre du haut les % d'usage (Current Session, Current week (all models), Current week (Fable)) ; quand tu cliques dessus, tu as le détail (Total cost, Total duration (API), Total duration (Wall), code changes, usage by model, prompt cache, warm, CO₂ consumption, etc.). »
+
+**D'où viennent les chiffres**
+
+- Claude Code donne à sa ligne d'état (`statusLine`) un JSON par session. Il contient :
+  - les limites de l'abonnement (`rate_limits.five_hour`, `rate_limits.seven_day`), avec leur pourcentage et leur heure de remise à zéro ;
+  - le coût et les durées API et réelle (`cost`) ;
+  - les lignes ajoutées et retirées ;
+  - les jetons (`context_window`) ;
+  - le cache de prompt (`prompt_cache` : `warm`, `hit_ratio`, `expires_at`, `ttl`) ;
+  - le modèle.
+
+  Les limites n'y apparaissent qu'après la première réponse de l'API. Le tout a été vérifié dans l'app avec Claude Code 2.1.304, sur une vraie session Haiku.
+- OpenVibe donne à ses sessions Claude, par leur `--settings`, une ligne d'état `bash '<hooks>/statusline.sh' '<url>' '<ta commande>'`. Le script envoie le JSON au serveur local d'OpenVibe (`POST /status/<nœud>?t=<jeton>`), puis lance ta propre ligne d'état avec le même JSON. Ta ligne claude-carbon s'affiche donc toujours dans les terminaux, et son suivi du CO₂ continue. Sa commande, son `padding` et son `refreshInterval` sont lus dans `~/.claude/settings.json` (ou `$CLAUDE_CONFIG_DIR`).
+
+**Comportement**
+
+- Barre du haut, à gauche des compteurs d'agents : « Session 29 % » et « Semaine 53 % », chacun avec une petite barre (orange dès 70 %, rouge dès 90 %). Avant la première réponse d'un agent, on y lit « Usage ».
+- Au clic, le détail affiche :
+  - **les limites** : chacune avec sa barre et son heure de remise à zéro (« repart à 03:50 », « repart à jeu. 23:00 ») ;
+  - **les sessions d'OpenVibe depuis son ouverture** : coût total, durée API, durée réelle, lignes de code `+n −m`, et le CO₂ estimé ;
+  - **le détail par modèle** : coût, jetons d'entrée et de sortie ;
+  - **le cache de prompt de chaque session** : « chaud · 48 % · jusqu'à 01:27 », ou « froid ».
+- Le CO₂ reprend la méthode de claude-carbon (MIT) : des facteurs en gCO₂e par million de jetons d'entrée et de sortie, par famille de modèle (Fable 156/3304, Opus 78/1652, Sonnet 39/826, Haiku 10/207 ; Jegham et al. 2025). C'est un ordre de grandeur, présenté comme une estimation.
+
+**Décisions**
+
+- **« Semaine (Fable) »** : Claude Code 2.1.304 ne la transmet pas aux lignes d'état, seul `/usage` l'affiche. Le détail l'indique comme « non transmise ». Toute limite `seven_day_<modèle>` que Claude Code enverrait un jour s'affichera d'elle-même, dans la barre comme dans le détail.
+- **Pas de point d'accès non documenté** : Anthropic expose aussi l'usage à une adresse non documentée. Il faudrait y présenter le jeton OAuth de ton abonnement, lu dans `~/.claude/.credentials.json` ; OpenVibe ne s'en sert pas.
+- **Mémoire de l'app** : les sessions sont gardées en mémoire, depuis l'ouverture d'OpenVibe, et rien n'est enregistré. Les limites viennent de la dernière ligne d'état reçue, toutes sessions confondues.
+- **Sessions sans `--settings`** : une session Claude lancée hors d'OpenVibe, ou sans serveur local, ne compte pas.
