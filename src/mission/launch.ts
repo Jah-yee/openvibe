@@ -1,4 +1,6 @@
+import { showNode } from "@/canvas/arrive";
 import { canvasStore } from "@/canvas/canvasStore";
+import { pauseAgents } from "@/fleet/broadcast";
 import { GROUP_GAP, groupGrid } from "@/fleet/groupLayout";
 import { closeGroup, launchGroup } from "@/fleet/groups";
 import { defaultLaunchOptions } from "@/fleet/launchAgent";
@@ -179,7 +181,8 @@ export async function mergeMission(orchestratorId: string): Promise<string> {
   const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
   if (!mission?.worktree) return "La mission n'a pas de branche.";
   // Merged ones too: a merge with nothing new is harmless, and new commits after a merge get in (final review H2).
-  const ready = mission.members.filter((m) => m.report?.status === "termine");
+  // A handed-over agent's branch goes in through its successor's (final review H3).
+  const ready = mission.members.filter((m) => m.report?.status === "termine" && !m.handedTo);
   if (ready.length === 0) return "Rien à fusionner : aucun agent n'a rendu compte « termine ».";
   const lines: string[] = [];
   for (const member of ready) {
@@ -249,8 +252,8 @@ async function newMember(orchestratorId: string, workspaceId: string, mission: M
     await missionDiscard(mission.project, [tree]).catch(() => undefined);
     return "Le nouvel agent n'a pas pu être créé.";
   }
-  // Started now, shown or not: its sub-task waits for it.
-  if (frame) void relaunchTerminal(nodeId, payload, "new");
+  // Shown, it starts like any new agent; a second start would break its session (seen in the app, H3).
+  if (frame) showNode(nodeId);
   return { nodeId, name, task: task.title, budgetMin: task.budgetMin, linked: false, branch: tree.branch, worktree: tree.path };
 }
 
@@ -272,11 +275,29 @@ export async function reassignTask(orchestratorId: string, fromNodeId: string, t
     const found = mission.members.find((m) => sameName(m.name, target) && m.nodeId !== from.nodeId && !m.handedTo);
     if (!found) return `« ${target} » n'est pas un autre agent de la mission.`;
     if (!found.report) return `${found.name} n'a pas fini sa sous-tâche : choisis un agent qui a rendu compte, ou « nouveau ».`;
-    to = { ...found, task: task.title, budgetMin: task.budgetMin, extraMin: undefined, overdue: undefined, report: undefined, sentAt: undefined };
+    // Its entry takes the new sub-task: its finished work must be in the mission's branch first (final review H3).
+    const finished = found.report.status === "termine";
+    if (finished && !found.merged) return `${found.name} a fini « ${found.task} » mais sa branche n'est pas fusionnée : appelle fusionner d'abord.`;
+    to = {
+      ...found,
+      task: task.title,
+      budgetMin: task.budgetMin,
+      extraMin: undefined,
+      overdue: undefined,
+      report: undefined,
+      sentAt: undefined,
+      merged: undefined,
+      done: finished ? [...(found.done ?? []), found.task] : found.done,
+    };
   }
   const latest = missionOf(nodesStore.getState().nodes[orchestratorId]) ?? mission;
   const members = latest.members.map((m) => (m.nodeId === from.nodeId ? { ...m, handedTo: to.name } : m.nodeId === to.nodeId ? to : m));
   setMission(orchestratorId, { members: members.some((m) => m.nodeId === to.nodeId) ? members : [...members, to] });
+  // The previous agent stops: its sub-task is another's now (final review H3).
+  await pauseAgents([from.nodeId]).catch(() => 0);
+  if (isRunning(from.nodeId)) {
+    void ptySendText(from.nodeId, `[OpenVibe] Ta sous-tâche « ${from.task} » passe à ${to.name} : arrête-la et ne commite plus rien dessus.`).catch(() => undefined);
+  }
   void assign(orchestratorId, to, mission.name ?? "", task, Promise.resolve(), handoverText(from));
   return { name: to.name };
 }

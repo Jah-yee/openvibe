@@ -1,7 +1,7 @@
 import { pauseAgents } from "@/fleet/broadcast";
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission, reassignTask } from "@/mission/launch";
-import { NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
+import { budgetOf, NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
 import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
@@ -115,6 +115,8 @@ function describeMission(orchestratorId: string, mission: Mission): ToolResult {
           .filter((a) => !team.has(a.nodeId))
           .map((a) => ({ prenom: a.name, etat: agentState(a.nodeId) }))
       : HIDDEN_AGENTS,
+    reste_min: remainingGlobal(mission) ?? null,
+    temps_min: mission.state === "en_cours" && mission.startedAt !== undefined ? Math.floor((Date.now() - mission.startedAt) / 60_000) : null,
     erreur: mission.error ?? null,
   });
 }
@@ -136,14 +138,17 @@ function proposePlan(orchestratorId: string, mission: Mission, args: Record<stri
 function describeTeam(mission: Mission): ToolResult {
   if (!formed(mission)) return refused("L'équipe n'est pas encore formée.");
   const nodes = nodesStore.getState().nodes;
-  const minutes = (at: number | undefined) => (at === undefined ? 0 : Math.floor((Date.now() - at) / 60_000));
+  const now = Date.now();
   return json(
     mission.members.map((m) => ({
       prenom: m.name,
       sous_tache: m.task,
       etat: agentState(m.nodeId),
       etapes: terminalOf(nodes[m.nodeId])?.steps?.map((s) => `${s.title} : ${s.state}`) ?? [],
-      temps: `${minutes(m.sentAt)} / ${m.budgetMin} min`,
+      temps: `${Math.floor(spentMin(m, now))} / ${budgetOf(m)} min`,
+      depassement: m.overdue ?? 0,
+      passe_a: m.handedTo ?? null,
+      finies: m.done ?? [],
       branche: m.branch,
       compte_rendu: m.report ? { statut: m.report.status, resume: m.report.summary } : null,
       fusionne: m.merged === true,

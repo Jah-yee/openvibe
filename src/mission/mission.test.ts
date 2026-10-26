@@ -77,6 +77,9 @@ describe("the time of a mission (spec orchestrateur §8)", () => {
   it("knows what is left of the global budget, without the handed-over sub-tasks", () => {
     expect(remainingGlobal(running([member(), member({ nodeId: "n2", extraMin: 5 }), member({ nodeId: "n3", handedTo: "Isis" })], { budgetMin: 30 }))).toBe(5);
     expect(remainingGlobal(running([member()]))).toBeUndefined();
+    // A member who reported only took what it spent (final review H3).
+    const early = member({ report: { summary: "ok", status: "termine", at: 5 * min } });
+    expect(remainingGlobal(running([early, member({ nodeId: "n2" }), member({ nodeId: "n3" })], { budgetMin: 60 }))).toBe(35);
   });
 
   it("colours a budget's bar: green, orange past 80 %, red past 100 %", () => {
@@ -92,7 +95,7 @@ describe("the time of a mission (spec orchestrateur §8)", () => {
   });
 
   it("reads the time fields back", () => {
-    const saved = { state: "en_cours", maxAgents: 4, startedAt: 5, globalOverdue: true, members: [{ ...member(), extraMin: 5, overdue: 2, handedTo: "Horus" }] };
+    const saved = { state: "en_cours", maxAgents: 4, startedAt: 5, globalOverdue: true, members: [{ ...member(), extraMin: 5, overdue: 2, handedTo: "Horus", done: ["API"] }] };
     expect(readMission(saved)).toEqual(saved);
   });
 });

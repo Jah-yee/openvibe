@@ -129,7 +129,7 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
 
     it("reports the team and reads an agent's terminal", async () => {
       expect(JSON.parse(textOf(await call("chef", "equipe", {})))).toEqual([
-        expect.objectContaining({ prenom: "Isis", sous_tache: "Login", temps: "0 / 20 min", compte_rendu: null, fusionne: false }),
+        expect.objectContaining({ prenom: "Isis", sous_tache: "Login", temps: "0 / 20 min", compte_rendu: null, fusionne: false, passe_a: null, depassement: 0 }),
       ]);
       expect(textOf(await call("chef", "lire_sortie", { agent: "ISIS", lignes: 2 }))).toBe("ligne 1\nligne 2");
       expect(terminalText).toHaveBeenCalledWith("isis", 2);
@@ -162,11 +162,16 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
 
     it("extends an agent's budget from what is left of the global one (spec §7.2)", async () => {
       setMission("chef", { budgetMin: 30 });
+      // Isis reported earlier in this file: still at work here, its whole budget counts.
+      updateMember("chef", "isis", { report: undefined });
       expect(textOf(await call("chef", "prolonger", { agent: "Isis", minutes: 20 }))).toBe("Il reste 10 min sur le budget global.");
       updateMember("chef", "isis", { overdue: 1 });
       expect(textOf(await call("chef", "prolonger", { agent: "Isis", minutes: 10 }))).toBe("Isis : +10 min, budget 30 min.");
       expect(missionOf(nodesStore.getState().nodes.chef)?.members[0]).toMatchObject({ extraMin: 10 });
       expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].overdue).toBeUndefined();
+      // The orchestrator reads the time with its extensions, and what is left (final review H3).
+      expect(JSON.parse(textOf(await call("chef", "equipe", {})))[0]).toMatchObject({ temps: "0 / 30 min" });
+      expect(JSON.parse(textOf(await call("chef", "mission", {})))).toMatchObject({ reste_min: 0, temps_min: null });
       expect(await call("chef", "prolonger", { agent: "Isis", minutes: 0 })).toMatchObject({ isError: true });
       setMission("chef", { budgetMin: undefined });
     });

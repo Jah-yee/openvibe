@@ -37,6 +37,8 @@ export interface Member {
   overdue?: 1 | 2;
   /** Its sub-task went to this agent (`reattribuer`): its clock stops. */
   handedTo?: string;
+  /** Sub-tasks it finished before taking another one (`reattribuer`). */
+  done?: string[];
 }
 
 export interface Mission {
@@ -103,6 +105,7 @@ function readMember(raw: unknown): Member | null {
   if (typeof r.extraMin === "number") member.extraMin = r.extraMin;
   if (r.overdue === 1 || r.overdue === 2) member.overdue = r.overdue;
   if (typeof r.handedTo === "string") member.handedTo = r.handedTo;
+  if (Array.isArray(r.done)) member.done = r.done.filter((title): title is string => typeof title === "string");
   return member;
 }
 
@@ -206,7 +209,9 @@ export function overruns(mission: Mission, now: number): { members: Overrun[]; g
 /** What `prolonger` may still take from the global budget; undefined without one. */
 export function remainingGlobal(mission: Mission): number | undefined {
   if (mission.budgetMin === undefined) return undefined;
-  return mission.budgetMin - mission.members.filter((m) => !m.handedTo).reduce((sum, m) => sum + budgetOf(m), 0);
+  // A member who reported only took what it spent (final review H3).
+  const taken = (m: Member) => (m.report ? Math.min(budgetOf(m), Math.ceil(spentMin(m, m.report.at))) : budgetOf(m));
+  return mission.budgetMin - mission.members.filter((m) => !m.handedTo).reduce((sum, m) => sum + taken(m), 0);
 }
 
 export type BudgetTone = "ok" | "late" | "over";

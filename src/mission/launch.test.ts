@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
+import { showNode } from "@/canvas/arrive";
 import { canvasStore } from "@/canvas/canvasStore";
+import { pauseAgents } from "@/fleet/broadcast";
 import { closeGroup, launchGroup } from "@/fleet/groups";
 import { linkOrchestrator } from "@/fleet/orchestrators";
 import { addTerminal } from "@/fleet/terminals";
@@ -16,7 +18,7 @@ import { notify } from "./events";
 import { whenReady } from "./ready";
 import { cleanMission, endMission, handoverText, launchMission, mergeMission, reassignTask, subTaskText } from "./launch";
 import type { Member, Mission } from "./mission";
-import { missionOf } from "./store";
+import { missionOf, updateMember } from "./store";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("@/ipc/mission", () => ({ missionPrepare: vi.fn(), missionAddAgent: vi.fn(), missionMerge: vi.fn(), missionCleanup: vi.fn(), missionDiscard: vi.fn(() => Promise.resolve({ removed: [], kept: [] })) }));
@@ -29,6 +31,8 @@ vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), stopTer
 vi.mock("@/fleet/groups", () => ({ launchGroup: vi.fn(), closeGroup: vi.fn() }));
 vi.mock("@/fleet/orchestrators", () => ({ linkOrchestrator: vi.fn() }));
 vi.mock("@/fleet/terminals", () => ({ addTerminal: vi.fn(() => Promise.resolve("n9")) }));
+vi.mock("@/fleet/broadcast", () => ({ pauseAgents: vi.fn(() => Promise.resolve(1)) }));
+vi.mock("@/canvas/arrive", () => ({ showNode: vi.fn() }));
 vi.mock("./ready", () => ({ whenReady: vi.fn(() => Promise.resolve(true)) }));
 vi.mock("./events", () => ({ notify: vi.fn() }));
 vi.mock("./store", async (importOriginal) => ({
@@ -248,16 +252,20 @@ describe("what the final review of H2 found", () => {
 
 describe("reassignTask (spec §7.2 reattribuer)", () => {
   const report = { summary: "API faite", status: "termine" as const, at: 1 };
-  const team = () => setup({ state: "en_cours", project: "C:/code/proj", slug: "auth", frameId: "f1", members: [member("isis", "Isis", true, { task: "Login" }), member("n1", "Horus", false, { task: "API", report })] });
+  const team = () =>
+    setup({ state: "en_cours", project: "C:/code/proj", slug: "auth", frameId: "f1", members: [member("isis", "Isis", true, { task: "Login" }), member("n1", "Horus", false, { task: "API", report, merged: true })] });
 
   it("gives a sub-task to an agent who is done, with the previous one's report and branch", async () => {
     await team();
     expect(await reassignTask("chef", "isis", "horus")).toEqual({ name: "Horus" });
     const [isis, horus] = missionNow().members;
     expect(isis.handedTo).toBe("Horus");
-    expect(horus).toMatchObject({ task: "Login", budgetMin: 20, report: undefined, overdue: undefined, extraMin: undefined });
+    expect(horus).toMatchObject({ task: "Login", budgetMin: 20, report: undefined, overdue: undefined, extraMin: undefined, merged: undefined, done: ["API"] });
+    // The previous agent stops: its sub-task is another's now (final review H3).
+    expect(pauseAgents).toHaveBeenCalledWith(["isis"]);
+    expect(ptySendText).toHaveBeenCalledWith("isis", "[OpenVibe] Ta sous-tâche « Login » passe à Horus : arrête-la et ne commite plus rien dessus.");
     await vi.waitFor(() => expect(ptySendText).toHaveBeenCalledWith("n1", expect.stringContaining("Reprise du travail d'Isis")));
-    const text = vi.mocked(ptySendText).mock.calls[0][1];
+    const text = vi.mocked(ptySendText).mock.calls.find(([id]) => id === "n1")![1];
     expect(text.startsWith(subTaskText("Auth", plan[0], "openvibe/auth-n1"))).toBe(true);
     expect(text).toContain("openvibe/auth-isis");
     expect(handoverText(member("n1", "Horus", false, { report }))).toContain("« API faite »");
@@ -270,6 +278,12 @@ describe("reassignTask (spec §7.2 reattribuer)", () => {
     expect(await reassignTask("chef", "isis", "Isis")).toContain("n'est pas un autre agent");
     expect(await reassignTask("chef", "isis", "Zeus")).toContain("n'est pas un autre agent");
     expect(missionNow()).toEqual(before);
+    // Its finished work must reach the mission's branch before its entry takes another sub-task (final review H3).
+    updateMember("chef", "n1", { merged: false });
+    const unmerged = missionNow();
+    expect(await reassignTask("chef", "isis", "Horus")).toContain("appelle fusionner d'abord");
+    expect(missionNow()).toEqual(unmerged);
+    expect(pauseAgents).not.toHaveBeenCalled();
   });
 
   it("gives a sub-task to a new agent in the mission's group, started at once", async () => {
@@ -280,7 +294,9 @@ describe("reassignTask (spec §7.2 reattribuer)", () => {
     const name = (result as { name: string }).name;
     expect(missionAddAgent).toHaveBeenCalledWith("C:/code/proj", "auth", name);
     expect(addTerminal).toHaveBeenCalledWith("w1", expect.objectContaining({ name, cwd: tree(`auth-${name.toLowerCase()}`).path, agent: "claude" }), { x: 400, y: 250 }, "f1");
-    expect(relaunchTerminal).toHaveBeenCalledWith("n9", expect.objectContaining({ name }), "new");
+    // Shown, it starts like any new agent; a second start would break its session (seen in the app, H3).
+    expect(showNode).toHaveBeenCalledWith("n9");
+    expect(relaunchTerminal).not.toHaveBeenCalled();
     expect(missionNow().members.map((m) => [m.nodeId, m.task, m.handedTo])).toEqual([
       ["isis", "Login", name],
       ["n1", "API", undefined],
@@ -288,3 +304,12 @@ describe("reassignTask (spec §7.2 reattribuer)", () => {
     ]);
   });
 });
+
+it("leaves a handed-over agent's branch to its successor when merging (final review H3)", async () => {
+  const done = { summary: "ok", status: "termine" as const, at: 1 };
+  await setup({ state: "en_cours", worktree: "C:/w/auth", branch: "openvibe/auth", members: [member("isis", "Isis", true, { report: done, handedTo: "Horus" }), member("n1", "Horus", false, { report: done })] });
+  vi.mocked(missionMerge).mockResolvedValue({ merge: { kind: "merged" }, uncommitted: false });
+  await mergeMission("chef");
+  expect(vi.mocked(missionMerge).mock.calls.map(([, , branch]) => branch)).toEqual(["openvibe/auth-n1"]);
+});
+
