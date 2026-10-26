@@ -29,6 +29,31 @@ describe("proposedPlan (spec orchestrateur §7.2)", () => {
   });
 });
 
+describe("each sub-task's level (spec maj §3)", () => {
+  it("reads it as written; the router needs one per sub-task", () => {
+    const leveled = proposedPlan(args({ ...task("nouveau"), niveau: "Élevé" }), NEW_MISSION, []);
+    expect(typeof leveled === "object" && leveled.plan[0].level).toBe("eleve");
+    const plain = proposedPlan(args(task("nouveau")), NEW_MISSION, []);
+    expect(typeof plain === "object" && plain.plan[0]).toEqual({ title: "Login", brief: "Fais le login", agent: "nouveau", budgetMin: 20 });
+    expect(proposedPlan(args(task("nouveau")), { ...NEW_MISSION, router: true }, [])).toContain("niveau");
+    expect(proposedPlan(args({ ...task("nouveau"), niveau: "énorme" }), NEW_MISSION, [])).toContain("niveau");
+  });
+
+  it("reads the router, the levels and the members' models back", () => {
+    const saved = {
+      state: "en_cours",
+      maxAgents: 4,
+      router: true,
+      plan: [{ title: "Login", brief: "b", agent: "nouveau", budgetMin: 5, level: "faible" }],
+      members: [{ nodeId: "n1", name: "Isis", task: "Login", budgetMin: 5, linked: false, branch: "b", worktree: "w", model: "claude-haiku-5-5" }],
+    };
+    expect(readMission(saved)).toEqual(saved);
+    expect(readMission({ ...saved, router: "oui", plan: [{ ...saved.plan[0], level: "x" }] })).toMatchObject({ plan: [{ title: "Login" }] });
+    expect(readMission({ ...saved, router: "oui" })?.router).toBeUndefined();
+    expect(readMission({ ...saved, plan: [{ ...saved.plan[0], level: "x" }] })?.plan?.[0].level).toBeUndefined();
+  });
+});
+
 describe("readMission", () => {
   it("reads a saved mission back; a launch cut short by a restart is back to its plan", () => {
     const saved = { state: "lancement", maxAgents: 3, name: "Auth", plan: [{ title: "Login", brief: "b", agent: "nouveau", budgetMin: 5 }], members: [] };

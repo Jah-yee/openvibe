@@ -17,6 +17,7 @@ import { isRunning } from "@/store/terminalStatus";
 import { notify } from "./events";
 import { NEW_AGENT, NEW_MISSION, oneLine, sameName, type Member, type Mission, type SubTask } from "./mission";
 import { whenReady } from "./ready";
+import { modelFor } from "./router";
 import { linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "./store";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -39,11 +40,15 @@ export function handoverText(from: Member): string {
   return `Reprise du travail d'${from.name} : ${report}. Sa branche ${from.branch} : fusionne-la dans la tienne pour repartir de son travail.`;
 }
 
-/** A linked agent moves to `cwd` in a new conversation: a Claude session does not resume from another folder (spec §7.3). */
-function restartIn(nodeId: string, cwd: string): Promise<void> {
+/**
+ * A linked agent moves to `cwd` in a new conversation: a Claude session does
+ * not resume from another folder (spec §7.3). It takes `model`, the router's,
+ * or none to go back to Claude's own (spec maj §3).
+ */
+function restartIn(nodeId: string, cwd: string, model?: string): Promise<void> {
   const payload = terminalOf(nodesStore.getState().nodes[nodeId]);
   if (!payload) return Promise.resolve();
-  const patch = { cwd, ...newConversation() };
+  const patch = { cwd, model, ...newConversation() };
   nodesStore.getState().update(nodeId, patch);
   return relaunchTerminal(nodeId, { ...payload, ...patch }, "new");
 }
@@ -88,7 +93,17 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
       const name = agent?.name ?? fresh[next++];
       const tree = await missionAddAgent(project, root.slug, name);
       made.push(tree);
-      members.push({ nodeId: agent?.nodeId ?? "", name, task: task.title, budgetMin: task.budgetMin, linked: agent !== null, branch: tree.branch, worktree: tree.path });
+      const model = modelFor(mission, task);
+      members.push({
+        nodeId: agent?.nodeId ?? "",
+        name,
+        task: task.title,
+        budgetMin: task.budgetMin,
+        linked: agent !== null,
+        branch: tree.branch,
+        worktree: tree.path,
+        ...(model ? { model } : {}),
+      });
     }
     // Its canvas is the one on screen only: the user may have left it during the git work (final review H2).
     if (!orchestratorShown(orchestratorId)) throw new Error("L'espace de l'orchestrateur n'est plus affiché : reviens-y et relance la mission.");
@@ -99,7 +114,7 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
         { name: `Mission ${mission.name}`, role: "general", agents: created.map(() => "claude" as const) },
         defaultLaunchOptions(),
         besideOrchestrator(orchestratorId, created.length),
-        { pantheon, names: created.map((m) => m.name), cwds: created.map((m) => m.worktree) },
+        { pantheon, names: created.map((m) => m.name), cwds: created.map((m) => m.worktree), models: created.map((m) => m.model) },
       );
       if (!group) throw new Error("Le groupe des nouveaux agents n'a pas pu être créé.");
       created.forEach((member, i) => (member.nodeId = group.nodeIds[i]));
@@ -107,7 +122,7 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
       linkOrchestrator(orchestratorId, group.frameId);
     }
     // Linked agents move only once the whole team exists (final review H2).
-    for (const member of members) if (member.linked) restarts.set(member.nodeId, restartIn(member.nodeId, member.worktree));
+    for (const member of members) if (member.linked) restarts.set(member.nodeId, restartIn(member.nodeId, member.worktree, member.model));
     return { project, slug: root.slug, branch: root.branch, worktree: root.path, frameId, members };
   } catch (error) {
     // What this launch made goes, so the plan can be launched again; never forced (final review H2).
@@ -231,7 +246,8 @@ async function newMember(orchestratorId: string, workspaceId: string, mission: M
   } catch (error) {
     return errorText(error);
   }
-  const payload = newTerminalPayload({ ...defaultLaunchOptions(), cwd: tree.path, agent: "claude" }, name);
+  const model = modelFor(mission, task);
+  const payload = { ...newTerminalPayload({ ...defaultLaunchOptions(), cwd: tree.path, agent: "claude" }, name), ...(model ? { model } : {}) };
   let nodeId: string | null = null;
   if (frame) {
     nodeId = await addTerminal(workspaceId, payload, { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 }, frame.id);
@@ -240,7 +256,7 @@ async function newMember(orchestratorId: string, workspaceId: string, mission: M
       { name: `Mission ${mission.name}`, role: "general", agents: ["claude"] },
       defaultLaunchOptions(),
       besideOrchestrator(orchestratorId, 1),
-      { pantheon, names: [name], cwds: [tree.path] },
+      { pantheon, names: [name], cwds: [tree.path], models: [model] },
     );
     if (group) {
       nodeId = group.nodeIds[0];
@@ -254,7 +270,7 @@ async function newMember(orchestratorId: string, workspaceId: string, mission: M
   }
   // Shown, it starts like any new agent; a second start would break its session (seen in the app, H3).
   if (frame) showNode(nodeId);
-  return { nodeId, name, task: task.title, budgetMin: task.budgetMin, linked: false, branch: tree.branch, worktree: tree.path };
+  return { nodeId, name, task: task.title, budgetMin: task.budgetMin, linked: false, branch: tree.branch, worktree: tree.path, ...(model ? { model } : {}) };
 }
 
 /** `reattribuer` (spec §7.2): to a member who reported, or to a new agent; it gets the previous one's report and branch. */

@@ -3,6 +3,7 @@ import { setRemoteControl } from "@/fleet/remoteControl";
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission, reassignTask } from "@/mission/launch";
 import { budgetOf, NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
+import { LEVELS, modelLabel } from "@/mission/router";
 import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
@@ -16,7 +17,7 @@ const NO_ARGS = { type: "object", properties: {} } as const;
 export const ORCHESTRATOR_TOOLS = [
   {
     name: "mission",
-    description: "La mission : état, nom, tâche, budget global, nombre maximal d'agents, branche, plan, et les agents Claude reliés disponibles.",
+    description: "La mission : état, nom, tâche, budget global, nombre maximal d'agents, routeur de modèles, branche, plan, et les agents Claude reliés disponibles.",
     inputSchema: NO_ARGS,
   },
   {
@@ -37,6 +38,11 @@ export const ORCHESTRATOR_TOOLS = [
               consigne: { type: "string" },
               agent: { type: "string", description: "Prénom d'un agent Claude relié, ou « nouveau »." },
               budget_min: { type: "integer", minimum: 1 },
+              niveau: {
+                type: "string",
+                enum: ["faible", "moyen", "eleve", "extreme"],
+                description: "Difficulté. Avec le routeur (mission : routeur), elle choisit le modèle de l'agent : faible Haiku 5.5, moyen Sonnet 5.5, eleve Opus 5.5, extreme Fable 5.1 ; obligatoire alors.",
+              },
             },
             required: ["titre", "consigne", "agent", "budget_min"],
           },
@@ -122,8 +128,17 @@ function describeMission(orchestratorId: string, mission: Mission): ToolResult {
     tache: mission.task ?? null,
     budget_global_min: mission.budgetMin ?? null,
     agents_max: mission.maxAgents,
+    routeur: mission.router === true,
     branche: mission.branch ?? null,
-    plan: mission.plan?.map((s) => ({ titre: s.title, consigne: s.brief, agent: s.agent, budget_min: s.budgetMin })) ?? null,
+    plan:
+      mission.plan?.map((s) => ({
+        titre: s.title,
+        consigne: s.brief,
+        agent: s.agent,
+        budget_min: s.budgetMin,
+        niveau: s.level ?? null,
+        modele: mission.router && s.level ? LEVELS[s.level].modelLabel : null,
+      })) ?? null,
     agents_relies: orchestratorShown(orchestratorId)
       ? linkedClaudeAgents(orchestratorId)
           .filter((a) => !team.has(a.nodeId))
@@ -163,6 +178,7 @@ function describeTeam(mission: Mission): ToolResult {
       depassement: m.overdue ?? 0,
       passe_a: m.handedTo ?? null,
       finies: m.done ?? [],
+      modele: m.model ? modelLabel(m.model) : null,
       branche: m.branch,
       compte_rendu: m.report ? { statut: m.report.status, resume: m.report.summary } : null,
       fusionne: m.merged === true,
