@@ -19,9 +19,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   { name: "/status", hint: "Version, modèle, compte" },
 ];
 
-/** "/effort ultracode": a command for the agents' CLI, not a request in words. */
+/** "/effort ultracode": a command for the agents' CLI, not a request in words nor a path ("/usr/bin/make"). */
 export function isSlashCommand(text: string): boolean {
-  return /^\s*\/[\w-]+/.test(text);
+  return /^\s*\/[\w-]+(?=\s|$)/.test(text);
+}
+
+/** A command of the list typed in full: Enter sends it rather than completing it. */
+export function isKnownCommand(name: string): boolean {
+  return SLASH_COMMANDS.some((command) => command.name === name);
 }
 
 /** The `/word` typed at the caret at the start of the command, after its mentions only. */

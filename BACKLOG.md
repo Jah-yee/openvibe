@@ -240,3 +240,14 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - L'horloge ne voit que les missions des espaces chargés depuis le démarrage.
 - Le panneau n'affiche pas les sous-tâches déjà finies par un agent qui en a repris une autre (`done`, lu par `equipe`).
 
+## Constats de la mise à jour du 27 octobre (relectures)
+
+### Commandes groupées
+- Un nom qui contient `/` (groupe « Front/Back ») se complète mal : `@front/ba` + Tab ajoute aussi l'agent Front. Essayer d'abord le nom entier, puis seulement le découpage.
+- `@nobody/ze` + Tab ne garde que Zeus : le nom inconnu disparaît, alors qu'à l'envoi la mention entière resterait du texte.
+- Échap sur la liste `@` garde aussi fermée la liste `/` qui commence au même endroit (et l'inverse) : retenir le genre de liste fermée.
+- Compléter une commande au milieu du texte laisse un double espace (`/ef lance` → `/effort  lance`).
+- La ligne surlignée n'est pas remise à zéro quand le curseur bouge : si la liste rétrécit, Entrée prend la dernière ligne.
+- `@thot/ /clear`, liste fermée : aucune cible, la commande part à la sélection comme une consigne.
+- Une commande `/…` ne va pas aux terminaux « Personnalisé », même quand ils lancent un agent (Claude avec des options) : à trancher.
+
