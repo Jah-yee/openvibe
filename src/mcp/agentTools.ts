@@ -1,4 +1,7 @@
 import { declaredSteps, markedSteps, MAX_STEPS } from "@/nodes/steps";
+import { notify } from "@/mission/events";
+import { oneLine } from "@/mission/mission";
+import { memberOf, updateMember } from "@/mission/store";
 import { nodesStore, terminalOf } from "@/store/nodes";
 
 /** What a tool answers: MCP text content, an error the agent can read. */
@@ -57,7 +60,16 @@ export function markStep(nodeId: string, args: Record<string, unknown>): ToolRes
   return said(`${step.title} : ${step.state.replace("_", " ")}.`);
 }
 
-/** Outside a mission (milestone H2 adds them), a report has no one to go to. */
-export function report(): ToolResult {
-  return said("Pas de mission en cours : rien à transmettre.");
+/** `rendre_compte`: outside a mission there is no one to tell; inside, its orchestrator hears it (spec §7.5). */
+export function report(nodeId: string, args: Record<string, unknown>): ToolResult {
+  const found = memberOf(nodeId);
+  if (!found) return said("Pas de mission en cours : rien à transmettre.");
+  const summary = typeof args.resume === "string" ? args.resume.trim() : "";
+  const status = args.statut;
+  if (!summary) return refused("Résume ton travail (resume).");
+  if (status !== "termine" && status !== "bloque" && status !== "echec") return refused(`Statut inconnu : ${String(status)} (termine, bloque ou echec).`);
+  // A new report after a merge brings new commits: its branch is merged again.
+  updateMember(found.orchestratorId, nodeId, { report: { summary, status, at: Date.now() }, merged: false });
+  notify(found.orchestratorId, `${found.member.name} a rendu compte (${status}) : ${oneLine(summary)}`);
+  return said("Compte rendu transmis à l'orchestrateur.");
 }
