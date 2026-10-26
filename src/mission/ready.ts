@@ -10,8 +10,18 @@ export const READY_QUIET_MS = 2000;
 export const READY_TIMEOUT_MS = 60_000;
 const TICK_MS = 250;
 const BETWEEN_KEYS_MS = 300;
-/** Claude's welcome banner: its prompt is up. */
-const CLAUDE_UP = /Claude Code v\d/;
+/**
+ * Claude's prompt is up: the last `❯` line on screen is its input box, under a
+ * rule (final review H2: a resumed conversation pushes the welcome banner off
+ * the screen). A trust prompt's `❯` sits under no rule.
+ */
+export function claudeUp(screen: string): boolean {
+  const lines = screen.split("\n").map((line) => line.trim());
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].startsWith("❯")) return i > 0 && lines[i - 1].startsWith("──");
+  }
+  return false;
+}
 
 /** The keys that accept Claude's « trust this folder » prompt, or null when it does not show. */
 export function trustKeys(screen: string): string[] | null {
@@ -40,7 +50,7 @@ export async function whenReady(probe: ReadyProbe, wait: (ms: number) => Promise
           if (i > 0) await wait(BETWEEN_KEYS_MS);
           await probe.press(key);
         }
-      } else if (CLAUDE_UP.test(screen) && probe.quietMs() >= READY_QUIET_MS) {
+      } else if (claudeUp(screen) && probe.quietMs() >= READY_QUIET_MS) {
         return true;
       }
     }

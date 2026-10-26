@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { trustKeys, whenReady, type ReadyProbe } from "./ready";
 
 const TRUST = "Accessing workspace:\n\nQuick safety check: Is this a project you created or one you trust?\n\n❯ No, exit\n  Yes, I trust this folder\n\nEnter to confirm · Esc to cancel";
-const CLAUDE = " ✻  Claude Code v2.1.304\n    Opus 5.5\n\n> ";
+/** Claude's screen as seen in the app: its banner, then its input box between two rules. */
+const CLAUDE = " ▐▛███▜▌   Claude Code v2.1.304\n▝▜█████▛▘  Opus 5.5\n\n──────────────────────── Claude · demo ─\n❯ \n────────────────────────────────────────\n  ⏵⏵ auto mode on (shift+tab to cycle)";
+/** A resumed conversation: its history has pushed the banner off the screen. */
+const RESUMED = "● J'ai clôturé la mission « linked ».\n\n──────────────────────── Orchestrateur ─\n❯ \n────────────────────────────────────────\n  ⏵⏵ auto mode on (shift+tab to cycle)";
 
 /** An agent's terminal on a simulated clock: what it shows, when it last wrote, what was pressed. */
 function agent(first: string, onPress: (keys: string, show: (screen: string) => void) => void = () => undefined) {
@@ -60,5 +63,17 @@ describe("whenReady (spec orchestrateur §7.3)", () => {
     expect(await whenReady(a.probe, a.wait)).toBe(false);
     expect(a.now()).toBeGreaterThanOrEqual(60_000);
     expect(a.pressed).toEqual(["\x1b[B", "\r"]);
+  });
+
+  it("knows Claude is up by its input box, the banner gone from a resumed conversation (final review H2)", async () => {
+    const a = agent(RESUMED);
+    await a.wait(5000);
+    expect(await whenReady(a.probe, a.wait, false)).toBe(true);
+  });
+
+  it("never takes a trust prompt it may not answer for Claude's prompt (final review H2)", async () => {
+    const a = agent(TRUST);
+    expect(await whenReady(a.probe, a.wait, false)).toBe(false);
+    expect(a.pressed).toEqual([]);
   });
 });
