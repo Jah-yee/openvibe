@@ -56,6 +56,40 @@ function readLimit(raw: unknown): Limit | null {
 
 const capitalized = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
 
+/** The later of two readings of a window: the later reset, else the higher use (a window's use only grows). */
+function later(a: Limit | undefined, b: Limit | undefined): Limit | undefined {
+  if (!a || !b) return a ?? b;
+  if ((a.resetsAt ?? 0) !== (b.resetsAt ?? 0)) return (a.resetsAt ?? 0) > (b.resetsAt ?? 0) ? a : b;
+  return a.usedPercent >= b.usedPercent ? a : b;
+}
+
+/**
+ * Each session's status line carries the limits of its own last answer
+ * (final review maj §6): an older session's must not take the meter back,
+ * and a window missing from a reading stays as it was.
+ */
+export function mergeLimits(known: Limits | null, read: Limits): Limits {
+  if (!known) return read;
+  const merged: Limits = { models: [], at: Math.max(known.at, read.at) };
+  const fiveHour = later(known.fiveHour, read.fiveHour);
+  const sevenDay = later(known.sevenDay, read.sevenDay);
+  if (fiveHour) merged.fiveHour = fiveHour;
+  if (sevenDay) merged.sevenDay = sevenDay;
+  const keys = [...new Set([...known.models, ...read.models].map((m) => m.key))];
+  for (const key of keys) {
+    const a = known.models.find((m) => m.key === key);
+    const b = read.models.find((m) => m.key === key);
+    const limit = later(a?.limit, b?.limit)!;
+    merged.models.push({ key, label: (b ?? a)!.label, limit });
+  }
+  return merged;
+}
+
+/** A window past its reset starts again from zero, until the next answer says more. */
+export function currentLimit(limit: Limit, now: number): Limit {
+  return limit.resetsAt !== null && limit.resetsAt <= now ? { usedPercent: 0, resetsAt: null } : limit;
+}
+
 /** One status line's JSON: the session's usage, and the limits once the first answer came (null before). */
 export function readStatus(raw: unknown, nodeId: string, now: number): { session: SessionUsage | null; limits: Limits | null } {
   const r = object(raw);

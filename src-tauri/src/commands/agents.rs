@@ -227,7 +227,13 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
 
 /// The hooks a new process gets: Claude's settings file, Codex's notify URL.
 /// Without a server, Claude starts without `--settings`.
-pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent, role: Role) -> AgentHooks {
+pub fn hooks_for(
+    app: &AppHandle,
+    node_id: &str,
+    agent: Agent,
+    role: Role,
+    cwd: &std::path::Path,
+) -> AgentHooks {
     let state = app.state::<AgentState>();
     let Some(server) = &state.hooks else {
         return AgentHooks::default();
@@ -238,8 +244,10 @@ pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent, role: Role) -> Ag
             let status = claude_settings::StatusLine {
                 script: state.hooks_dir.join("statusline.sh"),
                 url: server.status_url(node_id),
-                user: claude_settings::user_settings_file()
-                    .and_then(|file| claude_settings::user_status_line(&file)),
+                user: claude_settings::status_line_for(
+                    cwd,
+                    claude_settings::user_settings_file().as_deref(),
+                ),
             };
             let settings = claude_settings::write(
                 &state.hooks_dir,

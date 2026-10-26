@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { co2Grams, limitTone, readStatus, totals, formatUsd, type SessionUsage } from "./usage";
+import { co2Grams, currentLimit, limitTone, mergeLimits, readStatus, totals, formatUsd, type Limits, type SessionUsage } from "./usage";
 
 /** A status line's JSON as Claude Code 2.1.304 sent it in OpenVibe, after one answer. */
 const STATUS = {
@@ -98,3 +98,28 @@ describe("formatting", () => {
     expect(limitTone(95)).toBe("over");
   });
 });
+
+describe("mergeLimits (final review maj §6)", () => {
+  const limits = (five: [number, number] | null, week: [number, number] | null, at = 0): Limits => ({
+    ...(five ? { fiveHour: { usedPercent: five[0], resetsAt: five[1] } } : {}),
+    ...(week ? { sevenDay: { usedPercent: week[0], resetsAt: week[1] } } : {}),
+    models: [],
+    at,
+  });
+
+  it("keeps each window's latest reading: an older session's status line does not take the meter back", () => {
+    const now = limits([60, 2000], [50, 9000], 2);
+    // Session A answered last in the previous window (it resets earlier): its 20 % is stale.
+    expect(mergeLimits(now, limits([20, 1000], [40, 9000], 3))).toEqual(limits([60, 2000], [50, 9000], 3));
+    // Same window: the higher use is the later one.
+    expect(mergeLimits(now, limits([65, 2000], null, 4))).toEqual(limits([65, 2000], [50, 9000], 4));
+    expect(mergeLimits(null, limits(null, [10, 5], 1))).toEqual(limits(null, [10, 5], 1));
+  });
+
+  it("reads a window past its reset as reset", () => {
+    expect(currentLimit({ usedPercent: 80, resetsAt: 1000 }, 999)).toEqual({ usedPercent: 80, resetsAt: 1000 });
+    expect(currentLimit({ usedPercent: 80, resetsAt: 1000 }, 1000)).toEqual({ usedPercent: 0, resetsAt: null });
+    expect(currentLimit({ usedPercent: 80, resetsAt: null }, 5)).toEqual({ usedPercent: 80, resetsAt: null });
+  });
+});
+

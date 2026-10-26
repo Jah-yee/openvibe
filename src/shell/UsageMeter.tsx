@@ -5,7 +5,7 @@ import { AGENTS } from "@/fleet/catalog";
 import { formatDuration } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { sessionOf, useNodes } from "@/store/nodes";
-import { formatUsd, limitTone, totals, type Limit } from "@/usage/usage";
+import { currentLimit, formatUsd, limitTone, totals, type Limit, type Limits } from "@/usage/usage";
 import { useUsage } from "@/usage/usageStore";
 
 /** « 67,8 k », « 1,2 M » tokens. */
@@ -35,8 +35,21 @@ function Bar({ limit, wide = false }: { limit: Limit; wide?: boolean }) {
  * The title bar's usage (spec maj §6): the plan's session and week, from
  * Claude's status lines; the detail of this run's sessions on a click.
  */
-export function UsageMeter() {
+/** The limits as of now: a window past its reset shows as reset (final review maj §6). */
+function useCurrentLimits(): Limits | null {
   const limits = useUsage((s) => s.limits);
+  const now = useNow(60_000);
+  if (!limits) return null;
+  return {
+    ...limits,
+    fiveHour: limits.fiveHour && currentLimit(limits.fiveHour, now),
+    sevenDay: limits.sevenDay && currentLimit(limits.sevenDay, now),
+    models: limits.models.map((m) => ({ ...m, limit: currentLimit(m.limit, now) })),
+  };
+}
+
+export function UsageMeter() {
+  const limits = useCurrentLimits();
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -106,7 +119,7 @@ function LimitRow({ label, limit, now }: { label: string; limit: Limit; now: num
 }
 
 function UsageDetail() {
-  const limits = useUsage((s) => s.limits);
+  const limits = useCurrentLimits();
   const sessions = useUsage((s) => s.sessions);
   const nodes = useNodes((s) => s.nodes);
   const now = useNow(30_000);

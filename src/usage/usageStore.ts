@@ -1,6 +1,6 @@
 import { createStore, useStore } from "zustand";
 import { onClaudeStatus, type StatusEvent } from "@/ipc/usage";
-import { readStatus, type Limits, type SessionUsage } from "./usage";
+import { mergeLimits, readStatus, type Limits, type SessionUsage } from "./usage";
 
 interface UsageState {
   /** Each Claude session of this run of the app, by its session id. */
@@ -17,7 +17,7 @@ export const usageStore = createStore<UsageState>()((set) => ({
   apply: (event, now) => {
     const { session, limits } = readStatus(event.status, event.nodeId, now);
     if (!session) return;
-    set((s) => ({ sessions: { ...s.sessions, [session.sessionId]: session }, limits: limits ?? s.limits }));
+    set((s) => ({ sessions: { ...s.sessions, [session.sessionId]: session }, limits: limits ? mergeLimits(s.limits, limits) : s.limits }));
   },
 }));
 

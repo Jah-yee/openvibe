@@ -284,3 +284,12 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Une erreur de lecture reste affichée si le dossier de l'agent change (les clés des onglets n'incluent pas le dossier).
 - Une liste de plus de 5 000 changements est coupée sans le dire.
 
+### Usage dans la barre du haut
+- Le `curl` du script passe avant ta ligne d'état : ~100-150 ms de plus à chaque rafraîchissement, jusqu'à ~1 s si le serveur local ne répond pas. Le lancer en arrière-plan.
+- `input=$(cat)` retire les sauts de ligne finaux du JSON : une ligne d'état qui lit avec `read -r` sous `set -e` pourrait s'arrêter.
+- `CLAUDE_CONFIG_DIR` est lu dans l'environnement d'OpenVibe, pas dans celui du terminal ; la ligne d'état de l'utilisateur est lue au démarrage de chaque session seulement.
+- Le jeton du serveur local apparaît dans la ligne de commande de `bash` et `curl` (visible dans la liste des processus) : quelqu'un sur la machine pourrait envoyer de faux usages ou états.
+- Une remise à zéro hebdomadaire au même jour de la semaine suivante s'affiche « mar. 09:00 », comme aujourd'hui : ajouter la date au-delà de 6 jours. Une limite propre à un modèle, seule, ne s'affiche pas dans la barre.
+- `--resume` garde le même identifiant de session : le coût cumulé que Claude restaure peut compter des dépenses d'avant l'ouverture d'OpenVibe.
+- Tests absents : la réponse 413 de `/status`, l'exécution réelle du script.
+
