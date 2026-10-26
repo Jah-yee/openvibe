@@ -15,6 +15,7 @@ import { setRemoteControl, useRemoteLink, type RemoteLink } from "./remoteContro
 export function remoteLabel(link: RemoteLink | undefined, wanted: boolean, running: boolean): string {
   if (link?.state === "on") return "Remote Control actif";
   if (link?.state === "connecting") return "Remote Control : connexion…";
+  if (link?.state === "pending") return "Remote Control à la fin de son tour";
   if (link?.state === "error") return `Remote Control : ${link.error ?? "échec"}`;
   if (wanted) return running ? "Remote Control demandé" : "Remote Control au prochain démarrage";
   return "Remote Control";
@@ -42,7 +43,7 @@ export function RemoteButton({ nodeId, wanted, running }: { nodeId: string; want
           className={cn(
             "grid size-5 place-items-center rounded hover:bg-ov-card [&_svg]:size-3.5",
             link?.state === "on" ? "text-ov-accent" : link?.state === "error" ? "text-ov-danger" : wanted ? "text-ov-text" : "text-ov-text-2 hover:text-ov-text",
-            link?.state === "connecting" && "animate-pulse",
+            (link?.state === "connecting" || link?.state === "pending") && "animate-pulse",
           )}
         >
           <Smartphone />

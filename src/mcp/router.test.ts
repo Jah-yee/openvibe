@@ -139,6 +139,11 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
     expect(textOf(await call("chef", "remote_control", { actif: false, agents: ["isis"] }))).toBe("Isis : coupé");
     vi.mocked(setRemoteControl).mockResolvedValueOnce({ error: "Remote Control requires a claude.ai subscription" });
     expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["Isis"] }))).toBe("Isis : échec — Remote Control requires a claude.ai subscription");
+    // In a turn, it is typed at the end of it: « moi » is always in its own turn (final review maj §2).
+    vi.mocked(setRemoteControl).mockResolvedValue({ later: true });
+    expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["Isis", "moi"] }))).toBe(
+      "Isis : à la fin de son tour\nToi : à la fin de ton tour — le lien s'affichera dans ton en-tête",
+    );
     terminalStatusStore.getState().set("isis", { state: "stopped" });
     vi.mocked(setRemoteControl).mockResolvedValueOnce({ on: true });
     expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["Isis"] }))).toBe("Isis : actif à son prochain démarrage");

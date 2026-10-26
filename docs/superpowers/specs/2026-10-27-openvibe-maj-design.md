@@ -35,7 +35,9 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 
 - OpenVibe ne suit que ce qu'il a fait lui-même : un `/remote-control` tapé à la main (ou envoyé par `@tous /remote-control`) n'allume pas le téléphone.
 - Si l'écran ne dit pas que la session est connectée, « Couper » tape quand même `/remote-control` ; si cela l'allume, il le retape pour ouvrir le menu et la couper. Mieux vaut deux commandes qu'une session restée ouverte.
-- Le premier usage de Remote Control sur un compte affiche un dialogue de consentement (« Enable Remote Control ») : OpenVibe ne l'accepte jamais à la place de l'utilisateur, il attend 20 s puis signale l'absence de confirmation.
+- Le premier usage de Remote Control sur un compte affiche un dialogue de consentement (« Enable Remote Control ») : OpenVibe ne l'accepte jamais à la place de l'utilisateur, il le reconnaît, ne tape rien dedans et dit à l'utilisateur d'y répondre.
+- Relecture : OpenVibe ne tape jamais dans une session au travail ou qui attend une réponse (l'Entrée après la commande répondrait à sa place à un dialogue d'autorisation). La demande est retenue et appliquée dès que la session redevient inactive, avec le dernier souhait exprimé ; l'icône clignote en attendant. Pour l'orchestrateur qui se l'applique (« moi »), c'est donc à la fin de son tour.
+- Relecture : une seule opération à la fois par session, et l'écran n'est lu que pour la session en cours (pas ce qu'un lancement précédent a laissé) ; un menu n'est reconnu qu'en bas de l'écran, une réponse que juste après le dernier `/remote-control` tapé ou dans la bannière d'un démarrage. Les mêmes mots affichés ailleurs (un fichier, un diff) ne comptent pas.
 
 ## 3. Routeur de modèles de l'orchestrateur (`feat/routeur-modeles`)
 

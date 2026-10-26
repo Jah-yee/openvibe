@@ -251,3 +251,13 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `@thot/ /clear`, liste fermée : aucune cible, la commande part à la sélection comme une consigne.
 - Une commande `/…` ne va pas aux terminaux « Personnalisé », même quand ils lancent un agent (Claude avec des options) : à trancher.
 
+### Remote Control
+- Après 60 s sans lien lu au démarrage, le téléphone passe à « actif » sans confirmation : afficher plutôt une erreur.
+- Après un « Couper » en échec, le menu ne propose plus que « Activer » alors que Remote Control est peut-être encore actif : proposer « Couper » et « Réessayer » tant que l'état est en erreur.
+- Le lien d'un nœud supprimé n'est jamais effacé du store (le statut d'un nœud supprimé ne change plus).
+- Le toast d'un groupe dit « activé » pour une session arrêtée, quand l'outil dit « au prochain démarrage ».
+- `/remote-control` est ajouté au brouillon à moitié tapé dans l'invite de Claude, et le tout part ensemble (comme une consigne).
+- Une ligne `[OpenVibe]` de l'orchestrateur ou un `ecrire` peut arriver pendant que le menu Remote Control est ouvert : retenir la file d'écriture pendant toute l'opération.
+- `remote_control` : un prénom en double (agent relié et membre de la mission) prend le premier ; « tous » oublie sans le dire les agents reliés quand l'espace de l'orchestrateur n'est pas affiché.
+- Juste après un démarrage, Claude dessine encore son écran : OpenVibe le croit au travail ~1,5 s et répond « à la fin de son tour ». La demande est appliquée dès qu'il se calme.
+

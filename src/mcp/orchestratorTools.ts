@@ -280,9 +280,11 @@ async function remote(orchestratorId: string, mission: Mission, args: Record<str
   const results = await Promise.all(targets.map(async (t) => ({ ...t, running: isRunning(t.nodeId), result: await setRemoteControl(t.nodeId, on) })));
   return said(
     results
-      .map(({ name, running, result }) => {
+      .map(({ nodeId, name, running, result }) => {
         if (!result) return `${name} : pas une session Claude`;
         if ("error" in result) return `${name} : échec — ${result.error}`;
+        // Its own session is in the turn of this very call.
+        if ("later" in result) return nodeId === orchestratorId ? `${name} : à la fin de ton tour — le lien s'affichera dans ton en-tête` : `${name} : à la fin de son tour`;
         if (!result.on) return `${name} : coupé`;
         if (!running) return `${name} : actif à son prochain démarrage`;
         return `${name} : actif — ${result.url ?? "lien pas encore affiché"}`;
