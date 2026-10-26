@@ -78,8 +78,8 @@ export async function adoptCopies(workspaceId: string, copies: readonly { id: st
     const source = nodesStore.getState().nodes[sourceId];
     if (!source) continue;
     if (source.kind === "orchestrator") {
-      // A copied orchestrator keeps its name; its wires stay with the original.
-      await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { ...source.payload } });
+      // A copied orchestrator keeps its name; its session, created when shown, and its wires are its own.
+      await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { name: source.payload.name } });
       continue;
     }
     markForAutostart(id);

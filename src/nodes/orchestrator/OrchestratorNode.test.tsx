@@ -4,10 +4,17 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { requestUi } from "@/commands/uiRequests";
-import { nodesStore } from "@/store/nodes";
+import { nodesStore, sessionOf } from "@/store/nodes";
+import { markForAutostart, mountTerminal } from "../terminal/registry";
 import { OrchestratorNode } from "./OrchestratorNode";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
+vi.mock("../terminal/registry", () => ({ mountTerminal: vi.fn(), layoutTerminal: vi.fn(), markForAutostart: vi.fn(), relaunchTerminal: vi.fn() }));
+// happy-dom may lack it; the node observes its terminal's host.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver;
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -23,6 +30,23 @@ it("opens its name editor on request (« Renommer » of its radial menu)", async
   const field = host.querySelector<HTMLInputElement>("header input")!;
   expect(field.value).toBe("chef de backend");
   expect(document.activeElement).toBe(field);
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+it("gives an orchestrator of before its Claude session, and shows its terminal (spec orchestrateur §6)", async () => {
+  mockIPC(() => undefined);
+  await nodesStore.getState().create("ancien", { workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef" } });
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () => root.render(<OrchestratorNode nodeId="ancien" />));
+  const session = sessionOf(nodesStore.getState().nodes.ancien)!;
+  expect(session).toMatchObject({ name: "Chef", agent: "claude", role: "orchestrator" });
+  expect(session.claudeSessionId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(markForAutostart).toHaveBeenCalledWith("ancien");
+  expect(mountTerminal).toHaveBeenCalledWith("ancien", expect.any(HTMLElement), session, 1);
+  expect(host.querySelector('[data-orchestrator="ancien"] textarea')).toBeNull();
   await act(async () => root.unmount());
   host.remove();
 });

@@ -6,7 +6,7 @@ const NODE_KINDS: readonly NodeKind[] = ["terminal", "orchestrator", "note", "ka
 
 export const NODE_SIZE: Record<NodeKind, { width: number; height: number }> = {
   terminal: { width: 720, height: 440 },
-  orchestrator: { width: 320, height: 420 },
+  orchestrator: { width: 640, height: 760 },
   note: { width: 320, height: 240 },
   kanban: { width: 640, height: 400 },
   git: { width: 360, height: 320 },

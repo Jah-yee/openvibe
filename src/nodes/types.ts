@@ -17,11 +17,15 @@ export interface TerminalPayload {
   ollama?: OllamaLaunch;
   /** The steps its agent declared (spec orchestrateur §5). */
   steps?: Step[];
+  /** An orchestrator's session (spec orchestrateur §4.2); absent for an agent. */
+  role?: "orchestrator";
 }
 
-/** Content of an orchestrator node (spec habillage §13, §15.2). */
+/** Content of an orchestrator node (spec habillage §13, spec orchestrateur §6). */
 export interface OrchestratorPayload {
   name: string;
+  /** Its Claude session, created when it is first shown. */
+  session?: TerminalPayload;
 }
 
 export const ORCHESTRATOR_NAME = "Orchestrateur";
@@ -30,8 +34,11 @@ export type NodePayload = TerminalPayload | OrchestratorPayload;
 
 /** Reads a stored orchestrator payload; a missing or blank name becomes "Orchestrateur". */
 export function readOrchestratorPayload(raw: unknown): OrchestratorPayload {
-  const name = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>).name : undefined;
-  return { name: typeof name === "string" && name.trim() ? name : ORCHESTRATOR_NAME };
+  const r = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const payload: OrchestratorPayload = { name: typeof r.name === "string" && r.name.trim() ? r.name : ORCHESTRATOR_NAME };
+  const session = readTerminalPayload(r.session);
+  if (session?.agent === "claude") payload.session = { ...session, role: "orchestrator" };
+  return payload;
 }
 
 const SHELLS = new Set<string>(["default", "powershell", "pwsh", "cmd", "gitbash"]);
@@ -63,5 +70,6 @@ export function readTerminalPayload(raw: unknown): TerminalPayload | null {
   }
   const steps = readSteps(r.steps);
   if (steps) payload.steps = steps;
+  if (r.role === "orchestrator") payload.role = "orchestrator";
   return payload;
 }

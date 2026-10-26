@@ -128,3 +128,18 @@ export function rebaseTerminalFolders(from: string, to: string) {
     if (cwd) nodesStore.getState().update(id, { cwd });
   }
 }
+
+/** The Claude session of a node: a terminal's own, or an orchestrator's (spec orchestrateur §6). */
+export function sessionOf(record: NodeRecord | undefined): TerminalPayload | undefined {
+  if (record?.kind === "terminal") return record.payload;
+  return record?.kind === "orchestrator" ? record.payload.session : undefined;
+}
+
+/** Changes a node's session where it lives: the payload of a terminal, the `session` of an orchestrator. */
+export function updateSession(nodeId: string, patch: Partial<TerminalPayload>) {
+  const record = nodesStore.getState().nodes[nodeId];
+  if (record?.kind === "terminal") nodesStore.getState().update(nodeId, patch);
+  else if (record?.kind === "orchestrator" && record.payload.session) {
+    nodesStore.getState().update(nodeId, { session: { ...record.payload.session, ...patch } });
+  }
+}

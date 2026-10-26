@@ -1,6 +1,6 @@
 import { arrive, showNode } from "@/canvas/arrive";
 import { removeOrchestrator } from "@/fleet/orchestrators";
-import { pasteIntoOrchestrator } from "@/nodes/orchestrator/field";
+import { pasteIntoTerminal } from "@/nodes/terminal/registry";
 import { readClipboardText } from "@/radial/bridges";
 import { nodesStore } from "@/store/nodes";
 import { uiStore } from "@/store/ui";
@@ -45,7 +45,10 @@ export const ORCHESTRATOR: readonly Command[] = [
     available: hasOrchestrator,
     run: async (ctx) => {
       const text = await readClipboardText();
-      if (text !== null) await pasteIntoOrchestrator(id(ctx), text);
+      if (text === null) return;
+      // Like a terminal's « Coller »: its session's terminal takes the keyboard, then the text.
+      arrive(id(ctx));
+      pasteIntoTerminal(id(ctx), text);
     },
   },
   { id: "orchestrator.remove", label: "Supprimer", section, keywords: ["supprimer", "orchestrateur"], available: hasOrchestrator, run: (ctx) => removeOrchestrator(id(ctx)) },

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { TerminalPayload } from "@/nodes/types";
-import { createNodesStore, terminalOf } from "./nodes";
+import { createNodesStore, nodesStore, sessionOf, terminalOf, updateSession } from "./nodes";
 
 const payload: TerminalPayload = { title: "A", name: "", cwd: "C:/code", agent: "shell", command: "", shell: "default" };
 let saves: { id: string; payloadJson: string }[];
@@ -87,4 +87,19 @@ it("reads orchestrator nodes and keeps them apart from terminals", () => {
   expect(terminalOf(store.getState().nodes.t1)).toEqual(payload);
   expect(terminalOf(store.getState().nodes.o1)).toBeUndefined();
   expect(terminalOf(undefined)).toBeUndefined();
+});
+
+it("finds a node's Claude session, a terminal's own or an orchestrator's, and changes it where it lives", async () => {
+  const session: TerminalPayload = { title: "Chef", name: "Chef", agent: "claude", cwd: "C:/code", shell: "default", command: "", claudeSessionId: "s1", role: "orchestrator" };
+  await nodesStore.getState().create("t1", { workspaceId: "w1", kind: "terminal", payload: { ...payload, agent: "claude", claudeSessionId: "s0" } });
+  await nodesStore.getState().create("o1", { workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef", session } });
+  await nodesStore.getState().create("o2", { workspaceId: "w1", kind: "orchestrator", payload: { name: "Ancien" } });
+  expect(sessionOf(nodesStore.getState().nodes.o1)).toEqual(session);
+  expect(sessionOf(nodesStore.getState().nodes.o2)).toBeUndefined();
+  updateSession("o1", { claudeSessionId: "s2" });
+  updateSession("t1", { claudeSessionId: "s3" });
+  updateSession("o2", { claudeSessionId: "s4" });
+  expect(nodesStore.getState().nodes.o1.payload).toEqual({ name: "Chef", session: { ...session, claudeSessionId: "s2" } });
+  expect(sessionOf(nodesStore.getState().nodes.t1)?.claudeSessionId).toBe("s3");
+  expect(nodesStore.getState().nodes.o2.payload).toEqual({ name: "Ancien" });
 });

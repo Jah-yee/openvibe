@@ -101,16 +101,13 @@ describe("arrive", () => {
     document.body.replaceChildren();
   });
 
-  it("puts the cursor in an orchestrator's field, without the terminals' flash (spec fenêtre §7.2)", () => {
+  it("gives an orchestrator's terminal the keyboard, without the terminals' flash (spec orchestrateur §6)", () => {
     withScene(at100);
-    document.body.innerHTML = '<div data-orchestrator="chef"><textarea></textarea></div>';
     const before = arrivalStore.getState();
     expect(arrive("chef")).toBe(true);
     frames.shift()!(0);
-    expect(document.activeElement).toBe(document.querySelector("textarea"));
-    expect(focusTerminal).not.toHaveBeenCalled();
+    expect(focusTerminal).toHaveBeenCalledWith("chef");
     expect(arrivalStore.getState()).toEqual(before);
-    document.body.replaceChildren();
   });
 
   it("does nothing for a terminal that is not on the canvas", () => {

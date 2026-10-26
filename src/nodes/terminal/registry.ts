@@ -6,7 +6,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import "@xterm/xterm/css/xterm.css";
 import { ptyKill, ptyResize, ptyWrite } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
-import { nodesStore, terminalOf } from "@/store/nodes";
+import { nodesStore, sessionOf, updateSession } from "@/store/nodes";
 import { isRunning, statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { createAutostart } from "./autostart";
 import { TERMINAL_THEME } from "./terminalTheme";
@@ -164,7 +164,7 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
     // Started by hand meanwhile ("Relancer"): it must not be spawned twice.
     if (statusOf(nodeId).state !== "starting") return;
     // The node may have been edited while it waited for its turn.
-    const latest = terminalOf(nodesStore.getState().nodes[nodeId]) ?? payload;
+    const latest = sessionOf(nodesStore.getState().nodes[nodeId]) ?? payload;
     void startSession(nodeId, entry.term, latest, "new");
   });
   if (started) return;
@@ -174,11 +174,11 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
 
 /** Starts a terminal again from a keystroke: a new conversation for Claude. */
 async function startFresh(nodeId: string, entry: Entry) {
-  let payload = terminalOf(nodesStore.getState().nodes[nodeId]);
+  let payload = sessionOf(nodesStore.getState().nodes[nodeId]);
   if (!payload) return;
   if (payload.agent === "claude" && startsNewConversation(statusOf(nodeId))) {
     const fresh = newConversation();
-    nodesStore.getState().update(nodeId, fresh);
+    updateSession(nodeId, fresh);
     payload = { ...payload, ...fresh };
   }
   autostart.cancel(nodeId);
@@ -203,7 +203,7 @@ export function isLiveInRust(nodeId: string): boolean {
  * output waits in xterm's buffer until the node is shown.
  */
 export function resumeTerminal(nodeId: string) {
-  const payload = terminalOf(nodesStore.getState().nodes[nodeId]);
+  const payload = sessionOf(nodesStore.getState().nodes[nodeId]);
   if (!payload) return;
   const entry = entries.get(nodeId) ?? create(nodeId);
   autostart.cancel(nodeId);

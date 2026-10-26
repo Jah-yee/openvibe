@@ -29,7 +29,7 @@ describe("ghostRect", () => {
   });
 
   it("takes the size of the node being placed, such as an orchestrator", () => {
-    expect(ghostRect({ x: 400, y: 300 }, 0.5, "orchestrator")).toEqual({ left: 320, top: 195, width: 160, height: 210 });
+    expect(ghostRect({ x: 400, y: 300 }, 0.5, "orchestrator")).toEqual({ left: 240, top: 110, width: 320, height: 380 });
   });
 });
 

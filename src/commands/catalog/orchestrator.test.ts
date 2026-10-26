@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { arrive, showNode } from "@/canvas/arrive";
 import { removeOrchestrator } from "@/fleet/orchestrators";
-import { pasteIntoOrchestrator } from "@/nodes/orchestrator/field";
+import { pasteIntoTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
 import { uiStore } from "@/store/ui";
 import { labelOf, sectionOf, type CommandContext } from "../command";
@@ -13,7 +13,7 @@ import { ORCHESTRATOR } from "./orchestrator";
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("@/canvas/arrive", () => ({ arrive: vi.fn(), showNode: vi.fn() }));
 vi.mock("@/fleet/orchestrators", () => ({ removeOrchestrator: vi.fn() }));
-vi.mock("@/nodes/orchestrator/field", () => ({ pasteIntoOrchestrator: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/nodes/terminal/registry", () => ({ pasteIntoTerminal: vi.fn() }));
 vi.mock("@/radial/bridges", () => ({ readClipboardText: vi.fn(() => Promise.resolve("texte")) }));
 
 const palette: CommandContext = { project: true, workspaceId: "w1", terminalCount: 0, terminalId: null };
@@ -41,7 +41,8 @@ describe("Orchestrateur · <nom> (spec menu radial §4.4, §6.2)", () => {
     await find("orchestrator.link").run(ring);
     expect(uiStore.getState().linking).toBe("chef");
     await find("orchestrator.paste").run(ring);
-    expect(pasteIntoOrchestrator).toHaveBeenCalledWith("chef", "texte");
+    expect(arrive).toHaveBeenCalledWith("chef");
+    expect(pasteIntoTerminal).toHaveBeenCalledWith("chef", "texte");
     await find("orchestrator.remove").run(ring);
     expect(removeOrchestrator).toHaveBeenCalledWith("chef");
   });

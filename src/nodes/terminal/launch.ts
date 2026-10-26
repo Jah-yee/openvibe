@@ -57,8 +57,13 @@ export function switchedAgent(payload: TerminalPayload, agent: AgentId): Partial
 export function buildSpawnSpec(payload: TerminalPayload, mode: LaunchMode): SpawnSpec {
   const spec: SpawnSpec = { cwd: payload.cwd, shell: payload.shell, agent: payload.agent, command: payload.command };
   if (payload.agent === "claude") {
-    spec.claude = { mode, sessionId: payload.claudeSessionId ?? crypto.randomUUID(), title: payload.title };
+    spec.claude = { mode, sessionId: payload.claudeSessionId ?? crypto.randomUUID(), title: payload.title, role: payload.role ?? "agent" };
   }
   if (payload.agent === "ollama" && payload.ollama) spec.ollama = payload.ollama;
   return spec;
+}
+
+/** An orchestrator's brain: Claude in the project folder, with the manager's role (spec orchestrateur §6). */
+export function orchestratorSession(name: string, options: { cwd: string; shell: ShellKind }): TerminalPayload {
+  return { ...newTerminalPayload({ title: name, cwd: options.cwd, agent: "claude", command: "", shell: options.shell }, name), role: "orchestrator" };
 }
