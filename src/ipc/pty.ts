@@ -9,6 +9,7 @@ export interface ClaudeLaunch {
   mode: ClaudeMode;
   sessionId: string;
   title: string;
+  role: "agent" | "orchestrator";
 }
 
 /** Agents of the launch menu (spec habillage §8), in menu order. */

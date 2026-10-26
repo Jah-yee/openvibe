@@ -26,9 +26,10 @@ import { createRemovalGuard, type RemovalVerdict } from "./removalGuard";
 import { DotGrid } from "./overlay/DotGrid";
 import { GroupBackdrops } from "./overlay/GroupBackdrops";
 import { GroupLabels } from "./overlay/GroupLabels";
+import { StepTimelines } from "./overlay/StepTimelines";
 import { loadScene, rememberScene, type LoadedScene } from "./sceneCache";
 import { EXCALIDRAW_UI_OPTIONS, withSceneDefaults } from "./sceneDefaults";
-import { createSceneSync, liveNodeIds } from "./sceneSync";
+import { createSceneSync, liveNodeIds, liveNodeRects } from "./sceneSync";
 
 const reportSaveError = (error: unknown) => toast.error(`Sauvegarde impossible : ${String(error)}`);
 
@@ -85,6 +86,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
     () => () => {
       canvasStore.getState().setFrames([]);
       canvasStore.getState().setNodeIds([]);
+      canvasStore.getState().setNodeRects({});
       canvasStore.getState().setLinks({});
     },
     [],
@@ -148,6 +150,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       canvasStore.getState().setView(viewFrom(appState));
       canvasStore.getState().setFrames(framesFromScene(elements));
       canvasStore.getState().setNodeIds(liveNodeIds(elements));
+      canvasStore.getState().setNodeRects(liveNodeRects(elements));
       canvasStore.getState().setLinks(orchestratorLinks(elements));
       const unmarked = unmarkedWires(elements);
       if (unmarked.length > 0 && api) requestAnimationFrame(() => markWires(api, unmarked));
@@ -163,6 +166,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       <DotGrid />
       <GroupBackdrops />
       <GroupLabels />
+      <StepTimelines />
       <div className="absolute inset-0">
         <Excalidraw
           theme={theme}

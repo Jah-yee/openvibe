@@ -3,12 +3,13 @@ mod commands;
 mod db;
 mod error;
 mod git;
+mod mission;
 mod process;
 mod pty;
 
 use std::time::Duration;
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 use db::Db;
@@ -24,6 +25,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(PtyManager::default())
         .setup(|app| {
+            // Built here, not from the config, for the one thing the config cannot
+            // say: the page reads the clipboard without WebView2's prompt, since
+            // the radial menu's Coller has no Ctrl+V to carry it (spec menu radial §6.3).
+            WebviewWindowBuilder::from_config(app.handle(), &app.config().app.windows[0])?
+                .enable_clipboard_access()
+                .build()?;
             let path = app.path().app_data_dir()?.join("openvibe.db");
             let db = match Db::open(&path) {
                 Ok(db) => db,
@@ -77,7 +84,13 @@ pub fn run() {
             commands::project::delete_project,
             commands::workspace::set_workspace_pantheon,
             commands::git::git_status,
+            commands::mission::mission_prepare,
+            commands::mission::mission_add_agent,
+            commands::mission::mission_merge,
+            commands::mission::mission_cleanup,
+            commands::mission::mission_discard,
             commands::agents::agent_activity_snapshot,
+            commands::agents::mcp_reply,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the OpenVibe application");

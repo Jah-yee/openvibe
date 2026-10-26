@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import type { Point } from "@/fleet/terminals";
 import type { Shortcut } from "./shortcuts";
 
 /** What a command knows of the moment it runs in (spec fenêtre §7.3). */
@@ -10,6 +11,12 @@ export interface CommandContext {
   terminalCount: number;
   /** The terminal that has the keyboard, else the last of the workspace to have had it (spec fenêtre §6.3). */
   terminalId: string | null;
+  /** Where the radial menu was opened, in scene coordinates: what it creates goes there (spec menu radial §6.1). */
+  at?: Point;
+  /** The group the radial menu points at; else the current terminal's (spec menu radial §6.1). */
+  groupId?: string | null;
+  /** The orchestrator the radial menu points at. */
+  orchestratorId?: string | null;
 }
 
 /**

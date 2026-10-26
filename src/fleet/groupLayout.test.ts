@@ -99,6 +99,6 @@ describe("clearSpot", () => {
 
 describe("orchestratorSpot", () => {
   it("puts an orchestrator to the left of the group, its top on the group's top", () => {
-    expect(orchestratorSpot({ x: 1000, y: 500, width: 900, height: 600 })).toEqual({ x: 1000 - GROUP_GAP - 160, y: 710 });
+    expect(orchestratorSpot({ x: 1000, y: 500, width: 900, height: 600 })).toEqual({ x: 1000 - GROUP_GAP - 320, y: 880 });
   });
 });

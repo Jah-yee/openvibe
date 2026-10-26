@@ -1,37 +1,53 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Network, X } from "lucide-react";
 import { useCanvas } from "@/canvas/canvasStore";
+import { useUiRequest } from "@/commands/uiRequests";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AgentRow } from "@/fleet/AgentRow";
 import { pauseAll, resumeAll } from "@/fleet/broadcast";
-import { AGENTS } from "@/fleet/catalog";
-import { CommandInput } from "@/fleet/CommandInput";
-import { agentsText, countsText, groupsText } from "@/fleet/groupSummary";
+import { defaultLaunchOptions } from "@/fleet/launchAgent";
 import { removeOrchestrator, renameOrchestrator } from "@/fleet/orchestrators";
-import { ROLES } from "@/fleet/roles";
-import { targetAgents } from "@/fleet/targets";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
+import type { Activity } from "@/ipc/activity";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
-import { useActivities } from "@/store/agentActivity";
-import { terminalOf, useNodes } from "@/store/nodes";
-import { uiStore, useUi } from "@/store/ui";
-import { frameStyle } from "../terminal/frame";
+import { useNow } from "@/lib/useNow";
+import { clockText } from "@/mission/mission";
+import { MissionPanel } from "@/mission/MissionPanel";
+import { useActivity } from "@/store/agentActivity";
+import { nodesStore, useNodes } from "@/store/nodes";
+import { useTerminalStatus, type TerminalStatus } from "@/store/terminalStatus";
+import { frameStyle, WAITING_GLOW } from "../terminal/frame";
+import { orchestratorSession } from "../terminal/launch";
+import { markForAutostart } from "../terminal/registry";
+import { ResumeCard } from "../terminal/ResumeCard";
 import { HeaderButton } from "../terminal/TerminalHeader";
+import { useTerminalHost } from "../terminal/useTerminalHost";
 
-/** A node that commands the groups and terminals wired to it (spec habillage §13). */
+/** The manager of a team: its Claude session, then its mission (spec orchestrateur §6). */
 export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   const record = useNodes((s) => s.nodes[nodeId]);
-  const nodes = useNodes((s) => s.nodes);
   const links = useCanvas((s) => s.links[nodeId] ?? NO_LINKS);
   const frames = useCanvas((s) => s.frames);
   const selected = useCanvas((s) => s.view.selectedIds.includes(nodeId));
-  const linking = useUi((s) => s.linking === nodeId);
-  const activities = useActivities();
+  const status = useTerminalStatus(nodeId);
+  const activity = useActivity(nodeId);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const session = record?.kind === "orchestrator" ? record.payload.session : undefined;
+  const now = useNow(15_000);
+  const clock = record?.kind === "orchestrator" && record.payload.mission ? clockText(record.payload.mission, now) : null;
+
+  useEffect(() => {
+    const current = nodesStore.getState().nodes[nodeId];
+    // An orchestrator of before gets its session when first shown (spec orchestrateur §6).
+    if (current?.kind !== "orchestrator" || current.payload.session) return;
+    nodesStore.getState().update(nodeId, { session: orchestratorSession(current.payload.name, defaultLaunchOptions()) });
+    markForAutostart(nodeId);
+  }, [nodeId]);
+  useTerminalHost(nodeId, hostRef, session !== undefined);
 
   if (record?.kind !== "orchestrator") {
     return (
@@ -42,26 +58,19 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   }
 
   const linked = linkedAgents(links, frames);
-  const working = (ids: readonly string[]) => ids.filter((id) => activities[id]?.activity === "working").length;
-  const nameOf = (id: string) => {
-    const payload = terminalOf(nodes[id]);
-    return payload ? payload.name || AGENTS[payload.agent].label : undefined;
-  };
-  const agents = targetAgents(linked.agentIds, nameOf, frames);
-  const count = linked.agentIds.length;
-
+  const waiting = status.state === "running" && activity?.activity === "waiting";
   return (
     <div
       data-orchestrator={nodeId}
-      className="flex h-full flex-col overflow-hidden rounded-xl bg-ov-surface-2"
-      style={frameStyle("var(--ov-accent)", selected, false)}
+      className="relative flex h-full flex-col overflow-hidden rounded-xl bg-ov-surface-2"
+      style={frameStyle("var(--ov-accent)", selected, waiting)}
     >
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-ov-line px-3">
         <Network className="size-4 shrink-0 text-ov-accent" />
-        <NameField value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
-        <span className="ml-auto flex items-center gap-1 font-mono text-[11px] text-ov-text-2" title="Agents en activité / agents reliés">
-          <ProgressRing value={working(linked.agentIds)} total={count} />
-          {working(linked.agentIds)}/{count}
+        <NameField nodeId={nodeId} value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
+        <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ov-text-2">
+          {clock && <span title="Temps passé / budget global">{clock}</span>}
+          <span>{sessionLabel(status.state, activity?.activity)}</span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -82,53 +91,32 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
           <X />
         </HeaderButton>
       </header>
-      <div className="flex shrink-0 items-center justify-between px-3 py-2 text-xs text-ov-text-2">
-        <span>
-          {agentsText(count)} · {groupsText(linked.groups.length)}
-        </span>
-        <button
-          type="button"
-          onClick={() => uiStore.getState().setLinking(linking ? null : nodeId)}
-          className="rounded-full bg-ov-accent px-2.5 py-0.5 text-[11px] font-semibold text-white hover:brightness-110"
-        >
-          {linking ? "Terminer" : "+ Relier"}
-        </button>
+      <div className="relative min-h-0 flex-1 bg-ov-terminal px-1 pt-1">
+        <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
+        {session && <ResumeCard nodeId={nodeId} payload={session} status={status} />}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2">
-        {count === 0 && <p className="py-6 text-center text-xs text-ov-text-2">Relie un groupe ou un agent avec « + Relier »</p>}
-        {linked.groups.map((group) => (
-          <section key={group.id} className="flex flex-col gap-1 pb-2">
-            <header className="flex items-center gap-1.5 px-1 text-[11px]">
-              <span className="size-1.5 rounded-full" style={{ backgroundColor: group.group ? ROLES[group.group.role].color : "var(--ov-idle)" }} />
-              <span className="font-semibold uppercase tracking-[0.08em] text-ov-text">{group.name}</span>
-              <span className="ml-auto font-mono text-ov-text-2">{countsText(group.memberIds.length, working(group.memberIds))}</span>
-            </header>
-            {group.memberIds.map((id) => (
-              <AgentRow key={id} id={id} showCenter />
-            ))}
-          </section>
-        ))}
-        {linked.directIds.map((id) => (
-          <AgentRow key={id} id={id} showCenter />
-        ))}
-      </div>
-      <footer className="shrink-0 border-t border-ov-line p-2">
-        <CommandInput
-          compact
-          agents={agents}
-          groups={linked.groups}
-          fallback={linked.agentIds}
-          placeholder={`Commander ${agentsText(count)} · @ pour cibler…`}
-          emptyHint="Relie des agents à cet orchestrateur"
-        />
-      </footer>
+      <MissionPanel nodeId={nodeId} />
+      {waiting && <div className="pointer-events-none absolute inset-0 z-20 rounded-xl" style={{ boxShadow: WAITING_GLOW }} />}
     </div>
   );
 }
 
+/** What its session does, in the header. */
+function sessionLabel(state: TerminalStatus["state"], activity: Activity | undefined): string {
+  if (state === "starting") return "démarrage";
+  if (state !== "running") return "arrêté";
+  return activity === "working" ? "au travail" : activity === "waiting" ? "attend une réponse" : "inactif";
+}
+
 /** The orchestrator's name; a double-click edits it, Enter or a click elsewhere keeps it, Escape cancels. */
-function NameField({ value, onCommit }: { value: string; onCommit: (name: string) => void }) {
+function NameField({ nodeId, value, onCommit }: { nodeId: string; value: string; onCommit: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
+  // « Renommer » of the orchestrator's radial menu.
+  useUiRequest("renameOrchestrator", (request) => {
+    if (request.id !== nodeId) return false;
+    setEditing(true);
+    return true;
+  });
   if (!editing) {
     return (
       <span className="truncate text-[13px] font-semibold text-ov-text" onDoubleClick={() => setEditing(true)} title="Double-clic pour renommer">
@@ -170,18 +158,5 @@ function NameInput({ initial, onDone }: { initial: string; onDone: (name: string
       }}
       className="w-36 rounded bg-ov-card px-1 text-[13px] font-semibold text-ov-text outline-none"
     />
-  );
-}
-
-/** `◌ 3/8`: the share of wired agents at work. */
-function ProgressRing({ value, total }: { value: number; total: number }) {
-  const radius = 5;
-  const length = 2 * Math.PI * radius;
-  const done = total > 0 ? (value / total) * length : 0;
-  return (
-    <svg viewBox="0 0 14 14" className="size-3.5 -rotate-90">
-      <circle cx="7" cy="7" r={radius} fill="none" stroke="var(--ov-line)" strokeWidth="2" />
-      <circle cx="7" cy="7" r={radius} fill="none" stroke="var(--ov-working)" strokeWidth="2" strokeDasharray={`${done} ${length}`} />
-    </svg>
   );
 }

@@ -18,7 +18,7 @@ import { Palette } from "./Palette";
 import { recentStore } from "./recent";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
-vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn(), terminalSelection: vi.fn(() => "") }));
 vi.mock("./goToRun", () => ({ goTo: vi.fn() }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -139,7 +139,7 @@ describe("the palette (spec fenêtre §7.1, §7.2)", () => {
       payload: { title: "Isis", name: "Isis", agent: "claude", cwd: "C:/code", shell: "default", command: "" },
     });
     const isis = { id: "isis", type: "embeddable", customData: { kind: "terminal" }, x: 0, y: 0, width: 300, height: 200, isDeleted: false, frameId: null };
-    canvasStore.setState({ api: { getSceneElements: () => [isis] } as unknown as ExcalidrawImperativeAPI });
+    canvasStore.setState({ api: { getSceneElements: () => [isis], getAppState: () => ({ selectedElementIds: {} }) } as unknown as ExcalidrawImperativeAPI });
     projectsStore.setState({ view: "project", activeId: "p1" } as never);
     workspacesStore.setState({
       workspaces: [

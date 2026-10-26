@@ -1,15 +1,16 @@
 import { showNode } from "@/canvas/arrive";
 import { focusGroup } from "@/canvas/canvasFocus";
 import { canvasStore } from "@/canvas/canvasStore";
-import { groupOf, type SceneGroup } from "@/canvas/groups";
+import { groupOf, isGroup, type SceneGroup } from "@/canvas/groups";
 import { setAgentsFilter, setAgentsPanel } from "@/fleet/agentsPanelState";
-import { canPause, canResume, pauseAgents, resumeAgent, type AgentFacts } from "@/fleet/broadcast";
+import { canPause, canResume, pauseAgents, pauseAll, resumeAgent, resumeAll, type AgentFacts } from "@/fleet/broadcast";
 import { AGENTS } from "@/fleet/catalog";
-import { requestCloseGroup, ungroup } from "@/fleet/groups";
+import { groupMembers, requestCloseGroup, ungroup } from "@/fleet/groups";
 import { orchestrateGroup } from "@/fleet/orchestrators";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import type { TerminalPayload } from "@/nodes/types";
-import { relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
+import { pasteIntoTerminal, relaunchTerminal, stopTerminal, terminalSelection } from "@/nodes/terminal/registry";
+import { readClipboardText } from "@/radial/bridges";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
@@ -22,8 +23,14 @@ function payloadOf(ctx: CommandContext): TerminalPayload | undefined {
   return ctx.project && ctx.terminalId ? terminalOf(nodesStore.getState().nodes[ctx.terminalId]) : undefined;
 }
 
+/** The group the radial menu points at, else the group of the terminal of the moment. */
 function groupOfCurrent(ctx: CommandContext): SceneGroup | null {
-  return payloadOf(ctx) && ctx.terminalId ? groupOf(canvasStore.getState().frames, ctx.terminalId) : null;
+  const frames = canvasStore.getState().frames;
+  if (ctx.project && ctx.groupId) {
+    const group = frames.find((f) => f.id === ctx.groupId);
+    return group && isGroup(group) ? group : null;
+  }
+  return payloadOf(ctx) && ctx.terminalId ? groupOf(frames, ctx.terminalId) : null;
 }
 
 function factsOf(ctx: CommandContext): AgentFacts | null {
@@ -123,6 +130,28 @@ export const CURRENT: readonly Command[] = [
     run: (ctx) => requestClose(terminalId(ctx)),
   },
   {
+    id: "terminal.copy",
+    label: "Copier",
+    section: terminalSection,
+    keywords: ["copier", "sélection", "presse-papiers"],
+    available: hasTerminal,
+    disabled: (ctx) => (terminalSelection(terminalId(ctx)) ? null : "aucune sélection"),
+    run: async (ctx) => {
+      await navigator.clipboard.writeText(terminalSelection(terminalId(ctx)));
+    },
+  },
+  {
+    id: "terminal.paste",
+    label: "Coller",
+    section: terminalSection,
+    keywords: ["coller", "presse-papiers"],
+    available: hasTerminal,
+    run: async (ctx) => {
+      const text = await readClipboardText();
+      if (text !== null) pasteIntoTerminal(terminalId(ctx), text);
+    },
+  },
+  {
     id: "group.rename",
     label: "Renommer le groupe",
     section: groupSection,
@@ -160,4 +189,34 @@ export const CURRENT: readonly Command[] = [
   },
   { id: "group.ungroup", label: "Dégrouper", section: groupSection, keywords: ["groupe", "dégrouper"], available: hasGroup, run: (ctx) => ungroup(groupId(ctx)) },
   { id: "group.close", label: "Fermer le groupe", section: groupSection, keywords: ["groupe", "fermer"], available: hasGroup, run: (ctx) => requestCloseGroup(groupId(ctx)) },
+  {
+    id: "group.pause",
+    label: "Mettre le groupe en pause",
+    section: groupSection,
+    keywords: ["groupe", "pause"],
+    available: hasGroup,
+    run: async (ctx) => {
+      await pauseAll(groupMembers(groupId(ctx)));
+    },
+  },
+  {
+    id: "group.resume",
+    label: "Reprendre le groupe",
+    section: groupSection,
+    keywords: ["groupe", "reprendre"],
+    available: hasGroup,
+    run: async (ctx) => {
+      await resumeAll(groupMembers(groupId(ctx)));
+    },
+  },
+  {
+    id: "group.frame",
+    label: "Cadrer le groupe",
+    section: groupSection,
+    keywords: ["groupe", "cadrer", "voir"],
+    available: hasGroup,
+    run: (ctx) => {
+      focusGroup(groupId(ctx));
+    },
+  },
 ];

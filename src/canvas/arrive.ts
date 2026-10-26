@@ -57,14 +57,10 @@ function focusSoon(focus: () => boolean, frames = FOCUS_FRAMES) {
   });
 }
 
-/** Gives the keyboard to a terminal's xterm, or to an orchestrator's field. */
+/** Gives the keyboard to the xterm of a terminal or of an orchestrator's session. */
 function focusNodeInput(nodeId: string, kind: NodeKind | null): boolean {
-  if (kind === "orchestrator") {
-    const field = document.querySelector<HTMLTextAreaElement>(`[data-orchestrator="${nodeId}"] textarea`);
-    field?.focus();
-    return field !== null && document.activeElement === field;
-  }
   focusTerminal(nodeId);
+  if (kind === "orchestrator") return document.activeElement?.closest(`[data-orchestrator="${nodeId}"]`) != null;
   return terminalWithKeyboard() === nodeId;
 }
 

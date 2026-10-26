@@ -38,7 +38,10 @@ beforeAll(async () => {
 beforeEach(() => {
   vi.mocked(arrive).mockClear();
   canvasStore.setState({
-    api: { getSceneElements: () => [terminal("isis", 0), terminal("thot", 400), terminal("anubis", 800)] } as unknown as ExcalidrawImperativeAPI,
+    api: {
+      getSceneElements: () => [terminal("isis", 0), terminal("thot", 400), terminal("anubis", 800)],
+      getAppState: () => ({ selectedElementIds: {} }),
+    } as unknown as ExcalidrawImperativeAPI,
     nodeIds: ["isis", "thot", "anubis"],
   });
   projectsStore.setState({ view: "project" } as never);

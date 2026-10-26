@@ -102,3 +102,17 @@ it("ignores keystrokes while a terminal restarts from one", () => {
   expect(acceptsInput("t", { replaying: false, restarting: true })).toBe(false);
   expect(acceptsInput("t", { replaying: false, restarting: false })).toBe(true);
 });
+
+it("marks the screen after the old process exited, before the new one starts (final review H2)", async () => {
+  terminalStatusStore.getState().set("t", { state: "running" });
+  const order: string[] = [];
+  mockIPC((cmd) => {
+    order.push(cmd);
+    if (cmd === "pty_kill") setTimeout(() => terminalStatusStore.getState().set("t", { state: "exited", code: 1 }), 5);
+    return null;
+  });
+  await relaunchSession("t", fakeTerm(), payload, "new", () => {
+    order.push(`marked while ${statusOf("t").state}`);
+  });
+  expect(order).toEqual(["pty_kill", "marked while exited", "pty_spawn"]);
+});

@@ -43,3 +43,23 @@ describe("readOrchestratorPayload", () => {
     expect(readOrchestratorPayload(null)).toEqual({ name: "Orchestrateur" });
   });
 });
+
+describe("an orchestrator's session (spec orchestrateur §6)", () => {
+  const session = { title: "Chef", name: "Chef", agent: "claude", cwd: "C:/code", shell: "default", command: "", claudeSessionId: "s1", role: "orchestrator" };
+
+  it("reads it back as the orchestrator's Claude session", () => {
+    expect(readOrchestratorPayload({ name: "Chef", session })).toEqual({ name: "Chef", session });
+    expect(readTerminalPayload(session)?.role).toBe("orchestrator");
+  });
+
+  it("drops a session that is not Claude's or cannot launch", () => {
+    expect(readOrchestratorPayload({ name: "Chef", session: { ...session, agent: "shell" } })).toEqual({ name: "Chef" });
+    expect(readOrchestratorPayload({ name: "Chef", session: 3 })).toEqual({ name: "Chef" });
+  });
+});
+
+it("reads an orchestrator's mission with it (spec orchestrateur §7)", () => {
+  const mission = { state: "plan", maxAgents: 4, name: "Auth", members: [] };
+  expect(readOrchestratorPayload({ name: "Chef", mission })).toEqual({ name: "Chef", mission });
+  expect(readOrchestratorPayload({ name: "Chef", mission: { state: "?" } })).toEqual({ name: "Chef" });
+});

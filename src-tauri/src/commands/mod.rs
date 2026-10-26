@@ -1,5 +1,6 @@
 pub mod agents;
 pub mod git;
+pub mod mission;
 pub mod project;
 pub mod pty;
 #[cfg(all(test, windows))]

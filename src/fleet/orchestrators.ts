@@ -2,12 +2,23 @@ import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
 import { canvasStore } from "@/canvas/canvasStore";
 import { isGroup } from "@/canvas/groups";
 import { createNodeElement } from "@/canvas/nodeElement";
+import { allowRemoval } from "@/canvas/removalGuard";
+import { orchestratorSession } from "@/nodes/terminal/launch";
+import { markForAutostart } from "@/nodes/terminal/registry";
 import { ORCHESTRATOR_NAME } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { workspacesStore } from "@/store/workspaces";
 import { orchestratorSpot } from "./groupLayout";
+import { defaultLaunchOptions } from "./launchAgent";
 import type { Point } from "./terminals";
 import { withWire } from "./wires";
+
+/** A new orchestrator with its Claude session, which starts when it is shown (spec orchestrateur §6). */
+async function createOrchestrator(id: string, workspaceId: string) {
+  const session = orchestratorSession(ORCHESTRATOR_NAME, defaultLaunchOptions());
+  await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME, session } });
+  markForAutostart(id);
+}
 
 /** "Relier un orchestrateur" of the group menu: a new orchestrator left of the group, wired to it, in one undo step. */
 export async function orchestrateGroup(groupId: string) {
@@ -16,7 +27,7 @@ export async function orchestrateGroup(groupId: string) {
   const group = canvasStore.getState().frames.find((f) => f.id === groupId);
   if (!api || !workspaceId || !group || !isGroup(group)) return;
   const element = createNodeElement("orchestrator", orchestratorSpot(group));
-  await nodesStore.getState().create(element.id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME } });
+  await createOrchestrator(element.id, workspaceId);
   api.updateScene({
     elements: withWire([...api.getSceneElementsIncludingDeleted(), element], element.id, groupId),
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
@@ -28,7 +39,7 @@ export async function addOrchestrator(workspaceId: string, center: Point) {
   const api = canvasStore.getState().api;
   if (!api) return;
   const element = createNodeElement("orchestrator", center);
-  await nodesStore.getState().create(element.id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME } });
+  await createOrchestrator(element.id, workspaceId);
   api.updateScene({
     elements: [...api.getSceneElementsIncludingDeleted(), element],
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
@@ -49,6 +60,7 @@ export function linkOrchestrator(orchestratorId: string, targetId: string) {
 export function removeOrchestrator(orchestratorId: string) {
   const api = canvasStore.getState().api;
   if (!api) return;
+  allowRemoval([orchestratorId]);
   const wired = (e: { type: string; startBinding?: { elementId: string } | null; endBinding?: { elementId: string } | null }) =>
     e.type === "arrow" && (e.startBinding?.elementId === orchestratorId || e.endBinding?.elementId === orchestratorId);
   api.updateScene({

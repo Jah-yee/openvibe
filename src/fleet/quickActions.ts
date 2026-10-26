@@ -9,30 +9,31 @@ import { launchGroup } from "./groups";
 import { defaultLaunchOptions, launchAgent } from "./launchAgent";
 import { addOrchestrator } from "./orchestrators";
 import { viewportCenter } from "./placement";
+import type { Point } from "./terminals";
 
 const reportLaunchError = (error: unknown) => toast.error(`Lancement impossible : ${String(error)}`);
 
-/** An agent at the center of the view, in the group under it if any, with the default options (spec habillage §11.3, spec fenêtre §7.3). */
-export function launchAt(agent: AgentId) {
-  const center = viewportCenter(canvasStore.getState().view);
+/** An agent at `at`, else at the center of the view, in the group under it if any (spec habillage §11.3, spec menu radial §4.1). */
+export function launchAt(agent: AgentId, at?: Point) {
+  const center = at ?? viewportCenter(canvasStore.getState().view);
   void launchAgent(agent, defaultLaunchOptions(), center).catch(reportLaunchError);
 }
 
-/** "Nouvelle console": the default agent at the center of the view (spec habillage §5.6). */
-export function newConsole() {
-  launchAt(defaultAgent(agentsStore.getState().agents));
+/** "Nouvelle console": the default agent (spec habillage §5.6). */
+export function newConsole(at?: Point) {
+  launchAt(defaultAgent(agentsStore.getState().agents), at);
 }
 
 /** "Lancer 4 agents": a Général group of four default agents (spec habillage §11.3). */
-export function launchFour() {
+export function launchFour(at?: Point) {
   const agent = defaultAgent(agentsStore.getState().agents);
   const name = nextGroupName(canvasStore.getState().frames);
-  void launchGroup({ name, role: "general", agents: [agent, agent, agent, agent] }).catch(reportLaunchError);
+  void launchGroup({ name, role: "general", agents: [agent, agent, agent, agent] }, defaultLaunchOptions(), at).catch(reportLaunchError);
 }
 
-/** « Orchestrateur » of the palette: at the center of the view, like a launch (plan F2, décision 3). */
-export function placeOrchestrator() {
+/** « Orchestrateur »: at `at`, else at the center of the view, like a launch (plan F2, décision 3). */
+export function placeOrchestrator(at?: Point) {
   const workspaceId = workspacesStore.getState().activeId;
   if (!workspaceId) return;
-  void addOrchestrator(workspaceId, viewportCenter(canvasStore.getState().view)).catch(reportLaunchError);
+  void addOrchestrator(workspaceId, at ?? viewportCenter(canvasStore.getState().view)).catch(reportLaunchError);
 }

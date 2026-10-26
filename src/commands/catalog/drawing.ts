@@ -1,7 +1,10 @@
 import { releaseToCanvas } from "@/canvas/canvasFocus";
 import { canvasStore } from "@/canvas/canvasStore";
+import { clientOf } from "@/fleet/placement";
+import type { Point } from "@/fleet/terminals";
+import { CANVAS_KEYS, copyCanvasSelection, openNativeMenuAt, pasteOnCanvasAt, pressCanvasKey, startTextAt } from "@/radial/bridges";
 import { exportCurrentPng, exportCurrentScene, importIntoScene } from "@/shell/sceneActions";
-import type { Command } from "../command";
+import type { Command, CommandContext } from "../command";
 import { inProject } from "./navigation";
 
 type Tool = "selection" | "hand" | "rectangle" | "ellipse" | "diamond" | "line" | "arrow" | "frame" | "text" | "freedraw" | "eraser" | "image";
@@ -33,10 +36,31 @@ function pickTool(type: Tool) {
  * no undo). The keyboard goes back to the canvas after: Excalidraw computes the
  * undo from the state of the moment, which would overwrite a release still pending.
  */
-function pressCanvasKey(key: "z" | "y") {
+function pressUndoKey(key: "z" | "y") {
   const container = document.querySelector<HTMLElement>(".excalidraw-container");
   container?.dispatchEvent(new KeyboardEvent("keydown", { key, code: key === "z" ? "KeyZ" : "KeyY", ctrlKey: true, bubbles: true, cancelable: true }));
   releaseToCanvas();
+}
+
+/** The ids Excalidraw has selected. */
+function selectedIds(): string[] {
+  const selection = canvasStore.getState().api?.getAppState().selectedElementIds ?? {};
+  return Object.keys(selection).filter((id) => selection[id]);
+}
+
+/** Every selected element is locked: « Déverrouiller », as Excalidraw's own menu says. */
+export function selectionLocked(): boolean {
+  const ids = new Set(selectedIds());
+  const selected = canvasStore.getState().api?.getSceneElements().filter((e) => ids.has(e.id)) ?? [];
+  return selected.length > 0 && selected.every((e) => e.locked);
+}
+
+const withSelection = (ctx: CommandContext) => inProject(ctx) && selectedIds().length > 0;
+
+/** The window point of the radial menu's click, else the middle of the canvas. */
+function pointOf(ctx: CommandContext): Point {
+  const { view } = canvasStore.getState();
+  return ctx.at ? clientOf(ctx.at, view) : { x: view.offsetLeft + view.width / 2, y: view.offsetTop + view.height / 2 };
 }
 
 export const DRAWING: readonly Command[] = [
@@ -48,11 +72,29 @@ export const DRAWING: readonly Command[] = [
       keywords: ["outil", "dessin", label],
       keys,
       available: inProject,
-      run: () => pickTool(type),
+      run: (ctx) => (type === "text" && ctx.at ? startTextAt(pointOf(ctx)) : pickTool(type)),
     }),
   ),
-  { id: "edit.undo", label: "Annuler", section: "Dessin", keywords: ["annuler", "défaire"], keys: "Ctrl+Z", available: inProject, run: () => pressCanvasKey("z") },
-  { id: "edit.redo", label: "Rétablir", section: "Dessin", keywords: ["rétablir", "refaire"], keys: "Ctrl+Y", available: inProject, run: () => pressCanvasKey("y") },
+  { id: "edit.undo", label: "Annuler", section: "Dessin", keywords: ["annuler", "défaire"], keys: "Ctrl+Z", available: inProject, run: () => pressUndoKey("z") },
+  { id: "edit.redo", label: "Rétablir", section: "Dessin", keywords: ["rétablir", "refaire"], keys: "Ctrl+Y", available: inProject, run: () => pressUndoKey("y") },
+  { id: "drawing.copy", label: "Copier", section: "Dessin", keywords: ["copier", "presse-papiers"], keys: "Ctrl+C", available: withSelection, run: () => copyCanvasSelection() },
+  { id: "drawing.paste", label: "Coller", section: "Dessin", keywords: ["coller", "presse-papiers"], keys: "Ctrl+V", available: inProject, run: (ctx) => pasteOnCanvasAt(pointOf(ctx)) },
+  { id: "drawing.duplicate", label: "Dupliquer", section: "Dessin", keywords: ["dupliquer", "copie"], keys: "Ctrl+D", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.duplicate) },
+  { id: "drawing.front", label: "Premier plan", section: "Dessin", keywords: ["devant", "ordre", "plan"], keys: "Ctrl+Maj+]", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.front) },
+  { id: "drawing.back", label: "Arrière-plan", section: "Dessin", keywords: ["derrière", "ordre", "plan"], keys: "Ctrl+Maj+[", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.back) },
+  {
+    id: "drawing.lock",
+    label: () => (selectionLocked() ? "Déverrouiller" : "Verrouiller"),
+    section: "Dessin",
+    keywords: ["verrouiller", "déverrouiller", "figer"],
+    keys: "Ctrl+Maj+L",
+    available: withSelection,
+    run: () => pressCanvasKey(CANVAS_KEYS.lock),
+  },
+  // Agents in the selection go through the closing guard (spec habillage §7.5).
+  { id: "drawing.delete", label: "Supprimer", section: "Dessin", keywords: ["supprimer", "effacer"], keys: "Suppr", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.delete) },
+  // The radial menu's only: Excalidraw's full menu at its point (spec menu radial §4.5).
+  { id: "drawing.more", label: "Plus…", section: "Dessin", keywords: ["menu", "plus"], available: (ctx) => withSelection(ctx) && ctx.at !== undefined, run: (ctx) => openNativeMenuAt(pointOf(ctx)) },
 ];
 
 export const SCENE: readonly Command[] = [

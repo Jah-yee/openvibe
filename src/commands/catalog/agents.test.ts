@@ -41,6 +41,7 @@ describe("Agents (spec fenêtre §7.3)", () => {
       "Lancer Ollama…",
       "Lancer Shell",
       "Lancer un agent personnalisé…",
+      "Autre agent…",
       "Nouvelle console",
       "Lancer 4 agents",
       "Orchestrateur",
@@ -54,7 +55,7 @@ describe("Agents (spec fenêtre §7.3)", () => {
     expect(find("agent.launch.claude").disabled!(busy)).toBeNull();
     expect(find("agent.launch.codex").disabled!(busy)).toBe("codex introuvable dans le PATH");
     await find("agent.launch.claude").run(busy);
-    expect(launchAt).toHaveBeenCalledWith("claude");
+    expect(launchAt).toHaveBeenCalledWith("claude", undefined);
   });
 
   it("opens the Agent menu on Ollama's models and on the custom command", async () => {
@@ -73,6 +74,23 @@ describe("Agents (spec fenêtre §7.3)", () => {
     expect([newConsole, launchFour, placeOrchestrator].every((f) => vi.mocked(f).mock.calls.length === 1)).toBe(true);
     expect(pauseAll).toHaveBeenCalledWith(["isis"]);
     expect(resumeAll).toHaveBeenCalledWith(["isis"]);
+  });
+
+  it("creates where the radial menu was opened, when it says where", async () => {
+    const at = { x: 10, y: 20 };
+    await find("agent.launch.claude").run({ ...busy, at });
+    expect(launchAt).toHaveBeenLastCalledWith("claude", at);
+    await find("agent.four").run({ ...busy, at });
+    expect(launchFour).toHaveBeenLastCalledWith(at);
+    await find("agent.orchestrator").run({ ...busy, at });
+    expect(placeOrchestrator).toHaveBeenLastCalledWith(at);
+    await find("agent.launch.ollama").run({ ...busy, at });
+    expect(pendingUiRequest()).toEqual({ kind: "agentMenu", view: "ollama", at });
+  });
+
+  it("opens the Agent menu on its catalog, the chosen agent launched at the radial menu's point (« Autre agent… »)", async () => {
+    await find("agent.other").run({ ...busy, at: { x: 1, y: 2 } });
+    expect(pendingUiRequest()).toEqual({ kind: "agentMenu", view: "agents", at: { x: 1, y: 2 } });
   });
 
   it("composes a group from the agents panel, opened if needed", async () => {

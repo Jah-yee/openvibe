@@ -2,6 +2,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { StoredFile } from "@/ipc/db";
 import { debounce } from "@/lib/debounce";
+import type { Rect } from "./groups";
 import { nodeKindOf } from "./nodeElement";
 import { createChangeDetector } from "./sceneChanges";
 
@@ -25,6 +26,13 @@ export interface SceneSyncDeps {
 /** Ids of the OpenVibe nodes still on the canvas (deleted elements excluded). */
 export function liveNodeIds(elements: readonly ExcalidrawElement[]): string[] {
   return elements.filter((e) => !e.isDeleted && nodeKindOf(e) !== null).map((e) => e.id);
+}
+
+/** The scene rectangle of each live node: where the overlays anchor (spec orchestrateur §5.1). */
+export function liveNodeRects(elements: readonly ExcalidrawElement[]): Record<string, Rect> {
+  return Object.fromEntries(
+    elements.filter((e) => !e.isDeleted && nodeKindOf(e) !== null).map((e) => [e.id, { x: e.x, y: e.y, width: e.width, height: e.height }]),
+  );
 }
 
 /**

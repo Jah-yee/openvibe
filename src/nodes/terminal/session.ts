@@ -68,12 +68,22 @@ export async function restoreSession(nodeId: string, term: TermSink) {
   if (bytes.length > 0) term.write(bytes);
 }
 
-/** Stops the process if it runs, waits for its exit, then starts it again. */
-export async function relaunchSession(nodeId: string, term: TermSink, payload: TerminalPayload, mode: LaunchMode) {
+/**
+ * Stops the process if it runs, waits for its exit, then starts it again.
+ * `beforeStart` runs in between: what follows is the new session's.
+ */
+export async function relaunchSession(
+  nodeId: string,
+  term: TermSink,
+  payload: TerminalPayload,
+  mode: LaunchMode,
+  beforeStart?: () => void | Promise<void>,
+) {
   if (isRunning(nodeId)) {
     await ptyKill(nodeId);
     await waitForExit(nodeId);
   }
+  await beforeStart?.();
   term.write("\r\n\x1b[2m── relance ──\x1b[0m\r\n");
   await startSession(nodeId, term, payload, mode);
 }

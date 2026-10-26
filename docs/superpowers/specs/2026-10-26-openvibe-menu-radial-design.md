@@ -53,10 +53,11 @@ Positions lues dans le sens des aiguilles d'une montre depuis le haut : ↑ ↗ 
 
 | ↑ | ↗ | → | ↘ | ↓ | ↙ | ← | ↖ |
 |---|---|---|---|---|---|---|---|
-| Lancer <agent par défaut> | Nouvelle console | Lancer 4 agents | Orchestrateur | Coller | Texte | Autre agent… | Vue d'ensemble |
-| icône de l'agent | `SquareTerminal` | `Layers` | `Network` | `ClipboardPaste` | `Type` | `Plus` | `Scan` |
+| Lancer <agent par défaut> | Lancer Shell | Lancer 4 agents | Orchestrateur | Coller | Texte | Autre agent… | Vue d'ensemble |
+| icône de l'agent | `Terminal` | `Layers` | `Network` | `ClipboardPaste` | `Type` | `Plus` | `Scan` |
 
 - **Lancer <agent par défaut>** : l'agent par défaut du menu Agent (`defaultAgent`, Claude quand il est installé), avec son icône et son nom (« Lancer Claude ») ; la position porte la fonction « Lancer <agent> » de cet agent, résolue à l'ouverture.
+- **Lancer Shell** : un shell nu (PowerShell). « Nouvelle console » lance l'agent par défaut (spec habillage §5.6) et ferait doublon avec ↑ (amendement à l'écriture du plan G1).
 - **Texte** : un texte commence au point du clic, en édition, comme un double-clic sur le canvas.
 - **Autre agent…** : ouvre le menu Agent du rail d'outils ; l'agent choisi est lancé au point du clic, sans passer par le mode pose. Ollama et la commande personnalisée gardent leur sous-panneau.
 - **Coller** : ce que contient le presse-papiers, posé au point du clic (dessins copiés, texte, image).
@@ -124,9 +125,10 @@ Positions lues dans le sens des aiguilles d'une montre depuis le haut : ↑ ↗ 
 
 - **Ouverture** : à l'appui du bouton droit (`pointerdown`, bouton 2) au-dessus du canvas, d'un nœud ou d'une étiquette de groupe, ce qui est dessous décidé à cet instant (§6.4).
 - **Clic bref** : relâché à moins de 6 px de l'appui, l'anneau reste ouvert ; un clic gauche sur un bouton l'exécute.
-- **Glisser** : bouton droit tenu au-delà de 6 px, le bouton visé est celui de la direction du pointeur (huitièmes de cercle centrés sur chaque position), dès 24 px du centre ; relâcher exécute le bouton visé. Relâcher à moins de 24 px du centre après avoir glissé ferme sans rien faire. Une position vide ou grisée visée n'exécute rien.
+- **Glisser** : bouton droit tenu au-delà de 6 px, le bouton visé est celui de la direction du pointeur (huitièmes de cercle centrés sur chaque position), dès 24 px du centre ; relâcher exécute le bouton visé. Relâcher à moins de 24 px du centre après avoir glissé ferme sans rien faire. Une position vide ou grisée visée n'exécute rien. Anneau décalé d'un bord : rien n'est visé non plus à moins de 24 px du point d'appui (un tremblement n'exécute rien) ; au-delà, la direction se lit depuis le centre de l'anneau affiché (relecture finale du plan G1).
 - **Fermeture** : Échap, le ×, un clic gauche hors de l'anneau, la molette. Un clic droit ailleurs, anneau ouvert, le rouvre là.
 - Un bouton exécuté ferme l'anneau avant d'exécuter sa commande (comme la palette, spec fenêtre §7.1).
+- Un appui sur l'anneau laisse le clavier où il était : après « Coller » dans un terminal, Entrée va au terminal. Le `contextmenu` qui suit un relâcher traité par l'anneau est absorbé, même hors du canvas : WebView2 n'ouvre pas son menu de page après un glisser (relecture finale du plan G1).
 - **Inchangés** : en mode pose et en mode « Relier », le clic droit annule le mode ; dans un champ de texte (renommage, barre de commande, champ d'un orchestrateur, palette), le clic droit garde son comportement (le texte du terminal n'est pas un champ de texte au sens de cette règle).
 - Ni anneau ni menu natif tant qu'un dialogue ou la palette est ouvert.
 
@@ -160,7 +162,8 @@ L'anneau construit le contexte de sa cible : `terminalId` est le terminal visé,
 
 - **Dupliquer, Premier plan, Arrière-plan, Verrouiller, Supprimer** : les raccourcis d'Excalidraw (Ctrl+D, Ctrl+Maj+], Ctrl+Maj+[, Ctrl+Maj+L, Suppr), envoyés à son conteneur comme « Annuler » (plan F2).
 - **Copier / Coller (dessins)** : les évènements `copy` et `paste` d'Excalidraw, le presse-papiers du système lu et écrit par l'application ; le collage se fait au point du clic.
-- **Texte** : un double-clic synthétique au point du clic.
+- **Lecture du presse-papiers** : sans Ctrl+V, WebView2 la soumet à son invite (« tauri.localhost souhaite voir le texte et les images copiés… »). Choix de Mathieu à la vérification : la fenêtre principale est créée par l'application avec l'accès au presse-papiers de Tauri (`enable_clipboard_access`), sans invite et sans dépendance ajoutée.
+- **Texte** : un double-clic synthétique au point du clic, après avoir pris l'outil de sélection et vidé la sélection (le double-clic d'Excalidraw n'écrit qu'avec cet outil et recadre une image seule sélectionnée).
 - **Plus…** : la cible sélectionnée, un `contextmenu` synthétique au point du clic, marqué pour que l'écouteur de l'anneau le laisse passer.
 - **Terminal** : Copier reprend la sélection d'xterm (comme ses raccourcis) ; Coller lit le presse-papiers et le colle dans xterm.
 - Chaque pont est vérifié dans l'application réelle (profil de sonde, port de débogage de WebView2) dès la première tâche du plan ; un pont qui ne tient pas est soumis à Mathieu avant la suite.
@@ -172,8 +175,8 @@ Dans l'ordre :
 1. Champ de texte (hors texte d'un terminal) : pas d'anneau.
 2. Dans un terminal (`[data-terminal]`) : terminal. Dans un orchestrateur : orchestrateur. Sur une étiquette de groupe : groupe.
 3. Sur le canvas, dans le cadre englobant de la sélection courante (non vide) : sélection.
-4. Le dessin le plus haut sous le point : contour (pivoté) pour les formes, texte et images ; distance au tracé, à quelques pixels près à l'écran, pour lignes, flèches et traits de stylo.
-5. Dans le cadre d'un groupe, sans membre ni dessin dessous : groupe. Dans un cadre ordinaire : dessin (le cadre).
+4. Le dessin le plus haut sous le point : contour (pivoté) pour les formes, texte et images ; distance au tracé, à quelques pixels près à l'écran, pour lignes, flèches et traits de stylo. Comme le clic droit d'Excalidraw : le libellé d'une forme vise la forme, un dessin d'un groupe (Ctrl+G) vise tout son groupe le plus large.
+5. Dans le cadre d'un groupe, sans membre ni dessin dessous : groupe. Dans un cadre ordinaire : dessin (le cadre). Le nom qu'Excalidraw dessine au-dessus d'un cadre compte comme ce cadre (l'étiquette d'un groupe, sinon le cadre).
 6. Sinon : fond du canvas.
 
 ### 6.5 Fichiers

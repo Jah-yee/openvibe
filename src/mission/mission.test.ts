@@ -1,0 +1,101 @@
+import { describe, expect, it } from "vitest";
+import { budgetBar, budgetOf, clockText, NEW_MISSION, oneLine, overruns, proposedPlan, readMission, remainingGlobal, sameName, spentMin, type Member, type Mission } from "./mission";
+
+const task = (agent: string, budget = 20) => ({ titre: "Login", consigne: "Fais le login", agent, budget_min: budget });
+const args = (...sous_taches: object[]) => ({ nom: "Auth", tache: "Ajoute l'authentification", sous_taches });
+
+describe("proposedPlan (spec orchestrateur §7.2)", () => {
+  it("takes a plan of linked agents, named case and accents aside, and new ones", () => {
+    const result = proposedPlan(args(task("athena"), { ...task("nouveau", 30), titre: "API" }), NEW_MISSION, ["Athéna", "Apollon"]);
+    expect(result).toEqual({
+      name: "Auth",
+      task: "Ajoute l'authentification",
+      plan: [
+        { title: "Login", brief: "Fais le login", agent: "Athéna", budgetMin: 20 },
+        { title: "API", brief: "Fais le login", agent: "nouveau", budgetMin: 30 },
+      ],
+    });
+  });
+
+  it("refuses what the team cannot do, with a reason the orchestrator can read", () => {
+    const budgeted: Mission = { ...NEW_MISSION, budgetMin: 30, maxAgents: 2 };
+    expect(proposedPlan(args(task("Zeus")), NEW_MISSION, ["Athéna"])).toContain("Zeus");
+    expect(proposedPlan(args(task("Athéna"), task("Athéna")), NEW_MISSION, ["Athéna"])).toContain("une sous-tâche par agent");
+    expect(proposedPlan(args(task("nouveau", 20), task("nouveau", 20)), budgeted, [])).toContain("budget global");
+    expect(proposedPlan(args(task("nouveau"), task("nouveau"), task("nouveau")), budgeted, [])).toContain("2 sous-tâches");
+    expect(proposedPlan(args(task("nouveau", 0)), NEW_MISSION, [])).toContain("budget");
+    expect(proposedPlan({ tache: "x", sous_taches: [task("nouveau")] }, NEW_MISSION, [])).toContain("nom");
+    expect(proposedPlan(args(), NEW_MISSION, [])).toContain("au moins une");
+  });
+});
+
+describe("readMission", () => {
+  it("reads a saved mission back; a launch cut short by a restart is back to its plan", () => {
+    const saved = { state: "lancement", maxAgents: 3, name: "Auth", plan: [{ title: "Login", brief: "b", agent: "nouveau", budgetMin: 5 }], members: [] };
+    expect(readMission(saved)).toEqual({ ...saved, state: "plan" });
+    const member = { nodeId: "n1", name: "Isis", task: "Login", budgetMin: 5, linked: false, branch: "openvibe/auth-isis", worktree: "C:/w", sentAt: 4, report: { summary: "ok", status: "termine", at: 9 } };
+    expect(readMission({ state: "en_cours", maxAgents: 4, members: [member, { nodeId: 3 }] })?.members).toEqual([member]);
+  });
+
+  it("drops what is not a mission", () => {
+    expect(readMission({ state: "partie" })).toBeUndefined();
+    expect(readMission("x")).toBeUndefined();
+  });
+});
+
+it("compares names case and accents aside, and keeps typed text on one line", () => {
+  expect(sameName(" HÉRA", "hera")).toBe(true);
+  expect(sameName("Héra", "Hermès")).toBe(false);
+  expect(oneLine("Fais ceci\r\n\n  puis cela ")).toBe("Fais ceci puis cela");
+});
+
+describe("the time of a mission (spec orchestrateur §8)", () => {
+  const min = 60_000;
+  const member = (extra: Partial<Member> = {}): Member => ({ nodeId: "n1", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0, ...extra });
+  const running = (members: Member[], extra: Partial<Mission> = {}): Mission => ({ ...NEW_MISSION, state: "en_cours", name: "Auth", members, ...extra });
+
+  it("counts a member's time from its sub-task to its report, its budget with its extensions", () => {
+    expect(spentMin(member(), 6 * min)).toBe(6);
+    expect(spentMin(member({ report: { summary: "ok", status: "termine", at: 4 * min } }), 9 * min)).toBe(4);
+    expect(spentMin(member({ sentAt: undefined }), 9 * min)).toBe(0);
+    expect(budgetOf(member({ extraMin: 5 }))).toBe(15);
+  });
+
+  it("finds each overrun once per step, 100 % then 200 %, and the end of the global budget", () => {
+    const report = { summary: "ok", status: "termine" as const, at: min };
+    const mission = running(
+      [member(), member({ nodeId: "n2", name: "Horus", overdue: 1 }), member({ nodeId: "n3", name: "Seth", report }), member({ nodeId: "n4", name: "Thot", handedTo: "Horus" })],
+      { budgetMin: 30, startedAt: 0 },
+    );
+    expect(overruns(mission, 11 * min)).toEqual({ members: [{ nodeId: "n1", name: "Isis", task: "Login", level: 1, budget: 10 }], global: false });
+    expect(overruns(mission, 21 * min).members.map((o) => [o.nodeId, o.level])).toEqual([["n1", 2], ["n2", 2]]);
+    expect(overruns(mission, 31 * min).global).toBe(true);
+    expect(overruns({ ...mission, globalOverdue: true }, 31 * min).global).toBe(false);
+    expect(overruns({ ...mission, state: "terminee" }, 31 * min)).toEqual({ members: [], global: false });
+  });
+
+  it("knows what is left of the global budget, without the handed-over sub-tasks", () => {
+    expect(remainingGlobal(running([member(), member({ nodeId: "n2", extraMin: 5 }), member({ nodeId: "n3", handedTo: "Isis" })], { budgetMin: 30 }))).toBe(5);
+    expect(remainingGlobal(running([member()]))).toBeUndefined();
+    // A member who reported only took what it spent (final review H3).
+    const early = member({ report: { summary: "ok", status: "termine", at: 5 * min } });
+    expect(remainingGlobal(running([early, member({ nodeId: "n2" }), member({ nodeId: "n3" })], { budgetMin: 60 }))).toBe(35);
+  });
+
+  it("colours a budget's bar: green, orange past 80 %, red past 100 %", () => {
+    expect(budgetBar(4, 10)).toEqual({ ratio: 0.4, tone: "ok" });
+    expect(budgetBar(9, 10)).toEqual({ ratio: 0.9, tone: "late" });
+    expect(budgetBar(25, 10)).toEqual({ ratio: 1, tone: "over" });
+  });
+
+  it("writes the mission's time for the orchestrator's header", () => {
+    expect(clockText(running([], { startedAt: 0, budgetMin: 60 }), 12.4 * min)).toBe("12 / 60 min");
+    expect(clockText(running([], { startedAt: 0 }), 3 * min)).toBe("3 min");
+    expect(clockText({ ...NEW_MISSION }, 3 * min)).toBeNull();
+  });
+
+  it("reads the time fields back", () => {
+    const saved = { state: "en_cours", maxAgents: 4, startedAt: 5, globalOverdue: true, members: [{ ...member(), extraMin: 5, overdue: 2, handedTo: "Horus", done: ["API"] }] };
+    expect(readMission(saved)).toEqual(saved);
+  });
+});

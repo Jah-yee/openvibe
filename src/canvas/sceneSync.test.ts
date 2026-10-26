@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import { createNodeElement } from "./nodeElement";
-import { createSceneSync, liveNodeIds } from "./sceneSync";
+import { createSceneSync, liveNodeIds, liveNodeRects } from "./sceneSync";
 
 const appState = (zoom = 1) => ({ scrollX: 0, scrollY: 0, zoom: { value: zoom } }) as unknown as AppState;
 const noFiles = {} as BinaryFiles;
@@ -84,4 +84,12 @@ it("liveNodeIds skips deleted nodes and plain drawings", () => {
   const node = createNodeElement("note", { x: 0, y: 0 });
   const drawing = { ...createNodeElement("note", { x: 0, y: 0 }), type: "rectangle" } as unknown as ExcalidrawElement;
   expect(liveNodeIds([node, drawing, { ...node, id: "x", isDeleted: true }])).toEqual([node.id]);
+});
+
+it("liveNodeRects gives the scene rectangle of each live node, the frieze's anchor", () => {
+  const node = createNodeElement("terminal", { x: 0, y: 0 });
+  const drawing = { ...node, id: "d", type: "rectangle" } as unknown as ExcalidrawElement;
+  expect(liveNodeRects([node, drawing, { ...node, id: "x", isDeleted: true }])).toEqual({
+    [node.id]: { x: node.x, y: node.y, width: node.width, height: node.height },
+  });
 });

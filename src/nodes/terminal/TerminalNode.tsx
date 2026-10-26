@@ -1,18 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Copy, X } from "lucide-react";
 import { toast } from "sonner";
-import { canvasStore, useCanvas } from "@/canvas/canvasStore";
+import { useCanvas } from "@/canvas/canvasStore";
 import { AGENTS } from "@/fleet/catalog";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import { useActivity } from "@/store/agentActivity";
-import { nodesStore, terminalOf, useNodes } from "@/store/nodes";
+import { terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { ArrivalFlash } from "./ArrivalFlash";
-import { createFitScheduler, ZOOM_SETTLE_MS } from "./fitScheduler";
 import { frameStyle, WAITING_GLOW } from "./frame";
-import { layoutTerminal, mountTerminal } from "./registry";
 import { ResumeCard } from "./ResumeCard";
 import { HeaderButton, TerminalHeader } from "./TerminalHeader";
+import { useTerminalHost } from "./useTerminalHost";
 
 export function TerminalNode({ nodeId }: { nodeId: string }) {
   const payload = useNodes((s) => terminalOf(s.nodes[nodeId]));
@@ -23,27 +22,7 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const hasPayload = payload !== undefined;
 
-  useEffect(() => {
-    const host = hostRef.current;
-    const current = terminalOf(nodesStore.getState().nodes[nodeId]);
-    if (!host || !current) return;
-    const zoom = () => canvasStore.getState().view.zoom;
-    mountTerminal(nodeId, host, current, zoom());
-    const layout = () => layoutTerminal(nodeId, host, zoom());
-    const onResize = createFitScheduler(layout);
-    const onZoom = createFitScheduler(layout, ZOOM_SETTLE_MS);
-    const observer = new ResizeObserver(onResize.schedule);
-    observer.observe(host);
-    const unsubscribe = canvasStore.subscribe((state, previous) => {
-      if (state.view.zoom !== previous.view.zoom) onZoom.schedule();
-    });
-    return () => {
-      observer.disconnect();
-      unsubscribe();
-      onResize.cancel();
-      onZoom.cancel();
-    };
-  }, [nodeId, hasPayload]);
+  useTerminalHost(nodeId, hostRef, hasPayload);
 
   if (!payload) {
     return (

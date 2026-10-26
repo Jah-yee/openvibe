@@ -25,3 +25,8 @@ describe("cloneTerminalPayload", () => {
     expect(copy.claudeSessionId).toBeUndefined();
   });
 });
+
+it("leaves the source's steps behind: they belong to its conversation (final review H1)", () => {
+  const copy = cloneTerminalPayload({ ...claude, steps: [{ title: "Plan", state: "en_cours" }] }, "Osiris");
+  expect(copy.steps).toBeUndefined();
+});

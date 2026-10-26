@@ -7,13 +7,20 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use super::hooks_server::valid_node_id;
+use crate::pty::shell::Role;
 
 const NOTIFICATIONS: &str =
     "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input|idle_prompt";
 
-pub fn settings_json(url: &str) -> Value {
+pub fn settings_json(url: &str, role: Role) -> Value {
     let hook = json!({ "type": "http", "url": url, "timeout": 2 });
     let every = json!([{ "hooks": [hook] }]);
+    // OpenVibe's own tools never ask (spec orchestrateur §4.2).
+    let mut permissions = json!({ "allow": ["mcp__openvibe"] });
+    if role == Role::Orchestrator {
+        // A manager does not code itself.
+        permissions["deny"] = json!(["Edit", "Write", "NotebookEdit"]);
+    }
     json!({
         "hooks": {
             "UserPromptSubmit": every,
@@ -21,14 +28,17 @@ pub fn settings_json(url: &str) -> Value {
             "Stop": every,
             "StopFailure": every,
             "SessionEnd": every,
+            "SubagentStart": every,
+            "SubagentStop": every,
             "Notification": [{ "matcher": NOTIFICATIONS, "hooks": [hook] }],
-        }
+        },
+        "permissions": permissions,
     })
 }
 
 /// `<dir>/<nodeId>.json`, rewritten at each launch (port and token change
 /// with each run of the app).
-pub fn write(dir: &Path, node_id: &str, url: &str) -> io::Result<PathBuf> {
+pub fn write(dir: &Path, node_id: &str, url: &str, role: Role) -> io::Result<PathBuf> {
     if !valid_node_id(node_id) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -37,7 +47,7 @@ pub fn write(dir: &Path, node_id: &str, url: &str) -> io::Result<PathBuf> {
     }
     std::fs::create_dir_all(dir)?;
     let path = dir.join(format!("{node_id}.json"));
-    std::fs::write(&path, serde_json::to_vec_pretty(&settings_json(url))?)?;
+    std::fs::write(&path, serde_json::to_vec_pretty(&settings_json(url, role))?)?;
     Ok(path)
 }
 
@@ -68,7 +78,7 @@ mod tests {
 
     #[test]
     fn reports_the_tracked_events_to_the_url_without_blocking_hooks() {
-        let json = settings_json(URL);
+        let json = settings_json(URL, Role::Agent);
         let hooks = json["hooks"].as_object().unwrap();
         let mut events: Vec<_> = hooks.keys().map(String::as_str).collect();
         events.sort_unstable();
@@ -80,6 +90,8 @@ mod tests {
                 "SessionEnd",
                 "Stop",
                 "StopFailure",
+                "SubagentStart",
+                "SubagentStop",
                 "UserPromptSubmit"
             ]
         );
@@ -94,15 +106,23 @@ mod tests {
     }
 
     #[test]
+    fn allows_openvibe_s_tools_without_asking() {
+        assert_eq!(
+            settings_json(URL, Role::Agent)["permissions"],
+            serde_json::json!({ "allow": ["mcp__openvibe"] })
+        );
+    }
+
+    #[test]
     fn writes_rewrites_and_removes_a_terminal_s_file() {
         let dir = tempfile::tempdir().unwrap();
         let hooks = dir.path().join("hooks");
-        let path = write(&hooks, "n1", URL).unwrap();
+        let path = write(&hooks, "n1", URL, Role::Agent).unwrap();
         assert_eq!(path, hooks.join("n1.json"));
         let read: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-        assert_eq!(read, settings_json(URL));
-        write(&hooks, "n1", "http://127.0.0.1:1/other").unwrap();
+        assert_eq!(read, settings_json(URL, Role::Agent));
+        write(&hooks, "n1", "http://127.0.0.1:1/other", Role::Agent).unwrap();
         assert!(
             std::fs::read_to_string(&path)
                 .unwrap()
@@ -115,15 +135,15 @@ mod tests {
     #[test]
     fn refuses_a_node_id_that_would_leave_the_folder() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(write(dir.path(), "../evil", URL).is_err());
+        assert!(write(dir.path(), "../evil", URL, Role::Agent).is_err());
         assert!(!dir.path().join("../evil.json").exists());
     }
 
     #[test]
     fn clears_the_files_of_the_previous_run() {
         let dir = tempfile::tempdir().unwrap();
-        write(dir.path(), "a", URL).unwrap();
-        write(dir.path(), "b", URL).unwrap();
+        write(dir.path(), "a", URL, Role::Agent).unwrap();
+        write(dir.path(), "b", URL, Role::Agent).unwrap();
         std::fs::write(dir.path().join("keep.txt"), "x").unwrap();
         clear(dir.path());
         let left: Vec<_> = std::fs::read_dir(dir.path())
@@ -132,5 +152,20 @@ mod tests {
             .collect();
         assert_eq!(left, vec![std::ffi::OsString::from("keep.txt")]);
         clear(&dir.path().join("missing"));
+    }
+
+    #[test]
+    fn an_orchestrator_may_not_edit_files() {
+        let manager = settings_json(URL, Role::Orchestrator);
+        assert_eq!(manager["permissions"]["allow"], json!(["mcp__openvibe"]));
+        assert_eq!(
+            manager["permissions"]["deny"],
+            json!(["Edit", "Write", "NotebookEdit"])
+        );
+        assert!(
+            settings_json(URL, Role::Agent)["permissions"]
+                .get("deny")
+                .is_none()
+        );
     }
 }

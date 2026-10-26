@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Check, Layers, Network, SquareTerminal } from "lucide-react";
+import { toast } from "sonner";
 import { useUiRequest } from "@/commands/uiRequests";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { uiStore } from "@/store/ui";
 import { agentsStore, useAgents } from "./agentsStore";
 import { AGENT_ORDER, agentInk, AGENTS, defaultAgent } from "./catalog";
-import { defaultLaunchOptions, type LaunchOptions } from "./launchAgent";
+import { defaultLaunchOptions, launchAgent, type LaunchOptions } from "./launchAgent";
 import { LaunchOptionsForm } from "./LaunchOptionsForm";
 import { OllamaPicker } from "./OllamaPicker";
-import { launchFour, newConsole } from "./quickActions";
+import { launchFour, newConsole, placeOrchestrator } from "./quickActions";
+import type { Point } from "./terminals";
 
 type View = "agents" | "options" | "ollama";
 
@@ -34,9 +36,13 @@ export function AgentMenu({
   const available = (id: AgentId) => agents.find((a) => a.id === id)?.available ?? false;
 
   const requestedView = useRef<View | null>(null);
+  const [placeAt, setPlaceAt] = useState<Point | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setPlaceAt(null);
+      return;
+    }
     setView(requestedView.current ?? "agents");
     requestedView.current = null;
     void agentsStore.getState().load();
@@ -46,6 +52,7 @@ export function AgentMenu({
     "agentMenu",
     (request) => {
       requestedView.current = request.view;
+      setPlaceAt(request.at ?? null);
       setOpen(true);
       return true;
     },
@@ -54,7 +61,9 @@ export function AgentMenu({
 
   const place = (agent: AgentId, launch: LaunchOptions) => {
     setOpen(false);
-    uiStore.getState().setPlacing({ agent, options: launch });
+    // « Autre agent… » of the radial menu: launched where the right click was (spec menu radial §4.1).
+    if (placeAt) void launchAgent(agent, launch, placeAt).catch((error: unknown) => toast.error(`Lancement impossible : ${String(error)}`));
+    else uiStore.getState().setPlacing({ agent, options: launch });
   };
 
   const pick = (agent: AgentId) => {
@@ -101,7 +110,7 @@ export function AgentMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  newConsole();
+                  newConsole(placeAt ?? undefined);
                 }}
                 className="mt-1 flex items-center gap-2.5 rounded-lg border-t border-ov-line px-2 py-1.5 text-left hover:bg-ov-hover"
               >
@@ -114,7 +123,7 @@ export function AgentMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  launchFour();
+                  launchFour(placeAt ?? undefined);
                 }}
                 className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ov-hover"
               >
@@ -128,7 +137,8 @@ export function AgentMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  uiStore.getState().setPlacing({ orchestrator: true });
+                  if (placeAt) placeOrchestrator(placeAt);
+                  else uiStore.getState().setPlacing({ orchestrator: true });
                 }}
                 className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ov-hover"
               >
@@ -142,7 +152,7 @@ export function AgentMenu({
               </button>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-ov-line px-2 pt-2 text-[11px] text-ov-text-2">
-              <span>puis clique sur le canvas pour le poser</span>
+              <span>{placeAt ? "lancé là où tu as cliqué" : "puis clique sur le canvas pour le poser"}</span>
               <button type="button" className="text-ov-accent hover:underline" onClick={() => setView("options")}>
                 Options
               </button>

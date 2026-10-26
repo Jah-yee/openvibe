@@ -2,6 +2,16 @@
 
 Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-openvibe-habillage-et-flotte-design.md` (habillage Symvibe et flotte d'agents). Les références « vidéo » renvoient aux démos de Symvibe analysées le 2026-10-24.
 
+## Idée générale de prochaine mise à jour
+
+- Mettre dans la barre du haut les % d'usages (Current Session, Current week (all models), Current week (Fable))
+    1. Quand tu cliques dessus, tu as le détail (Total cost, Total duration (API), Total duration (Wall), code changes, usage by model, prompt cache, warm, CO² consumption etc...)
+- Pouvoir via la consigne aux agents, executer une commande pour plusieurs agents en même temps type @athena/zeus/héra /effort ultracode etça executera "/effort ultracode" dans les fenêtres des agents athena zeus et héra.
+- Pouvoir visualiser les diffs réalisés, par les agents et faciliter le code review de la sortie des agents. (un peu IDE embarqué avec visualisation de fichiers du workspace)
+- Pouvoir importer/embarqué nativement les icones de system design, aws azure et GCP d'excalidraw dans l'application.
+- Avoir une option Routeur dans l'orchestrateur, qui attribue pour chaque agent un modèle faible pour les tâches faibles Haiku 5.5, moyen Sonnet 5.5, elevé Opus, extrême Fable 5.1
+- Permettre d'activer le remote-control sur plusieurs terminaux, à l'unité ou au travers de l'orchestrateur pour gérer et avoir accès aux workflows à distance.
+
 ## Priorité haute
 
 - **Reprendre une session Claude qui n'a jamais eu de conversation** (constaté après J8b, le 2026-10-26) : « Relancer » de la palette, « Reprendre la session » de l'en-tête et « Reprendre toutes les conversations » lancent `claude --resume <id>` (`src-tauri/src/pty/shell.rs`, `ClaudeMode::Resume`). Si l'agent n'a encore reçu aucun message, Claude n'a rien enregistré sous cet identifiant : il affiche « No conversation found with session ID » et rend la main au shell nu. Correctif proposé : avant le lancement, vérifier que la conversation existe (fichier `<id>.jsonl` dans `~/.claude/projects/<dossier>/`) et, sinon, démarrer une nouvelle session sous le même identifiant (`--session-id <id>`).
@@ -180,3 +190,53 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Une demande d'interface (`uiRequests`) sans réponse n'expire jamais : aucun chemin actuel ne la laisse en attente, mais une commande future ou une erreur de rendu la ferait partir au montage suivant (le composeur s'ouvrant au prochain affichage du panneau). L'abandonner après une image, ou au changement de workspace ou de projet.
 - Tests : `registry.test` ne vérifie plus la liste exacte par contexte (accueil : Aller à, Projets, Fenêtre, Aide seulement ; Workspaces, Dessin et Scène absents). Ajouter un test de liste exacte par contexte sur `COMMANDS` (spec §11).
 - `current.ts` : les conversions forcées (`groupId`, le payload de Relancer) lèvent une `TypeError` si le groupe ou le terminal a disparu entre l'affichage et Entrée (toast « Cannot read properties of null »). Rendre la main sans rien faire.
+
+## Constats du plan G1 (menu radial, relecture finale)
+
+- « Coller » de la palette, sans point, colle au centre de la vue : si un nœud actif s'y trouve (le terminal où l'on travaille, que `arrive` centre), Excalidraw ne colle pas et rien ne le dit (spec menu radial §7). Vérifier `elementFromPoint` dans `pasteOnCanvasAt` et afficher un toast.
+- « Verrouiller » / « Déverrouiller » se trompe sur une sélection mêlée : Excalidraw verrouille seulement si tout est déverrouillé, et déverrouille tout sinon. Une sélection mêlée affiche « Verrouiller » mais Ctrl+Maj+L déverrouille. `selectionLocked` = `some(e => e.locked)`.
+- Sans Claude ni Codex installés, l'agent par défaut est le Shell : ↑ et ↗ de l'anneau du fond affichent tous deux « Lancer Shell » (icônes différentes).
+- L'anneau qui s'ouvre laisse ouverts les autres menus : le menu d'Excalidraw ouvert par « Plus… », le ＋ ouvert par « Autre agent… ». L'appui droit est arrêté en capture et leurs écouteurs « clic dehors » ne le voient pas. Fermer `contextMenu` d'Excalidraw (et les popovers) à l'ouverture.
+- Les lignes et flèches tracées vers la gauche ou vers le haut ont leur cadre à `x + minX…` : « dans la sélection » et le centre de rotation de `target.ts` (`boundsOf`, `unturned`) sont faux pour elles.
+- `readClipboardText` dit « Presse-papiers vide » quand le presse-papiers ne contient qu'une image : le texte est inexact (le comportement est juste).
+- `lib.rs` prend la fenêtre de la configuration par son index (`windows[0]`) : la chercher par son label `main`.
+
+## Constats du plan H1 (pont MCP et frise, relecture finale)
+
+- Titres d'étapes en double (`["Tests","Tests"]`, `["Plan","plan"]`) acceptés : clés React en double et la seconde étape ne se marque jamais. Refuser les doublons (sans casse), clés par indice.
+- Le « ×N » des sous-agents est dans le titre tronqué : il disparaît avec beaucoup d'étapes ou à faible zoom. Le sortir du titre.
+- Une étape « en cours » pulse encore sous un terminal arrêté (interruption, plantage, redémarrage). Ne pulser que si le terminal tourne.
+- Un second `pty_spawn` refusé (« tourne déjà ») révoque le jeton de la session vivante : `ended` ne devrait révoquer que le jeton de ce lancement, ou refuser avant `hooks_for`.
+- MCP : un lot JSON-RPC reçoit 202 sans corps, un JSON invalide 400 vide (au lieu de `-32700`), `params: null` passe par l'exception (au lieu de `-32602`), la version demandée est renvoyée telle quelle.
+- Le compte des sous-agents se perd au rechargement de la page (pas d'instantané depuis Rust).
+- Conversations commencées avant H1 et reprises : `--system-prompt-snapshot` (Claude Code 2.1.304) peut garder l'ancien prompt système, sans la consigne de rôle.
+- Tests : un hook servi pendant qu'un appel MCP attend ; `ended()` puis 401 côté Rust ; chemins avec espaces ou apostrophes pour cmd et Git Bash.
+- `std::thread::spawn` par requête `/mcp` : passer par `thread::Builder` et répondre 503 si le fil ne se crée pas.
+
+## Constats du plan H2 (mission de l'orchestrateur, relecture finale)
+
+- Un dépôt sans aucun commit fait échouer « Lancer la mission » avec le texte brut de git (« fatal: invalid reference: HEAD ») : vérifier `rev-parse --verify HEAD` dans `mission::prepare` et dire « Le dépôt n'a pas encore de commit ».
+- Une fusion qui échoue sans fichier en conflit mais laisse `MERGE_HEAD` (hook en échec) n'est pas annulée : les `fusionner` suivants échouent. Annuler dès que `MERGE_HEAD` existe (`mission.rs`, `merge_agent`).
+- Le × d'un orchestrateur au travail arrête sa session sans demander ; son enregistrement reste en mémoire, et les comptes rendus de ses agents leur répondent « transmis » alors que personne ne les lit.
+- Sans serveur de hooks (ou si l'écriture des réglages échoue), l'orchestrateur démarre comme un Claude ordinaire, sans `deny` ni consigne de rôle (il peut modifier la branche de l'utilisateur) ; `Bash` n'est jamais interdit. Refuser de lancer un orchestrateur sans ses réglages, et afficher « Outils OpenVibe indisponibles » dans le nœud (spec §9).
+- Un évènement tapé pendant que l'utilisateur écrit dans le terminal de l'orchestrateur part avec son texte à moitié tapé : attendre quelques secondes après une frappe.
+- `rebaseTerminalFolders` (projet déplacé) ne rebase ni la session de l'orchestrateur ni les chemins de sa mission.
+- Les orchestrateurs créés avant H2 gardent leur taille 320 × 420 : le terminal de Claude et le panneau y sont à l'étroit.
+- Le nettoyage étiquette tout échec de `worktree remove` « changements non commités » (un dossier verrouillé par un processus aussi).
+- Un agent relié à deux orchestrateurs peut être enrôlé dans deux missions : `linkedClaudeAgents` n'écarte pas les membres d'une mission en cours.
+- Les missions ne connaissent les fils et les groupes que de l'espace affiché : hors de l'écran, `proposer_plan` refuse les agents reliés et `terminer` arrête les agents créés au lieu de fermer leur groupe. Lire la scène enregistrée de l'espace de l'orchestrateur.
+- La détection « Claude est prêt » lit l'écran : la boîte de saisie (`❯` sous un trait) et l'invite de confiance (« trust » + « folder »). Une autre mise en page de Claude retombe sur le délai de 60 s.
+
+## Constats du plan H3 (temps d'une mission, relecture finale)
+
+- Les temps du panneau continuent de courir après « terminer » : un agent qui n'a pas rendu compte affiche le lendemain « 1440 / 20 min » en rouge. Enregistrer `endedAt` dans `endMission` et y plafonner `spentMin`.
+- `reattribuer` vers un agent arrêté (par exemple après un redémarrage d'OpenVibe) répond « passe à … », puis l'orchestrateur reçoit « n'a pas démarré » 60 s plus tard : refuser d'emblée un agent arrêté.
+- `prolonger` accepte un agent dont la sous-tâche est passée à un autre, ou qui a déjà rendu compte : refuser ces cas.
+- Un palier de dépassement est enregistré « signalé » alors que sa ligne attend encore dans la file en mémoire : si OpenVibe se ferme avant que l'orchestrateur soit libre, la ligne est perdue et le palier n'est plus signalé.
+- La consigne de reprise écrit toujours « d' » (« Reprise du travail d'Seth ») : reprendre `of` d'`orchestratorTools.ts`.
+- `reattribuer` « nouveau » ne tient pas compte d'« Agents max » : l'agent précédent est mis en pause et prié d'arrêter, mais sa session reste ouverte.
+- Le temps court aussi quand OpenVibe est fermé (temps réel, spec §8.1) : un redémarrage après une longue pause donne une rafale de toasts pour des agents arrêtés.
+- Le budget global est vérifié au plan comme une somme de budgets (minutes-agents en parallèle) mais mesuré en temps écoulé depuis le feu vert : à trancher dans la spec.
+- L'horloge ne voit que les missions des espaces chargés depuis le démarrage.
+- Le panneau n'affiche pas les sous-tâches déjà finies par un agent qui en a repris une autre (`done`, lu par `equipe`).
+

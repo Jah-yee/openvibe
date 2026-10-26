@@ -13,6 +13,14 @@ export function sceneOf(client: Point, view: Viewport): Point {
   };
 }
 
+/** The window point of a scene point, the inverse of `sceneOf`. */
+export function clientOf(scene: Point, view: Viewport): Point {
+  return {
+    x: (scene.x + view.scrollX) * view.zoom + view.offsetLeft,
+    y: (scene.y + view.scrollY) * view.zoom + view.offsetTop,
+  };
+}
+
 /** The scene point at the middle of the canvas ("Nouvelle console"). */
 export function viewportCenter(view: Viewport & Pick<CanvasView, "width" | "height">): Point {
   return sceneOf({ x: view.offsetLeft + view.width / 2, y: view.offsetTop + view.height / 2 }, view);
