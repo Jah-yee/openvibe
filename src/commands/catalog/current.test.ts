@@ -5,11 +5,11 @@ import { showNode } from "@/canvas/arrive";
 import { focusGroup } from "@/canvas/canvasFocus";
 import { canvasStore } from "@/canvas/canvasStore";
 import { agentsPanelStore } from "@/fleet/agentsPanelState";
-import { pauseAgents, resumeAgent } from "@/fleet/broadcast";
+import { pauseAgents, pauseAll, resumeAgent } from "@/fleet/broadcast";
 import { requestCloseGroup, ungroup } from "@/fleet/groups";
 import { orchestrateGroup } from "@/fleet/orchestrators";
 import { duplicateTerminal, requestClose } from "@/fleet/terminals";
-import { relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
+import { pasteIntoTerminal, relaunchTerminal, stopTerminal, terminalSelection } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
@@ -24,11 +24,14 @@ vi.mock("@/fleet/broadcast", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/fleet/broadcast")>()),
   pauseAgents: vi.fn(() => Promise.resolve(1)),
   resumeAgent: vi.fn(() => Promise.resolve(true)),
+  pauseAll: vi.fn(() => Promise.resolve()),
+  resumeAll: vi.fn(() => Promise.resolve()),
 }));
-vi.mock("@/fleet/groups", () => ({ requestCloseGroup: vi.fn(), ungroup: vi.fn() }));
+vi.mock("@/fleet/groups", () => ({ requestCloseGroup: vi.fn(), ungroup: vi.fn(), groupMembers: vi.fn(() => ["isis"]) }));
 vi.mock("@/fleet/orchestrators", () => ({ orchestrateGroup: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/fleet/terminals", () => ({ duplicateTerminal: vi.fn(() => Promise.resolve()), requestClose: vi.fn() }));
-vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), stopTerminal: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), stopTerminal: vi.fn(), terminalSelection: vi.fn(() => ""), pasteIntoTerminal: vi.fn() }));
+vi.mock("@/radial/bridges", () => ({ readClipboardText: vi.fn(() => Promise.resolve("echo hi")) }));
 
 const ctx = (terminalId: string | null): CommandContext => ({ project: true, workspaceId: "w1", terminalCount: 2, terminalId });
 const find = (id: string) => CURRENT.find((c) => c.id === id)!;
@@ -69,11 +72,16 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
       "Mettre en pause",
       "Reprendre",
       "Fermer",
+      "Copier",
+      "Coller",
       "Renommer le groupe",
       "Ajouter un agent…",
       "Relier un orchestrateur",
       "Dégrouper",
       "Fermer le groupe",
+      "Mettre le groupe en pause",
+      "Reprendre le groupe",
+      "Cadrer le groupe",
     ]);
   });
 
@@ -87,14 +95,19 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
       "terminal.stop",
       "terminal.pause",
       "terminal.close",
+      "terminal.copy",
+      "terminal.paste",
       "group.rename",
       "group.addAgent",
       "group.orchestrate",
       "group.ungroup",
       "group.close",
+      "group.pause",
+      "group.resume",
+      "group.frame",
     ]);
     // Thot is stopped and outside any group.
-    expect(ids(ctx("thot"))).toEqual(["terminal.rename", "terminal.duplicate", "terminal.relaunch", "terminal.close"]);
+    expect(ids(ctx("thot"))).toEqual(["terminal.rename", "terminal.duplicate", "terminal.relaunch", "terminal.close", "terminal.copy", "terminal.paste"]);
   });
 
   it("acts on the terminal of the moment, as its header and the panel's row do", async () => {
@@ -135,5 +148,26 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
     expect(pendingUiRequest()).toEqual({ kind: "groupMenu", id: "g1" });
     await find("group.rename").run(ctx("isis"));
     expect(focusGroup).toHaveBeenCalledWith("g1");
+  });
+
+  it("copies the terminal's selection, greyed without one, and pastes the clipboard into it", async () => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn(() => Promise.resolve()) }, configurable: true });
+    expect(find("terminal.copy").disabled!(ctx("isis"))).toBe("aucune sélection");
+    vi.mocked(terminalSelection).mockReturnValue("ls -la");
+    expect(find("terminal.copy").disabled!(ctx("isis"))).toBeNull();
+    await find("terminal.copy").run(ctx("isis"));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith("ls -la");
+    await find("terminal.paste").run(ctx("isis"));
+    expect(pasteIntoTerminal).toHaveBeenCalledWith("isis", "echo hi");
+  });
+
+  it("acts on the group the radial menu points at, not the terminal's", async () => {
+    const pointed = { ...ctx("thot"), groupId: "g1" };
+    expect(sectionOf(find("group.rename"), pointed)).toBe("Groupe · Serveurs");
+    await find("group.pause").run(pointed);
+    expect(pauseAll).toHaveBeenCalledWith(["isis"]);
+    await find("group.frame").run(pointed);
+    expect(focusGroup).toHaveBeenLastCalledWith("g1");
+    expect(find("group.pause").available({ ...ctx("thot"), groupId: "gone" })).toBe(false);
   });
 });

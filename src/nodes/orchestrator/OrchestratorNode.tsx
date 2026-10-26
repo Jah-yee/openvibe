@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ChevronDown, Network, X } from "lucide-react";
 import { useCanvas } from "@/canvas/canvasStore";
+import { useUiRequest } from "@/commands/uiRequests";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +59,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
     >
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-ov-line px-3">
         <Network className="size-4 shrink-0 text-ov-accent" />
-        <NameField value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
+        <NameField nodeId={nodeId} value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
         <span className="ml-auto flex items-center gap-1 font-mono text-[11px] text-ov-text-2" title="Agents en activité / agents reliés">
           <ProgressRing value={working(linked.agentIds)} total={count} />
           {working(linked.agentIds)}/{count}
@@ -127,8 +128,14 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
 }
 
 /** The orchestrator's name; a double-click edits it, Enter or a click elsewhere keeps it, Escape cancels. */
-function NameField({ value, onCommit }: { value: string; onCommit: (name: string) => void }) {
+function NameField({ nodeId, value, onCommit }: { nodeId: string; value: string; onCommit: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
+  // « Renommer » of the orchestrator's radial menu.
+  useUiRequest("renameOrchestrator", (request) => {
+    if (request.id !== nodeId) return false;
+    setEditing(true);
+    return true;
+  });
   if (!editing) {
     return (
       <span className="truncate text-[13px] font-semibold text-ov-text" onDoubleClick={() => setEditing(true)} title="Double-clic pour renommer">

@@ -18,7 +18,7 @@ import { Palette } from "./Palette";
 import { recentStore } from "./recent";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
-vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ focusTerminal: vi.fn(), terminalSelection: vi.fn(() => "") }));
 vi.mock("./goToRun", () => ({ goTo: vi.fn() }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

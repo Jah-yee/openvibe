@@ -6,6 +6,7 @@ import type { Point } from "@/fleet/terminals";
 export type UiRequest =
   | { kind: "renameWorkspace"; id: string }
   | { kind: "renameTerminal"; id: string }
+  | { kind: "renameOrchestrator"; id: string }
   | { kind: "agentMenu"; view: "agents" | "options" | "ollama"; at?: Point }
   | { kind: "composeGroup" }
   | { kind: "groupMenu"; id: string };

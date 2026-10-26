@@ -225,6 +225,16 @@ export function focusTerminal(nodeId: string) {
   entries.get(nodeId)?.term.focus();
 }
 
+/** The terminal's selection, empty without one (« Copier » of its radial menu). */
+export function terminalSelection(nodeId: string): string {
+  return entries.get(nodeId)?.term.getSelection() ?? "";
+}
+
+/** Text pasted into a terminal as by Ctrl+V: bracketed when its program asks for it. */
+export function pasteIntoTerminal(nodeId: string, text: string) {
+  entries.get(nodeId)?.term.paste(text);
+}
+
 /** Stops the process and frees the terminal of a node removed from the canvas. */
 export function disposeTerminal(nodeId: string) {
   stopTerminal(nodeId);
