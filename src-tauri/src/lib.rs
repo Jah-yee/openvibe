@@ -3,6 +3,7 @@ mod commands;
 mod db;
 mod error;
 mod git;
+mod mission;
 mod process;
 mod pty;
 
@@ -83,6 +84,10 @@ pub fn run() {
             commands::project::delete_project,
             commands::workspace::set_workspace_pantheon,
             commands::git::git_status,
+            commands::mission::mission_prepare,
+            commands::mission::mission_add_agent,
+            commands::mission::mission_merge,
+            commands::mission::mission_cleanup,
             commands::agents::agent_activity_snapshot,
             commands::agents::mcp_reply,
         ])
