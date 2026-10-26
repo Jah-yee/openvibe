@@ -217,3 +217,16 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Les missions ne connaissent les fils et les groupes que de l'espace affiché : hors de l'écran, `proposer_plan` refuse les agents reliés et `terminer` arrête les agents créés au lieu de fermer leur groupe. Lire la scène enregistrée de l'espace de l'orchestrateur.
 - La détection « Claude est prêt » lit l'écran : la boîte de saisie (`❯` sous un trait) et l'invite de confiance (« trust » + « folder »). Une autre mise en page de Claude retombe sur le délai de 60 s.
 
+## Constats du plan H3 (temps d'une mission, relecture finale)
+
+- Les temps du panneau continuent de courir après « terminer » : un agent qui n'a pas rendu compte affiche le lendemain « 1440 / 20 min » en rouge. Enregistrer `endedAt` dans `endMission` et y plafonner `spentMin`.
+- `reattribuer` vers un agent arrêté (par exemple après un redémarrage d'OpenVibe) répond « passe à … », puis l'orchestrateur reçoit « n'a pas démarré » 60 s plus tard : refuser d'emblée un agent arrêté.
+- `prolonger` accepte un agent dont la sous-tâche est passée à un autre, ou qui a déjà rendu compte : refuser ces cas.
+- Un palier de dépassement est enregistré « signalé » alors que sa ligne attend encore dans la file en mémoire : si OpenVibe se ferme avant que l'orchestrateur soit libre, la ligne est perdue et le palier n'est plus signalé.
+- La consigne de reprise écrit toujours « d' » (« Reprise du travail d'Seth ») : reprendre `of` d'`orchestratorTools.ts`.
+- `reattribuer` « nouveau » ne tient pas compte d'« Agents max » : l'agent précédent est mis en pause et prié d'arrêter, mais sa session reste ouverte.
+- Le temps court aussi quand OpenVibe est fermé (temps réel, spec §8.1) : un redémarrage après une longue pause donne une rafale de toasts pour des agents arrêtés.
+- Le budget global est vérifié au plan comme une somme de budgets (minutes-agents en parallèle) mais mesuré en temps écoulé depuis le feu vert : à trancher dans la spec.
+- L'horloge ne voit que les missions des espaces chargés depuis le démarrage.
+- Le panneau n'affiche pas les sous-tâches déjà finies par un agent qui en a repris une autre (`done`, lu par `equipe`).
+
