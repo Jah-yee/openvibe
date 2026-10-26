@@ -18,6 +18,7 @@ import { nameForNewAgent, namesInWorkspace, pantheonForNewGroup } from "./naming
 import { viewportCenter } from "./placement";
 import { ROLES, type RoleId } from "./roles";
 import { addTerminal, type Point } from "./terminals";
+import { isWire } from "./wires";
 
 export interface GroupPlan {
   name: string;
@@ -124,16 +125,23 @@ export function ungroup(groupId: string) {
   });
 }
 
-/** "Fermer le groupe", confirmed: the frame and its terminals go; one undo brings them back, stopped. */
+/**
+ * "Fermer le groupe", confirmed: the frame, its terminals and the wires that
+ * led to them go (no arrow left bound to nothing, final review H2); one undo
+ * brings them back, stopped.
+ */
 export function closeGroup(groupId: string) {
   const api = canvasStore.getState().api;
   if (!api) return;
-  const going = api.getSceneElementsIncludingDeleted().filter((e) => !e.isDeleted && (e.id === groupId || e.frameId === groupId));
-  allowRemoval(going.map((e) => e.id));
+  const elements = api.getSceneElementsIncludingDeleted();
+  const group = new Set(elements.filter((e) => !e.isDeleted && (e.id === groupId || e.frameId === groupId)).map((e) => e.id));
+  const ends = (e: ExcalidrawElement) => (e.type === "arrow" ? [e.startBinding?.elementId, e.endBinding?.elementId] : []);
+  const going = new Set(
+    elements.filter((e) => !e.isDeleted && (group.has(e.id) || (isWire(e) && ends(e).some((id) => id !== undefined && group.has(id))))).map((e) => e.id),
+  );
+  allowRemoval(going);
   api.updateScene({
-    elements: api
-      .getSceneElementsIncludingDeleted()
-      .map((e) => (!e.isDeleted && (e.id === groupId || e.frameId === groupId) ? newElementWith(e, { isDeleted: true }) : e)),
+    elements: elements.map((e) => (going.has(e.id) ? newElementWith(e, { isDeleted: true }) : e)),
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
 }

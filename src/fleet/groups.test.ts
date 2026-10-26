@@ -5,12 +5,21 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { workspacesStore } from "@/store/workspaces";
-import { launchGroup } from "./groups";
+import { closeGroup, launchGroup } from "./groups";
 
 vi.mock("@excalidraw/excalidraw", () => ({ CaptureUpdateAction: { IMMEDIATELY: "i" }, newElementWith: (e: object, patch: object) => ({ ...e, ...patch }) }));
 vi.mock("@/nodes/terminal/registry", () => ({ markForAutostart: vi.fn() }));
 
-let scene: { id: string; type: string; customData?: Record<string, unknown> }[] = [];
+interface Element {
+  id: string;
+  type: string;
+  isDeleted?: boolean;
+  frameId?: string | null;
+  customData?: Record<string, unknown>;
+  startBinding?: { elementId: string } | null;
+  endBinding?: { elementId: string } | null;
+}
+let scene: Element[] = [];
 beforeEach(() => {
   mockIPC(() => undefined);
   scene = [];
@@ -40,4 +49,17 @@ it("staffs a mission's group with the names, folders and pantheon it is given, a
     ["Horus", "C:/w/auth-horus"],
   ]);
   expect(frame?.customData?.openvibe).toMatchObject({ kind: "group", pantheon: "egyptian" });
+});
+
+it("closes a group with the wires that led to it (final review H2)", () => {
+  const wire = (id: string, to: string): Element => ({ id, type: "arrow", customData: { openvibe: { kind: "wire" } }, startBinding: { elementId: "chef" }, endBinding: { elementId: to } });
+  scene = [
+    { id: "f1", type: "frame", customData: { openvibe: { kind: "group", role: "general", pantheon: "egyptian" } } },
+    { id: "t1", type: "embeddable", frameId: "f1" },
+    wire("w1", "f1"),
+    wire("w2", "t1"),
+    wire("w3", "ailleurs"),
+  ];
+  closeGroup("f1");
+  expect(scene.filter((e) => e.isDeleted).map((e) => e.id)).toEqual(["f1", "t1", "w1", "w2"]);
 });

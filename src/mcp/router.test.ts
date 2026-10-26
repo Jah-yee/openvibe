@@ -7,7 +7,8 @@ import { ptySendText } from "@/ipc/pty";
 import { terminalText } from "@/nodes/terminal/registry";
 import { notify } from "@/mission/events";
 import { endMission } from "@/mission/launch";
-import { missionOf, setMission } from "@/mission/store";
+import { missionOf, setMission, updateMember } from "@/mission/store";
+import { workspacesStore } from "@/store/workspaces";
 import { agentActivityStore } from "@/store/agentActivity";
 import { terminalStatusStore } from "@/store/terminalStatus";
 
@@ -28,6 +29,7 @@ const textOf = (result: unknown) => (result as { content: { text: string }[] }).
 
 beforeAll(async () => {
   mockIPC(() => undefined);
+  workspacesStore.setState({ activeId: "w1" });
   await nodesStore.getState().create("isis", {
     workspaceId: "w1",
     kind: "terminal",
@@ -103,6 +105,13 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
     });
   });
 
+  it("says so when its workspace is not on screen, instead of finding no linked agent (final review H2)", async () => {
+    await nodesStore.getState().create("loin", { workspaceId: "w9", kind: "orchestrator", payload: { name: "Loin" } });
+    expect(JSON.parse(textOf(await call("loin", "mission", {}))).agents_relies).toBe("inconnus : l'espace de l'orchestrateur n'est pas affiché");
+    expect(textOf(await call("loin", "proposer_plan", plan))).toContain("n'est pas affiché");
+    expect(textOf(await call("loin", "proposer_plan", { ...plan, sous_taches: [plan.sous_taches[1]] }))).toContain("Plan proposé : 1 sous-tâche.");
+  });
+
   describe("once the team is formed", () => {
     beforeAll(() =>
       setMission("chef", {
@@ -137,6 +146,12 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       expect(textOf(await call("isis", "rendre_compte", { resume: "Login fait", statut: "termine" }))).toBe("Compte rendu transmis à l'orchestrateur.");
       expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].report).toMatchObject({ summary: "Login fait", status: "termine" });
       expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Login fait");
+    });
+
+    it("keeps an agent's merged branch merged when it reports again (final review H2)", async () => {
+      updateMember("chef", "isis", { merged: true });
+      await call("isis", "rendre_compte", { resume: "Vérifié", statut: "termine" });
+      expect(missionOf(nodesStore.getState().nodes.chef)?.members[0]).toMatchObject({ merged: true, report: { summary: "Vérifié" } });
     });
 
     it("merges and ends the mission through OpenVibe; no new plan meanwhile", async () => {

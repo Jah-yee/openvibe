@@ -5,16 +5,16 @@ import { defaultLaunchOptions } from "@/fleet/launchAgent";
 import { nextName } from "@/fleet/names";
 import { namesInWorkspace, pantheonForNewGroup } from "@/fleet/naming";
 import { linkOrchestrator } from "@/fleet/orchestrators";
-import { missionAddAgent, missionCleanup, missionMerge, missionPrepare, type Cleanup } from "@/ipc/mission";
+import { missionAddAgent, missionCleanup, missionDiscard, missionMerge, missionPrepare, type Cleanup, type Worktree } from "@/ipc/mission";
 import { ptySendText, ptyWrite } from "@/ipc/pty";
 import { newConversation } from "@/nodes/terminal/launch";
-import { freshText, quietFor, relaunchTerminal } from "@/nodes/terminal/registry";
+import { freshText, quietFor, relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
 import { nodesStore, sessionOf, terminalOf } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { notify } from "./events";
 import { NEW_AGENT, NEW_MISSION, oneLine, sameName, type Member, type Mission, type SubTask } from "./mission";
 import { whenReady } from "./ready";
-import { linkedClaudeAgents, missionOf, setMission, updateMember } from "./store";
+import { linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "./store";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -67,31 +67,43 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
   if (lost) throw new Error(`${lost.agent} n'est plus relié à l'orchestrateur.`);
   const pantheon = pantheonForNewGroup(workspaceId);
   const fresh = newNames(workspaceId, pantheon, agents.filter((a) => a === null).length);
-  const root = await missionPrepare(project, mission.name ?? "mission");
-  const members: Member[] = [];
-  let next = 0;
-  for (const [i, task] of plan.entries()) {
-    const agent = agents[i];
-    const name = agent?.name ?? fresh[next++];
-    const tree = await missionAddAgent(project, root.slug, name);
-    members.push({ nodeId: agent?.nodeId ?? "", name, task: task.title, budgetMin: task.budgetMin, linked: agent !== null, branch: tree.branch, worktree: tree.path });
+  const made: Worktree[] = [];
+  try {
+    const root = await missionPrepare(project, mission.name ?? "mission");
+    made.push(root);
+    const members: Member[] = [];
+    let next = 0;
+    for (const [i, task] of plan.entries()) {
+      const agent = agents[i];
+      const name = agent?.name ?? fresh[next++];
+      const tree = await missionAddAgent(project, root.slug, name);
+      made.push(tree);
+      members.push({ nodeId: agent?.nodeId ?? "", name, task: task.title, budgetMin: task.budgetMin, linked: agent !== null, branch: tree.branch, worktree: tree.path });
+    }
+    // Its canvas is the one on screen only: the user may have left it during the git work (final review H2).
+    if (!orchestratorShown(orchestratorId)) throw new Error("L'espace de l'orchestrateur n'est plus affiché : reviens-y et relance la mission.");
+    const created = members.filter((m) => !m.linked);
+    let frameId: string | undefined;
+    if (created.length > 0) {
+      const group = await launchGroup(
+        { name: `Mission ${mission.name}`, role: "general", agents: created.map(() => "claude" as const) },
+        defaultLaunchOptions(),
+        besideOrchestrator(orchestratorId, created.length),
+        { pantheon, names: created.map((m) => m.name), cwds: created.map((m) => m.worktree) },
+      );
+      if (!group) throw new Error("Le groupe des nouveaux agents n'a pas pu être créé.");
+      created.forEach((member, i) => (member.nodeId = group.nodeIds[i]));
+      frameId = group.frameId;
+      linkOrchestrator(orchestratorId, group.frameId);
+    }
+    // Linked agents move only once the whole team exists (final review H2).
+    for (const member of members) if (member.linked) restarts.set(member.nodeId, restartIn(member.nodeId, member.worktree));
+    return { project, slug: root.slug, branch: root.branch, worktree: root.path, frameId, members };
+  } catch (error) {
+    // What this launch made goes, so the plan can be launched again; never forced (final review H2).
+    if (made.length > 0) await missionDiscard(project, made).catch(() => undefined);
+    throw error;
   }
-  for (const member of members) if (member.linked) restarts.set(member.nodeId, restartIn(member.nodeId, member.worktree));
-  const created = members.filter((m) => !m.linked);
-  let frameId: string | undefined;
-  if (created.length > 0) {
-    const group = await launchGroup(
-      { name: `Mission ${mission.name}`, role: "general", agents: created.map(() => "claude" as const) },
-      defaultLaunchOptions(),
-      besideOrchestrator(orchestratorId, created.length),
-      { pantheon, names: created.map((m) => m.name), cwds: created.map((m) => m.worktree) },
-    );
-    if (!group) throw new Error("Le groupe des nouveaux agents n'a pas pu être créé.");
-    created.forEach((member, i) => (member.nodeId = group.nodeIds[i]));
-    frameId = group.frameId;
-    linkOrchestrator(orchestratorId, group.frameId);
-  }
-  return { project, slug: root.slug, branch: root.branch, worktree: root.path, frameId, members };
 }
 
 /** Types its sub-task in a member's terminal once it is ready (spec §7.3). */
@@ -139,15 +151,21 @@ export function endMission(orchestratorId: string, summary: string) {
   // Ended first: the agents stopping now are no events.
   setMission(orchestratorId, { state: "terminee", summary });
   for (const member of mission.members) if (member.linked && mission.project) void restartIn(member.nodeId, mission.project);
-  if (mission.frameId) closeGroup(mission.frameId);
+  if (orchestratorShown(orchestratorId)) {
+    if (mission.frameId) closeGroup(mission.frameId);
+    return;
+  }
+  // Away from its workspace its canvas cannot change: the created agents stop, freeing their worktrees (final review H2).
+  for (const member of mission.members) if (!member.linked) stopTerminal(member.nodeId);
 }
 
 /** `fusionner` (spec §7.6): the branches of the agents done since the last merge. */
 export async function mergeMission(orchestratorId: string): Promise<string> {
   const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
   if (!mission?.worktree) return "La mission n'a pas de branche.";
-  const ready = mission.members.filter((m) => m.report?.status === "termine" && !m.merged);
-  if (ready.length === 0) return "Rien à fusionner : aucun agent n'a rendu compte « termine » depuis la dernière fusion.";
+  // Merged ones too: a merge with nothing new is harmless, and new commits after a merge get in (final review H2).
+  const ready = mission.members.filter((m) => m.report?.status === "termine");
+  if (ready.length === 0) return "Rien à fusionner : aucun agent n'a rendu compte « termine ».";
   const lines: string[] = [];
   for (const member of ready) {
     try {
@@ -157,8 +175,9 @@ export async function mergeMission(orchestratorId: string): Promise<string> {
         lines.push(`${member.name} : conflit, fusion annulée — ${merge.files.join(", ")}${note}`);
         continue;
       }
+      const said = merge.kind === "merged" ? "fusionné" : member.merged ? "déjà fusionné, rien de nouveau" : "rien à fusionner (aucun commit)";
       updateMember(orchestratorId, member.nodeId, { merged: true });
-      lines.push(`${member.name} : ${merge.kind === "merged" ? "fusionné" : "rien à fusionner (aucun commit)"}${note}`);
+      lines.push(`${member.name} : ${said}${note}`);
     } catch (error) {
       lines.push(`${member.name} : échec — ${errorText(error)}`);
     }
@@ -170,13 +189,14 @@ export async function mergeMission(orchestratorId: string): Promise<string> {
 export async function cleanMission(orchestratorId: string): Promise<Cleanup | string> {
   const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
   if (mission?.state !== "terminee") return "La mission n'est pas terminée.";
+  const next: Mission = { ...NEW_MISSION, maxAgents: mission.maxAgents };
+  if (mission.budgetMin !== undefined) next.budgetMin = mission.budgetMin;
   try {
-    const result = mission.project && mission.slug ? await missionCleanup(mission.project, mission.slug, mission.members.map((m) => m.name)) : { removed: [], kept: [] };
-    const next: Mission = { ...NEW_MISSION, maxAgents: mission.maxAgents };
-    if (mission.budgetMin !== undefined) next.budgetMin = mission.budgetMin;
-    nodesStore.getState().update(orchestratorId, { mission: next });
-    return result;
+    return mission.project && mission.slug ? await missionCleanup(mission.project, mission.slug, mission.members.map((m) => m.name)) : { removed: [], kept: [] };
   } catch (error) {
     return errorText(error);
+  } finally {
+    // Freed even when git fails (project moved, worktrees removed by hand): never stuck « terminée » (final review H2).
+    nodesStore.getState().update(orchestratorId, { mission: next });
   }
 }

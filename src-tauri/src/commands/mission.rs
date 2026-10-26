@@ -38,6 +38,12 @@ pub async fn mission_merge(
     blocking(move || mission::merge_agent(Path::new(&mission), Path::new(&agent), &branch)).await
 }
 
+/// A launch that failed: what it created goes (final review H2).
+#[tauri::command]
+pub async fn mission_discard(project: String, trees: Vec<Worktree>) -> AppResult<Cleanup> {
+    blocking(move || mission::discard(Path::new(&project), &trees)).await
+}
+
 /// « Nettoyer la mission » (spec orchestrateur §7.7).
 #[tauri::command]
 pub async fn mission_cleanup(

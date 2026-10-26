@@ -1,7 +1,7 @@
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission } from "@/mission/launch";
-import { oneLine, proposedPlan, sameName, type Member, type Mission } from "@/mission/mission";
-import { agentState, linkedClaudeAgents, missionOf, setMission } from "@/mission/store";
+import { NEW_AGENT, oneLine, proposedPlan, sameName, type Member, type Mission } from "@/mission/mission";
+import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
@@ -71,6 +71,8 @@ export const ORCHESTRATOR_TOOLS = [
 ] as const;
 
 const AGENT_ONLY = new Set(["declarer_etapes", "etape", "rendre_compte"]);
+/** The wires are only known for the workspace on screen (final review H2). */
+const HIDDEN_AGENTS = "inconnus : l'espace de l'orchestrateur n'est pas affiché";
 const json = (value: unknown) => said(JSON.stringify(value, null, 2));
 const formed = (mission: Mission) => mission.state === "en_cours" || mission.state === "terminee";
 
@@ -90,9 +92,11 @@ function describeMission(orchestratorId: string, mission: Mission): ToolResult {
     agents_max: mission.maxAgents,
     branche: mission.branch ?? null,
     plan: mission.plan?.map((s) => ({ titre: s.title, consigne: s.brief, agent: s.agent, budget_min: s.budgetMin })) ?? null,
-    agents_relies: linkedClaudeAgents(orchestratorId)
-      .filter((a) => !team.has(a.nodeId))
-      .map((a) => ({ prenom: a.name, etat: agentState(a.nodeId) })),
+    agents_relies: orchestratorShown(orchestratorId)
+      ? linkedClaudeAgents(orchestratorId)
+          .filter((a) => !team.has(a.nodeId))
+          .map((a) => ({ prenom: a.name, etat: agentState(a.nodeId) }))
+      : HIDDEN_AGENTS,
     erreur: mission.error ?? null,
   });
 }
@@ -100,6 +104,10 @@ function describeMission(orchestratorId: string, mission: Mission): ToolResult {
 function proposePlan(orchestratorId: string, mission: Mission, args: Record<string, unknown>): ToolResult {
   if (mission.state === "lancement" || mission.state === "en_cours") return refused("Une mission est déjà en cours : termine-la avant d'en proposer une autre.");
   if (mission.state === "terminee") return refused("La mission est terminée : l'utilisateur la nettoie depuis le panneau, puis tu pourras proposer un nouveau plan.");
+  const named = Array.isArray(args.sous_taches) && args.sous_taches.some((s) => !sameName(String((s as Record<string, unknown> | null)?.agent ?? ""), NEW_AGENT));
+  if (named && !orchestratorShown(orchestratorId)) {
+    return refused("L'espace de l'orchestrateur n'est pas affiché : je ne vois pas ses agents reliés. Propose des agents « nouveau », ou réessaie quand l'utilisateur y revient.");
+  }
   const result = proposedPlan(args, mission, linkedClaudeAgents(orchestratorId).map((a) => a.name));
   if (typeof result === "string") return refused(result);
   setMission(orchestratorId, { state: "plan", ...result, error: undefined });

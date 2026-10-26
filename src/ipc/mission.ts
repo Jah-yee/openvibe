@@ -26,3 +26,5 @@ export const missionAddAgent = (project: string, mission: string, agent: string)
 /** `mission`, `agent`: their worktrees' paths. */
 export const missionMerge = (mission: string, agent: string, branch: string) => call<MergeReport>("mission_merge", { mission, agent, branch });
 export const missionCleanup = (project: string, mission: string, agents: string[]) => call<Cleanup>("mission_cleanup", { project, mission, agents });
+/** Undoes a launch that failed: its fresh worktrees and branches, never forced. */
+export const missionDiscard = (project: string, trees: Worktree[]) => call<Cleanup>("mission_discard", { project, trees });

@@ -68,8 +68,8 @@ export function report(nodeId: string, args: Record<string, unknown>): ToolResul
   const status = args.statut;
   if (!summary) return refused("Résume ton travail (resume).");
   if (status !== "termine" && status !== "bloque" && status !== "echec") return refused(`Statut inconnu : ${String(status)} (termine, bloque ou echec).`);
-  // A new report after a merge brings new commits: its branch is merged again.
-  updateMember(found.orchestratorId, nodeId, { report: { summary, status, at: Date.now() }, merged: false });
+  // `fusionner` merges every « termine » branch again: a merged one stays so until then (final review H2).
+  updateMember(found.orchestratorId, nodeId, { report: { summary, status, at: Date.now() } });
   notify(found.orchestratorId, `${found.member.name} a rendu compte (${status}) : ${oneLine(summary)}`);
   return said("Compte rendu transmis à l'orchestrateur.");
 }

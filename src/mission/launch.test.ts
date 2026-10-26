@@ -3,12 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { closeGroup, launchGroup } from "@/fleet/groups";
 import { linkOrchestrator } from "@/fleet/orchestrators";
-import { missionAddAgent, missionCleanup, missionMerge, missionPrepare, type Worktree } from "@/ipc/mission";
+import { missionAddAgent, missionCleanup, missionDiscard, missionMerge, missionPrepare, type Worktree } from "@/ipc/mission";
 import { ptySendText } from "@/ipc/pty";
-import { relaunchTerminal } from "@/nodes/terminal/registry";
+import { relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { workspacesStore } from "@/store/workspaces";
 import { notify } from "./events";
 import { whenReady } from "./ready";
 import { cleanMission, endMission, launchMission, mergeMission, subTaskText } from "./launch";
@@ -16,13 +17,13 @@ import type { Member, Mission } from "./mission";
 import { missionOf } from "./store";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
-vi.mock("@/ipc/mission", () => ({ missionPrepare: vi.fn(), missionAddAgent: vi.fn(), missionMerge: vi.fn(), missionCleanup: vi.fn() }));
+vi.mock("@/ipc/mission", () => ({ missionPrepare: vi.fn(), missionAddAgent: vi.fn(), missionMerge: vi.fn(), missionCleanup: vi.fn(), missionDiscard: vi.fn(() => Promise.resolve({ removed: [], kept: [] })) }));
 vi.mock("@/ipc/pty", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/ipc/pty")>()),
   ptySendText: vi.fn(() => Promise.resolve()),
   ptyWrite: vi.fn(() => Promise.resolve()),
 }));
-vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), quietFor: vi.fn(() => 0), freshText: vi.fn(() => ""), markForAutostart: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), stopTerminal: vi.fn(), quietFor: vi.fn(() => 0), freshText: vi.fn(() => ""), markForAutostart: vi.fn() }));
 vi.mock("@/fleet/groups", () => ({ launchGroup: vi.fn(), closeGroup: vi.fn() }));
 vi.mock("@/fleet/orchestrators", () => ({ linkOrchestrator: vi.fn() }));
 vi.mock("./ready", () => ({ whenReady: vi.fn(() => Promise.resolve(true)) }));
@@ -63,6 +64,7 @@ beforeEach(() => {
   vi.mocked(missionAddAgent).mockImplementation(async (_project, mission, agent) => tree(`${mission}-${agent.toLowerCase()}`));
   vi.mocked(launchGroup).mockResolvedValue({ frameId: "f1", nodeIds: ["n1"] });
   for (const id of ["chef", "isis", "n1"]) terminalStatusStore.getState().set(id, { state: "running" });
+  workspacesStore.setState({ activeId: "w1" });
 });
 
 it("writes an agent's sub-task on one line, with its budget, branch and duties (spec §7.3)", () => {
@@ -188,4 +190,54 @@ it("cleans a finished mission and frees the orchestrator for the next, its setti
   expect(await cleanMission("chef")).toEqual({ removed: ["auth-isis", "auth"], kept: [] });
   expect(missionCleanup).toHaveBeenCalledWith("C:/code/proj", "auth", ["Isis"]);
   expect(missionNow()).toEqual({ state: "redaction", budgetMin: 90, maxAgents: 3, members: [] });
+});
+
+describe("what the final review of H2 found", () => {
+  it("undoes the worktrees of a launch that fails, and moves no linked agent before the group exists", async () => {
+    await setup();
+    vi.mocked(launchGroup).mockResolvedValueOnce(null);
+    await launchMission("chef");
+    expect(missionNow()).toMatchObject({ state: "plan", error: "Le groupe des nouveaux agents n'a pas pu être créé." });
+    expect(relaunchTerminal).not.toHaveBeenCalled();
+    expect(terminalOf(nodesStore.getState().nodes.isis)?.cwd).toBe("C:/code/proj");
+    const fresh = vi.mocked(missionAddAgent).mock.calls[1][2];
+    expect(missionDiscard).toHaveBeenCalledWith("C:/code/proj", [tree("auth"), tree("auth-isis"), tree(`auth-${fresh.toLowerCase()}`)]);
+  });
+
+  it("forms no team once the user left the orchestrator's workspace", async () => {
+    await setup();
+    vi.mocked(missionPrepare).mockImplementationOnce(async () => {
+      workspacesStore.setState({ activeId: "w2" });
+      return tree("auth");
+    });
+    await launchMission("chef");
+    expect(missionNow()).toMatchObject({ state: "plan", error: expect.stringContaining("n'est plus affiché") });
+    expect(launchGroup).not.toHaveBeenCalled();
+    expect(relaunchTerminal).not.toHaveBeenCalled();
+    expect(missionDiscard).toHaveBeenCalled();
+  });
+
+  it("stops the created agents when the mission ends away from its workspace", async () => {
+    await setup({ state: "en_cours", project: "C:/code/proj", frameId: "f1", members: [member("isis", "Isis", true), member("n1", "Horus", false)] });
+    workspacesStore.setState({ activeId: "w2" });
+    endMission("chef", "Fini.");
+    expect(closeGroup).not.toHaveBeenCalled();
+    expect(stopTerminal).toHaveBeenCalledWith("n1");
+    expect(relaunchTerminal).toHaveBeenCalledWith("isis", expect.objectContaining({ cwd: "C:/code/proj" }), "new");
+  });
+
+  it("frees the orchestrator even when the cleanup fails", async () => {
+    await setup({ state: "terminee", project: "C:/gone", slug: "auth", members: [member("isis", "Isis", true)] });
+    vi.mocked(missionCleanup).mockRejectedValueOnce(new Error("Le dossier du projet n'est pas un dépôt git."));
+    expect(await cleanMission("chef")).toBe("Le dossier du projet n'est pas un dépôt git.");
+    expect(missionNow().state).toBe("redaction");
+  });
+
+  it("keeps a merged branch merged when nothing new came since", async () => {
+    const done = { summary: "ok", status: "termine" as const, at: 1 };
+    await setup({ state: "en_cours", worktree: "C:/w/auth", branch: "openvibe/auth", members: [member("isis", "Isis", true, { report: done, merged: true })] });
+    vi.mocked(missionMerge).mockResolvedValue({ merge: { kind: "empty" }, uncommitted: false });
+    expect(await mergeMission("chef")).toBe("Branche openvibe/auth :\nIsis : déjà fusionné, rien de nouveau");
+    expect(missionNow().members[0].merged).toBe(true);
+  });
 });

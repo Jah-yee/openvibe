@@ -4,6 +4,7 @@ import { linkedAgents, NO_LINKS } from "@/fleet/wires";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf, type NodeRecord } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
+import { workspacesStore } from "@/store/workspaces";
 import { NEW_MISSION, type Member, type Mission } from "./mission";
 
 /** An orchestrator's mission — a fresh one until it has its own; undefined for any other node. */
@@ -30,6 +31,12 @@ export function memberOf(nodeId: string): { orchestratorId: string; member: Memb
     if (member) return { orchestratorId, member };
   }
   return null;
+}
+
+/** Whether the orchestrator's workspace is on screen: its canvas — wires, groups — is only known then (final review H2). */
+export function orchestratorShown(orchestratorId: string): boolean {
+  const record = nodesStore.getState().nodes[orchestratorId];
+  return record !== undefined && record.workspaceId === workspacesStore.getState().activeId;
 }
 
 /** The Claude agents wired to an orchestrator: only they have OpenVibe's tools for a mission (spec §2). */

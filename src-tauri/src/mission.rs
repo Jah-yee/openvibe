@@ -5,12 +5,12 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::process::hide_window;
 
 /// A worktree OpenVibe made, on a branch of its own.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Worktree {
     pub slug: String,
@@ -203,6 +203,30 @@ fn remove_worktree(root: &Path, name: String, path: &Path, done: &mut Cleanup) {
         Ok(_) => done.removed.push(name),
         Err(_) => done.kept.push(format!("{name} (changements non commités)")),
     }
+}
+
+/// Undoes a launch that failed (final review H2): its fresh worktrees and
+/// branches go, newest first, so the plan can be launched again. Never
+/// forced: a worktree with changes or a branch with commits stays.
+pub fn discard(project: &Path, trees: &[Worktree]) -> Result<Cleanup, String> {
+    let (root, _) = locate(project)?;
+    let mut done = Cleanup::default();
+    for tree in trees.iter().rev() {
+        if Path::new(&tree.path).exists()
+            && git(&root, &["worktree", "remove", &tree.path]).is_err()
+        {
+            done.kept
+                .push(format!("{} (changements non commités)", tree.slug));
+            continue;
+        }
+        match git(&root, &["branch", "-d", &tree.branch]) {
+            Ok(_) => done.removed.push(tree.slug.clone()),
+            Err(_) => done
+                .kept
+                .push(format!("{} (branche non fusionnée)", tree.branch)),
+        }
+    }
+    Ok(done)
 }
 
 /// Removes the worktrees whose branch is merged into the mission's, then the
@@ -412,6 +436,33 @@ mod tests {
             std::fs::read_to_string(m.join("a.txt")).unwrap().trim_end(),
             "mission"
         );
+    }
+
+    #[test]
+    fn discard_undoes_a_failed_launch_and_never_drops_work() {
+        let Some((parent, proj)) = project() else {
+            return;
+        };
+        let mission = prepare(&proj, "auth").unwrap();
+        let athena = add_agent(&proj, &mission.slug, "Athéna").unwrap();
+        let apollon = add_agent(&proj, &mission.slug, "Apollon").unwrap();
+        commit(Path::new(&apollon.path), "api.txt", "api\n", "api");
+        let done = discard(&proj, &[mission.clone(), athena, apollon]).unwrap();
+        assert_eq!(
+            done.removed,
+            vec!["auth-athena".to_string(), "auth".to_string()]
+        );
+        assert_eq!(
+            done.kept,
+            vec!["openvibe/auth-apollon (branche non fusionnée)".to_string()]
+        );
+        assert!(!parent.path().join("proj.worktrees").join("auth").exists());
+        assert_eq!(
+            run(&proj, &["branch", "--list", "openvibe/*"]),
+            "openvibe/auth-apollon"
+        );
+        // The same plan can be launched again.
+        prepare(&proj, "auth").unwrap();
     }
 
     #[test]

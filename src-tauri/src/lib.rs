@@ -88,6 +88,7 @@ pub fn run() {
             commands::mission::mission_add_agent,
             commands::mission::mission_merge,
             commands::mission::mission_cleanup,
+            commands::mission::mission_discard,
             commands::agents::agent_activity_snapshot,
             commands::agents::mcp_reply,
         ])
