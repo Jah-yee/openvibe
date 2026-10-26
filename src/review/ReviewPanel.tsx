@@ -53,8 +53,11 @@ function ReviewDrawer({ nodeId }: { nodeId: string }) {
   }, [nodeId, cwd]);
 
   useEffect(() => {
+    // An Escape a menu, a dialog or a field already used is theirs (final review maj §5).
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) reviewStore.getState().close();
+      const target = e.target as HTMLElement | null;
+      const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable === true;
+      if (e.key === "Escape" && !e.defaultPrevented && !typing) reviewStore.getState().close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -178,7 +181,9 @@ function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
                   {file.path}
                 </span>
                 {file.added === null ? (
-                  <span className="shrink-0 text-[11px] text-ov-text-3">binaire</span>
+                  <span className="shrink-0 text-[11px] text-ov-text-3" title="Binaire, ou trop gros pour compter ses lignes">
+                    —
+                  </span>
                 ) : (
                   <span className="shrink-0 font-mono text-[11px]">
                     <span style={{ color: "var(--ov-ok)" }}>+{file.added}</span> <span style={{ color: "var(--ov-danger)" }}>−{file.removed}</span>

@@ -276,3 +276,11 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Sans canvas, le clic ne pose rien mais ferme quand même le panneau ; le panneau se vide pendant l'animation de fermeture ; chaque copie d'une icône garde les mêmes graines de dessin.
 - Une icône posée sur un groupe d'agents ne rejoint pas son cadre (Excalidraw l'y ajouterait).
 
+### Revue des changements
+- Le code 1 de `git diff --no-index` masque ses erreurs : un dépôt imbriqué non suivi (`nested/`) s'affiche « +0 −0 » et son diff dit « mode ou renommage seul ». Traiter un stderr sans stdout comme une erreur, et sauter les chemins finissant par `/`.
+- Les remarques ne retiennent que le numéro de ligne : après « Rafraîchir » ou de nouvelles modifications de l'agent, elles se placent sur une autre ligne. Garder aussi le texte de la ligne, et dire dans le message si la ligne supprimée est comptée depuis HEAD ou depuis la base.
+- « Rafraîchir » revient au premier fichier ; rafraîchir ou cliquer une autre ligne perd le texte d'une remarque en cours de saisie.
+- Le panneau couvre le rail d'activité et le panneau Agents (ouvrir une revue depuis une ligne du panneau Agents le cache), et un toast peut couvrir « Envoyer ».
+- Une erreur de lecture reste affichée si le dossier de l'agent change (les clés des onglets n'incluent pas le dossier).
+- Une liste de plus de 5 000 changements est coupée sans le dire.
+

@@ -132,6 +132,7 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Lecture seule : l'agent corrige, l'utilisateur relit. Un fichier ne peut pas être lu hors de la racine du dépôt (chemins absolus et `..` refusés, chemin canonique vérifié). Une base qui commence par `-` est refusée : elle serait lue comme une option de git.
 - Un diff ou un fichier de plus de 1 Mo est coupé ; l'affichage s'arrête à 4 000 lignes. L'onglet Fichiers liste 400 fichiers au plus, le filtre trouve les autres.
 - git est lancé avec `--no-optional-locks` (les agents commitent dans ces dépôts) et `core.quotePath=false` (accents dans les chemins).
+- Relecture : le chemin d'un fichier non suivi est vérifié comme les autres (rien hors du dépôt) ; les fichiers non suivis et l'onglet Fichiers se lisent depuis la racine, même quand l'agent travaille dans un sous-dossier ; les fichiers et les diffs ne sont jamais lus au-delà de 1 Mo, et les lignes d'un fichier non suivi ne sont comptées que sous 1 Mo ; `--no-ext-diff` ignore un outil de diff externe (difftastic…) ; Échap ne ferme pas le panneau quand un menu ou un champ l'a déjà utilisée ; les remarques non envoyées attendent la réouverture de la revue du même agent.
 
 ## 6. L'usage dans la barre du haut (`feat/barre-usage`)
 

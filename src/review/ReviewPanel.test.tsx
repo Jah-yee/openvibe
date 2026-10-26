@@ -92,3 +92,27 @@ it("browses the repository's files, read-only", async () => {
   await vi.waitFor(() => expect(text()).toContain("Bonjour"));
   expect(calls.find((c) => c.cmd === "review_read_file")?.args).toEqual({ path: "C:/code/proj", file: "README.md" });
 });
+
+it("keeps its remarks when closed and opened again on the same agent (final review maj §5)", async () => {
+  await act(async () => reviewStore.getState().add({ file: "src/a.ts", line: 2, text: "Pourquoi 3 ?" }));
+  await act(async () => reviewStore.getState().close());
+  await act(async () => reviewStore.getState().open("isis"));
+  expect(reviewStore.getState().remarks).toHaveLength(1);
+  await act(async () => reviewStore.getState().open("thot"));
+  expect(reviewStore.getState().remarks).toEqual([]);
+});
+
+it("closes on Escape, unless another part of the window already used it (final review maj §5)", async () => {
+  const menu = document.createElement("div");
+  document.body.append(menu);
+  menu.addEventListener("keydown", (e) => e.preventDefault());
+  await act(async () => menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  expect(reviewStore.getState().nodeId).toBe("isis");
+  const area = document.createElement("textarea");
+  document.body.append(area);
+  await act(async () => area.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  expect(reviewStore.getState().nodeId).toBe("isis");
+  await act(async () => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+  expect(reviewStore.getState().nodeId).toBeNull();
+});
+
