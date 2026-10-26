@@ -9,16 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { pauseAll, resumeAll } from "@/fleet/broadcast";
-import { agentsText, groupsText } from "@/fleet/groupSummary";
 import { defaultLaunchOptions } from "@/fleet/launchAgent";
 import { removeOrchestrator, renameOrchestrator } from "@/fleet/orchestrators";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
 import type { Activity } from "@/ipc/activity";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
+import { MissionPanel } from "@/mission/MissionPanel";
 import { useActivity } from "@/store/agentActivity";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { useTerminalStatus, type TerminalStatus } from "@/store/terminalStatus";
-import { uiStore, useUi } from "@/store/ui";
 import { frameStyle, WAITING_GLOW } from "../terminal/frame";
 import { orchestratorSession } from "../terminal/launch";
 import { markForAutostart } from "../terminal/registry";
@@ -32,7 +31,6 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   const links = useCanvas((s) => s.links[nodeId] ?? NO_LINKS);
   const frames = useCanvas((s) => s.frames);
   const selected = useCanvas((s) => s.view.selectedIds.includes(nodeId));
-  const linking = useUi((s) => s.linking === nodeId);
   const status = useTerminalStatus(nodeId);
   const activity = useActivity(nodeId);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -90,18 +88,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
         <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
         {session && <ResumeCard nodeId={nodeId} payload={session} status={status} />}
       </div>
-      <div className="flex shrink-0 items-center justify-between border-t border-ov-line px-3 py-2 text-xs text-ov-text-2">
-        <span>
-          {agentsText(linked.agentIds.length)} · {groupsText(linked.groups.length)}
-        </span>
-        <button
-          type="button"
-          onClick={() => uiStore.getState().setLinking(linking ? null : nodeId)}
-          className="rounded-full bg-ov-accent px-2.5 py-0.5 text-[11px] font-semibold text-white hover:brightness-110"
-        >
-          {linking ? "Terminer" : "+ Relier"}
-        </button>
-      </div>
+      <MissionPanel nodeId={nodeId} />
       {waiting && <div className="pointer-events-none absolute inset-0 z-20 rounded-xl" style={{ boxShadow: WAITING_GLOW }} />}
     </div>
   );

@@ -47,6 +47,7 @@ it("gives an orchestrator of before its Claude session, and shows its terminal (
   expect(markForAutostart).toHaveBeenCalledWith("ancien");
   expect(mountTerminal).toHaveBeenCalledWith("ancien", expect.any(HTMLElement), session, 1);
   expect(host.querySelector('[data-orchestrator="ancien"] textarea')).toBeNull();
+  expect(host.querySelector('[data-mission="ancien"]')).not.toBeNull();
   await act(async () => root.unmount());
   host.remove();
 });
