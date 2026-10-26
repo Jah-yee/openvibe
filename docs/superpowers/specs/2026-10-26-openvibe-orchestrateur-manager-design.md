@@ -82,18 +82,20 @@ Un nœud n'agit que sur son périmètre : un agent sur lui-même ; un orchestrat
 
 Consigne de rôle d'un agent : il travaille dans OpenVibe ; quand sa tâche demande plusieurs étapes (ou les phases d'un workflow), il les déclare avant de commencer et marque chacune ; il délègue ses sous-tâches à ses sous-agents ; en mission, il travaille sur sa branche, commit son travail et rend compte à la fin.
 
+Pendant qu'un workflow ou des sous-agents travaillent, la session attend et ne peut rien marquer (constaté par Mathieu après H1 : la frise ne s'allumait qu'à la fin). La consigne lui demande donc de donner à chaque agent délégué le titre exact de son étape et de la lui faire marquer lui-même (`mcp__openvibe__etape`) ; des agents en parallèle ont chacun leur étape. Les agents d'un workflow ont les outils OpenVibe et le même jeton : leurs marques arrivent sous le terminal de la session.
+
 ## 5. La frise des étapes
 
 ### 5.1 Ce qu'elle montre
 
-- Sous chaque terminal Claude qui a déclaré des étapes : une ligne de la largeur du terminal, un point par étape à intervalles réguliers, son titre dessous (tronqué, entier au survol).
+- Sous chaque terminal Claude qui a déclaré des étapes : une ligne de la largeur du terminal, un point par étape à intervalles réguliers, son titre dessous (tronqué ; pas de survol, la frise ne prend pas la souris — décision H1).
 - Couleur = état : fait (vert `--ov-ok`), en cours (couleur « au travail » de l'identité, `--ov-working`, pulse), à venir (gris), échec (rouge). Sans étape déclarée : rien. (Le bleu du croquis de Mathieu n'existe pas dans la palette de l'identité : à revoir avec le design.)
 - Pendant une mission, la barre du budget de l'agent se place au-dessus de la frise (§8.3).
 
 ### 5.2 Les sous-agents
 
 - Les hooks `SubagentStart` / `SubagentStop` de la session tiennent le compte des sous-agents en cours ; la frise l'affiche à côté de l'étape en cours (« ×3 »).
-- Les phases d'un workflow ne sont pas visibles par les hooks (non documenté) : seule la déclaration de l'agent les montre.
+- Les phases d'un workflow ne sont pas visibles par les hooks (non documenté) : seule la déclaration de l'agent les montre, et ce sont les agents du workflow qui marquent leur étape (§4.4).
 
 ### 5.3 Données
 
@@ -101,8 +103,9 @@ Consigne de rôle d'un agent : il travaille dans OpenVibe ; quand sa tâche dema
 
 ## 6. Présentation (fonctionnelle, à reprendre avec Mathieu)
 
-- La frise : un calque au-dessus du canvas, comme les étiquettes de groupe (`GroupLabels`), placé sous chaque terminal, sans capter la souris (sauf le survol des titres).
-- Le nœud orchestrateur **(choix par défaut)** : en-tête (nom, état de la mission, temps passé / budget global), puis le terminal de sa session Claude (on lui parle comme à tout terminal), puis le panneau de la mission : la tâche, le plan proposé avec « Lancer la mission » tant qu'il attend le feu vert, puis l'équipe (agent, sous-tâche, budget). Taille par défaut 640 × 720.
+- La frise : un calque sous les nœuds, comme les fonds de groupe, placé sous chaque terminal, sans capter la souris.
+- Le nœud orchestrateur **(choix par défaut)** : en-tête (nom, état de la mission, temps passé / budget global), puis le terminal de sa session Claude (on lui parle comme à tout terminal), puis le panneau de la mission : réglages (budget global, maximum d'agents), le plan proposé avec « Lancer la mission » tant qu'il attend le feu vert, puis l'équipe (agent, sous-tâche, budget, état, compte rendu), puis le bilan avec « Nettoyer la mission ». Taille par défaut 640 × 760.
+- « Écrire » et « Coller » vers un orchestrateur (barre de commande, menu radial) passent par son terminal, comme pour un agent.
 - Un orchestrateur existant (payload `{ name }`) devient un orchestrateur IA : sa session démarre à son affichage comme un agent. La diffusion sans IA reste dans la barre de commande (spec habillage §12).
 
 ## 7. La mission
@@ -121,9 +124,9 @@ Consigne de rôle d'un agent : il travaille dans OpenVibe ; quand sa tâche dema
 | `equipe()` | Chaque agent : prénom, sous-tâche, état (travaille, attend, inactif, arrêté), étapes, temps passé / budget, compte rendu éventuel. |
 | `lire_sortie(agent, lignes)` | La fin de son terminal en texte simple (sans séquences ANSI), 200 lignes au plus. |
 | `ecrire(agent, texte)` | Tape le texte dans son terminal (relance, précision). Refusé si l'agent attend une réponse (le dialogue est pour Mathieu). |
-| `prolonger(agent, minutes)` | Ajoute des minutes, prises sur le reste du budget global. |
-| `interrompre(agent)` | Arrête son tour (Échap), comme « Pause ». |
-| `reattribuer(sous_tache, agent)` | Donne la sous-tâche à un autre agent de la mission (ou `nouveau`) : il la reçoit avec le compte rendu et la branche du précédent. |
+| `prolonger(agent, minutes)` | (H3) Ajoute des minutes, prises sur le reste du budget global. |
+| `interrompre(agent)` | (H3) Arrête son tour (Échap), comme « Pause ». |
+| `reattribuer(sous_tache, agent)` | (H3) Donne la sous-tâche à un autre agent de la mission (ou `nouveau`) : il la reçoit avec le compte rendu et la branche du précédent. |
 | `fusionner()` | Fusionne les branches des agents qui ont rendu compte dans la branche de la mission (§7.6) ; dit ce qui est fusionné et les conflits. |
 | `terminer(bilan)` | Clôt la mission : bilan affiché dans le panneau, équipe libérée (§7.7). |
 
@@ -132,8 +135,9 @@ Consigne de rôle de l'orchestrateur : il est le manager ; il ne code pas ; il d
 ### 7.3 Feu vert et équipe
 
 - « Lancer la mission » (panneau) : OpenVibe — pas l'IA — forme l'équipe : crée la branche de la mission, puis pour chaque sous-tâche son worktree et sa branche, lance l'agent dedans et lui tape sa sous-tâche quand il est prêt.
-- Agent relié : son processus est arrêté et relancé dans son worktree, en nouvelle session (une session Claude ne se reprend pas depuis un autre dossier). Agent nouveau : un Claude créé à côté de l'orchestrateur, avec un prénom, dans un groupe « <nom de la mission> » relié à l'orchestrateur.
+- Agent relié : son processus est arrêté et relancé dans son worktree, en nouvelle session (une session Claude ne se reprend pas depuis un autre dossier). Agent nouveau : un Claude créé à côté de l'orchestrateur, avec un prénom, dans un groupe « Mission <nom> » relié à l'orchestrateur.
 - Un agent est « prêt » quand son processus tourne et qu'il est inactif depuis 2 s ; au bout de 60 s, la sous-tâche est tapée quand même.
+- Dans un worktree qu'OpenVibe vient de créer, Claude demande s'il peut faire confiance au dossier : OpenVibe accepte cette invite (texte de l'écran contenant « trust » et « folder » : flèche bas puis Entrée), et seulement dans ces worktrees.
 - La sous-tâche tapée : « [OpenVibe · mission <nom>] <titre> — <consigne> Budget : <n> min. Branche : <branche>. Déclare tes étapes, délègue à tes sous-agents, commit sur ta branche, puis rends compte avec rendre_compte. »
 
 ### 7.4 Worktrees et branches (choix par défaut)
@@ -195,8 +199,8 @@ Si l'orchestrateur attend lui-même une réponse de Mathieu, les évènements at
 ## 10. Jalons
 
 - **H1 — le pont** : serveur MCP, lancement des sessions Claude avec leurs outils, outils d'agent, hooks des sous-agents, frise. Utile seul : tout agent Claude montre ses étapes.
-- **H2 — la mission** : orchestrateur IA, plan et feu vert, worktrees et branches, équipe, attribution, évènements, comptes rendus, fusion, fin.
-- **H3 — le temps** : budgets, dépassements, interventions, barres.
+- **H2 — la mission** : orchestrateur IA, plan et feu vert, worktrees et branches, équipe, attribution, évènements, comptes rendus, fusion, fin. Outils : `mission`, `proposer_plan`, `equipe`, `lire_sortie`, `ecrire`, `fusionner`, `terminer`. Les budgets du plan sont enregistrés et affichés, sans minuterie.
+- **H3 — le temps** : minuterie des budgets, dépassements (100 %, 200 %, budget global), `prolonger`, `interrompre`, `reattribuer`, barres de budget et temps dans l'en-tête.
 
 Chaque jalon a son plan et sa build de test (`OpenVibe-H1.exe`…).
 
