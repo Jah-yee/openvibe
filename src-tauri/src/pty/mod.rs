@@ -129,6 +129,10 @@ impl PtyManager {
         }
     }
 
+    pub fn is_running(&self, node_id: &str) -> bool {
+        self.sessions.lock().unwrap().contains_key(node_id)
+    }
+
     pub fn list(&self) -> Vec<String> {
         self.sessions.lock().unwrap().keys().cloned().collect()
     }
@@ -428,6 +432,9 @@ mod windows_tests {
             |_| {},
         );
         assert_eq!(again.unwrap_err().kind(), "invalidInput");
+        // pty_spawn asks first, before it touches the live session's token and files (H3 check).
+        assert!(mgr.is_running("d"));
+        assert!(!mgr.is_running("x"));
         mgr.resize("d", pty_size(120, 40)).unwrap();
         assert_eq!(mgr.list(), vec!["d".to_string()]);
         mgr.kill_all();

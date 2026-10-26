@@ -36,6 +36,13 @@ pub async fn pty_spawn(
     rows: u16,
     on_data: Channel<Response>,
 ) -> AppResult<Option<u32>> {
+    // Refused before anything else: a second start must leave the live
+    // session's MCP token and launch files alone (seen in the app, H3).
+    if pty.is_running(&node_id) {
+        return Err(AppError::InvalidInput(format!(
+            "le terminal {node_id} tourne déjà"
+        )));
+    }
     let role = spec.claude.as_ref().map(|c| c.role).unwrap_or_default();
     let hooks = agents::hooks_for(&app, &node_id, spec.agent, role);
     let plan = match build_plan(&node_id, &spec, &which_locate, &hooks) {
