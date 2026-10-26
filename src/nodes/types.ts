@@ -1,4 +1,5 @@
 import { AGENT_IDS, type AgentId, type OllamaLaunch, type ShellKind } from "@/ipc/pty";
+import { readSteps, type Step } from "./steps";
 
 /** Content of a terminal node (spec habillage §15.2). */
 export interface TerminalPayload {
@@ -14,6 +15,8 @@ export interface TerminalPayload {
   /** The Claude Code conversation of this node, for `--session-id` / `--resume`. */
   claudeSessionId?: string;
   ollama?: OllamaLaunch;
+  /** The steps its agent declared (spec orchestrateur §5). */
+  steps?: Step[];
 }
 
 /** Content of an orchestrator node (spec habillage §13, §15.2). */
@@ -58,5 +61,7 @@ export function readTerminalPayload(raw: unknown): TerminalPayload | null {
   if (ollama && typeof ollama.model === "string" && (ollama.mode === "chat" || ollama.mode === "code")) {
     payload.ollama = { model: ollama.model, mode: ollama.mode };
   }
+  const steps = readSteps(r.steps);
+  if (steps) payload.steps = steps;
   return payload;
 }
