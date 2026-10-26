@@ -83,6 +83,15 @@ it("closes, then runs the chosen function on the next frame (« Renommer » open
   expect(pendingUiRequest()).toEqual({ kind: "renameTerminal", id: "isis" });
 });
 
+it("leaves the keyboard where it was: a press on its buttons never takes it (final review)", async () => {
+  await open();
+  for (const button of [...buttons(), document.querySelector<HTMLButtonElement>('[aria-label="Fermer le menu"]')!]) {
+    const press = new PointerEvent("pointerdown", { bubbles: true, cancelable: true });
+    button.dispatchEvent(press);
+    expect(press.defaultPrevented, button.getAttribute("aria-label")!).toBe(true);
+  }
+});
+
 it("closes on its ×, and when the workspace changes or a dialog opens (spec menu radial §7)", async () => {
   await open();
   await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Fermer le menu"]')!.click());

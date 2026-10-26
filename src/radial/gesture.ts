@@ -29,6 +29,16 @@ export function slotAt(center: Point, pointer: Point): number | null {
   return (((Math.round(fromTop / 45) % 8) + 8) % 8);
 }
 
+/**
+ * The slot a slide points at, by its direction from the ring's center; nothing
+ * within the dead zone of the press too, for a ring moved off an edge sits away
+ * from it: a jitter there would point at a button.
+ */
+export function slideSlot(center: Point, press: Point, pointer: Point): number | null {
+  if (Math.hypot(pointer.x - press.x, pointer.y - press.y) < DEAD_ZONE) return null;
+  return slotAt(center, pointer);
+}
+
 export function isSlide(press: Point, pointer: Point): boolean {
   return Math.hypot(pointer.x - press.x, pointer.y - press.y) > SLIDE_THRESHOLD;
 }

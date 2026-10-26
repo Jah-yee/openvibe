@@ -6,15 +6,15 @@ import { sceneOf } from "@/fleet/placement";
 import type { Point } from "@/fleet/terminals";
 import { isNativeMenu } from "./bridges";
 import { chooseSlot } from "./choose";
-import { isSlide, ringCenter, slotAt } from "./gesture";
+import { isSlide, ringCenter, slideSlot } from "./gesture";
 import { closeRadial, openRadial, radialStore, updateRadial } from "./radialState";
 import type { RingKind } from "./rings";
-import { domTarget, isTextField, sceneTarget } from "./target";
+import { domTarget, frameNameTarget, isTextField, sceneTarget } from "./target";
 
-/** The canvas or a node: where a right click is the ring's. */
+/** The canvas, a node or the name of a frame: where a right click is the ring's. */
 function onCanvas(element: Element): boolean {
   return (
-    element.closest(".excalidraw__embeddable-container") !== null ||
+    element.closest('.excalidraw__embeddable-container, .excalidraw [id*="-frame-name-"]') !== null ||
     (element instanceof HTMLCanvasElement && element.classList.contains("interactive"))
   );
 }
@@ -26,9 +26,9 @@ export function ringAt(element: Element, client: Point): { kind: RingKind; conte
   const at = sceneOf(client, view);
   const selection = api.getAppState().selectedElementIds;
   const selectedIds = Object.keys(selection).filter((id) => selection[id]);
+  const groupIds = new Set(frames.filter(isGroup).map((f) => f.id));
   const target =
-    domTarget(element) ??
-    sceneTarget({ point: at, zoom: view.zoom, elements: api.getSceneElements(), selectedIds, groupIds: new Set(frames.filter(isGroup).map((f) => f.id)) });
+    domTarget(element) ?? frameNameTarget(element, groupIds) ?? sceneTarget({ point: at, zoom: view.zoom, elements: api.getSceneElements(), selectedIds, groupIds });
   const context: CommandContext = { ...commandContext(), at };
   switch (target.kind) {
     case "terminal":
@@ -41,7 +41,10 @@ export function ringAt(element: Element, client: Point): { kind: RingKind; conte
       // As Excalidraw does: a drawing outside the selection becomes the selection; the keys go to the canvas.
       const same = target.ids.length === selectedIds.length && target.ids.every((id) => selection[id]);
       if (same) api.updateScene({ appState: { activeEmbeddable: null } });
-      else api.updateScene({ appState: { selectedElementIds: Object.fromEntries(target.ids.map((id) => [id, true])), selectedGroupIds: {}, activeEmbeddable: null } });
+      else {
+        const selectedGroupIds = target.groupId ? { [target.groupId]: true } : {};
+        api.updateScene({ appState: { selectedElementIds: Object.fromEntries(target.ids.map((id) => [id, true])), selectedGroupIds, activeEmbeddable: null } });
+      }
       return { kind: "selection", context };
     }
     default:
@@ -51,7 +54,11 @@ export function ringAt(element: Element, client: Point): { kind: RingKind; conte
 
 /** The right click opens the ring; the native menu never opens unasked (spec menu radial §5.2). */
 export function installRadial(win: Window): () => void {
+  // The contextmenu that follows a right release the ring handled: closed by a
+  // slide, the ring no longer covers it, and over the UI WebView2 would show its own.
+  let swallowMenu = false;
   const onPointerDown = (event: PointerEvent) => {
+    swallowMenu = false;
     const { ring } = radialStore.getState();
     const element = event.target instanceof Element ? event.target : null;
     if (event.button === 2 && element) {
@@ -74,13 +81,14 @@ export function installRadial(win: Window): () => void {
     if (!ring?.pressed) return;
     const pointer = { x: event.clientX, y: event.clientY };
     if (!ring.sliding && !isSlide(ring.client, pointer)) return;
-    updateRadial({ sliding: true, hovered: slotAt(ring.center, pointer) });
+    updateRadial({ sliding: true, hovered: slideSlot(ring.center, ring.client, pointer) });
   };
   const onPointerUp = (event: PointerEvent) => {
     const { ring } = radialStore.getState();
     if (event.button !== 2 || !ring?.pressed) return;
     event.preventDefault();
     event.stopPropagation();
+    swallowMenu = true;
     if (!ring.sliding) updateRadial({ pressed: false });
     else if (ring.hovered === null) closeRadial();
     else chooseSlot(ring.hovered);
@@ -88,7 +96,9 @@ export function installRadial(win: Window): () => void {
   const onContextMenu = (event: MouseEvent) => {
     if (isNativeMenu(event)) return;
     const element = event.target instanceof Element ? event.target : null;
-    if (radialStore.getState().ring || (element && onCanvas(element) && !isTextField(element))) {
+    const swallow = swallowMenu;
+    swallowMenu = false;
+    if (swallow || radialStore.getState().ring || (element && onCanvas(element) && !isTextField(element))) {
       event.preventDefault();
       event.stopPropagation();
     }

@@ -8,7 +8,7 @@ export type RadialTarget =
   | { kind: "terminal"; id: string }
   | { kind: "orchestrator"; id: string }
   | { kind: "group"; id: string }
-  | { kind: "selection"; ids: string[] };
+  | { kind: "selection"; ids: string[]; groupId?: string };
 
 /** A text field keeps its own right click (§5.2); xterm's hidden input is not one. */
 export function isTextField(element: Element): boolean {
@@ -23,6 +23,16 @@ export function domTarget(element: Element): RadialTarget | null {
   const orchestrator = element.closest("[data-orchestrator]")?.getAttribute("data-orchestrator");
   if (orchestrator) return { kind: "orchestrator", id: orchestrator };
   return null;
+}
+
+const FRAME_NAME = "-frame-name-";
+
+/** Excalidraw's name of a frame, drawn in the page above it: a group's label, else the frame itself. */
+export function frameNameTarget(element: Element, groupIds: ReadonlySet<string>): RadialTarget | null {
+  const name = element.closest(`.excalidraw [id*="${FRAME_NAME}"]`);
+  if (!name) return null;
+  const id = name.id.slice(name.id.indexOf(FRAME_NAME) + FRAME_NAME.length);
+  return groupIds.has(id) ? { kind: "group", id } : { kind: "selection", ids: [id] };
 }
 
 export interface ScenePick {
@@ -88,6 +98,15 @@ function boundsOf(elements: readonly ExcalidrawElement[]) {
   return { x1: Math.min(...xs), y1: Math.min(...ys), x2: Math.max(...xs), y2: Math.max(...ys) };
 }
 
+/** As Excalidraw's own right click: a box for its label, a group of drawings whole (its outermost group). */
+function drawingAt(element: ExcalidrawElement, elements: readonly ExcalidrawElement[]): RadialTarget {
+  const container = "containerId" in element && element.containerId ? elements.find((e) => e.id === element.containerId) : undefined;
+  const hit = container ?? element;
+  const groupId = hit.groupIds[hit.groupIds.length - 1];
+  if (!groupId) return { kind: "selection", ids: [hit.id] };
+  return { kind: "selection", ids: elements.filter((e) => e.groupIds.includes(groupId)).map((e) => e.id), groupId };
+}
+
 /** What the scene has under a press (§6.4, steps 3 to 6). */
 export function sceneTarget({ point, zoom, elements, selectedIds, groupIds }: ScenePick): RadialTarget {
   const tolerance = TOLERANCE / zoom;
@@ -104,7 +123,7 @@ export function sceneTarget({ point, zoom, elements, selectedIds, groupIds }: Sc
     if (element.type === "frame" || element.type === "magicframe" || !hits(element, point, tolerance)) continue;
     const kind = nodeKindOf(element);
     if (kind === "terminal" || kind === "orchestrator") return { kind, id: element.id };
-    return { kind: "selection", ids: [element.id] };
+    return drawingAt(element, elements);
   }
   for (let i = elements.length - 1; i >= 0; i--) {
     const frame = elements[i];

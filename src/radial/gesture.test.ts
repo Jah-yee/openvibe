@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSlide, ringCenter, slotAt, slotPosition } from "./gesture";
+import { isSlide, ringCenter, slideSlot, slotAt, slotPosition } from "./gesture";
 
 describe("the ring's geometry (spec menu radial §5)", () => {
   it("places the eight buttons clockwise from the top, 84 px from the center", () => {
@@ -22,6 +22,14 @@ describe("the ring's geometry (spec menu radial §5)", () => {
     expect(toward(19, -50)).toBe(0);
     expect(toward(22, -40)).toBe(1);
     expect(toward(10, 10)).toBeNull();
+  });
+
+  it("points at nothing within 24 px of the press, the ring moved off an edge (final review)", () => {
+    const center = { x: 200, y: 200 };
+    const press = { x: 290, y: 200 };
+    expect(slideSlot(center, press, { x: 290, y: 215 })).toBeNull();
+    expect(slideSlot(center, press, { x: 290, y: 230 })).toBe(2);
+    expect(slideSlot(press, press, { x: 290, y: 260 })).toBe(4);
   });
 
   it("tells a slide from a click by 6 px", () => {

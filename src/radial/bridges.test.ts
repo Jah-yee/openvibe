@@ -1,6 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { canvasStore } from "@/canvas/canvasStore";
 import {
   CANVAS_KEYS,
   copyCanvasSelection,
@@ -88,8 +90,15 @@ describe("Excalidraw's own actions, driven from outside (spec menu radial §6.3)
     expect(toast).toHaveBeenCalledWith("Presse-papiers vide");
   });
 
-  it("starts a text at the point by a double-click on the canvas", () => {
+  it("starts a text at the point by a double-click on the canvas, with the selection tool and nothing selected (final review)", async () => {
+    // Excalidraw's double-click starts a text only with the selection tool; on a lone image it crops.
+    const setActiveTool = vi.fn();
+    const updateScene = vi.fn();
+    canvasStore.setState({ api: { setActiveTool, updateScene } as unknown as ExcalidrawImperativeAPI });
     startTextAt({ x: 12, y: 34 });
+    expect(setActiveTool).toHaveBeenCalledWith({ type: "selection" });
+    expect(updateScene).toHaveBeenCalledWith({ appState: { selectedElementIds: {}, selectedGroupIds: {} } });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     const click = seen[0] as MouseEvent;
     expect([click.type, click.clientX, click.clientY]).toEqual(["dblclick", 12, 34]);
   });

@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { canvasStore } from "@/canvas/canvasStore";
 import type { Point } from "@/fleet/terminals";
 
 /** Excalidraw's container: its keys, copy and paste act when it has the keyboard. */
@@ -78,10 +79,19 @@ export async function pasteOnCanvasAt(client: Point) {
   document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
 }
 
-/** Texte: a text starts at a window point, as by a double-click on the canvas. */
+/**
+ * Texte: a text starts at a window point, as by a double-click on the canvas.
+ * Excalidraw's double-click starts one only with the selection tool, and crops
+ * a lone selected image: both are set first, the double-click a frame after.
+ */
 export function startTextAt(client: Point) {
+  const api = canvasStore.getState().api;
+  api?.updateScene({ appState: { selectedElementIds: {}, selectedGroupIds: {} } });
+  api?.setActiveTool({ type: "selection" });
   focusCanvas();
-  interactiveCanvas()?.dispatchEvent(new MouseEvent("dblclick", { clientX: client.x, clientY: client.y, bubbles: true, cancelable: true }));
+  requestAnimationFrame(() =>
+    interactiveCanvas()?.dispatchEvent(new MouseEvent("dblclick", { clientX: client.x, clientY: client.y, bubbles: true, cancelable: true })),
+  );
 }
 
 const nativeMenus = new WeakSet<Event>();

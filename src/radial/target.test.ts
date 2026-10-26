@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import { domTarget, isTextField, sceneTarget, type ScenePick } from "./target";
+import { domTarget, frameNameTarget, isTextField, sceneTarget, type ScenePick } from "./target";
 
 const element = (id: string, fields: Record<string, unknown>) =>
-  ({ id, type: "rectangle", x: 0, y: 0, width: 100, height: 100, angle: 0, strokeWidth: 2, isDeleted: false, frameId: null, ...fields }) as unknown as ExcalidrawElement;
+  ({ id, type: "rectangle", x: 0, y: 0, width: 100, height: 100, angle: 0, strokeWidth: 2, isDeleted: false, frameId: null, groupIds: [], containerId: null, ...fields }) as unknown as ExcalidrawElement;
 const pick = (point: { x: number; y: number }, elements: ExcalidrawElement[], fields: Partial<ScenePick> = {}): ScenePick => ({
   point,
   zoom: 1,
@@ -34,6 +34,24 @@ describe("what is under a right press (spec menu radial §6.4)", () => {
     const turned = element("turned", { angle: Math.PI / 4 });
     expect(sceneTarget(pick({ x: 2, y: 2 }, [turned]))).toEqual({ kind: "canvas" });
     expect(sceneTarget(pick({ x: 50, y: 5 }, [turned]))).toEqual({ kind: "selection", ids: ["turned"] });
+  });
+
+  it("takes a box for its label and a group of drawings whole, as Excalidraw's right click does (final review)", () => {
+    const box = element("box", {});
+    const label = element("label", { type: "text", x: 20, y: 40, width: 60, height: 20, containerId: "box" });
+    expect(sceneTarget(pick({ x: 50, y: 50 }, [box, label]))).toEqual({ kind: "selection", ids: ["box"] });
+    const a = element("a", { groupIds: ["inner", "outer"] });
+    const b = element("b", { x: 300, groupIds: ["outer"] });
+    const c = element("c", { x: 600 });
+    expect(sceneTarget(pick({ x: 50, y: 50 }, [a, b, c]))).toEqual({ kind: "selection", ids: ["a", "b"], groupId: "outer" });
+  });
+
+  it("reads a frame's name drawn by Excalidraw: a group's label, else the frame as a drawing (final review)", () => {
+    document.body.innerHTML = '<div class="excalidraw"><div id="ex-frame-name-g1"><span id="dot"></span></div><div id="ex-frame-name-f2"></div></div><div id="else"></div>';
+    const groups = new Set(["g1"]);
+    expect(frameNameTarget(document.getElementById("dot")!, groups)).toEqual({ kind: "group", id: "g1" });
+    expect(frameNameTarget(document.getElementById("ex-frame-name-f2")!, groups)).toEqual({ kind: "selection", ids: ["f2"] });
+    expect(frameNameTarget(document.getElementById("else")!, groups)).toBeNull();
   });
 
   it("finds a line by its stroke, not by the box around it", () => {

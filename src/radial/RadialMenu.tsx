@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type PointerEvent } from "react";
 import { X } from "lucide-react";
 import { paletteStore } from "@/commands/paletteState";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,9 @@ function closeOnLeave() {
   ];
   return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
 }
+
+/** A press on the ring leaves the keyboard where it was: after « Coller », Enter still goes to the terminal. */
+const keepKeyboard = (event: PointerEvent) => event.preventDefault();
 
 /** The ring of the right click (spec menu radial §5). */
 export function RadialMenu() {
@@ -50,6 +53,7 @@ export function RadialMenu() {
               !line.enabled && "opacity-40",
             )}
             style={{ left: at.x, top: at.y }}
+            onPointerDown={keepKeyboard}
             onPointerEnter={() => updateRadial({ hovered: slot })}
             onPointerLeave={() => updateRadial({ hovered: null })}
             onClick={() => line.enabled && chooseSlot(slot)}
@@ -61,6 +65,7 @@ export function RadialMenu() {
       <button
         type="button"
         aria-label="Fermer le menu"
+        onPointerDown={keepKeyboard}
         onClick={closeRadial}
         className="ov-glass-strong pointer-events-auto absolute grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-ov-text-2"
         style={{ left: 0, top: 0 }}
