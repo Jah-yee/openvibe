@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { sendCommand } from "./broadcast";
+import { historyStore } from "./history";
 import { CommandInput } from "./CommandInput";
 import type { TargetAgent } from "./targets";
 
@@ -74,3 +75,27 @@ it("sends a /command to every agent of @thot/zeus/héra", async () => {
   await press("Enter");
   expect(sendCommand).toHaveBeenCalledWith(["b", "d", "h"], "/effort ultracode");
 });
+
+it("sends a command typed in full on Enter, instead of completing it (final review maj §1)", async () => {
+  await type("@thot /clear");
+  await press("Enter");
+  expect(sendCommand).toHaveBeenCalledWith(["b"], "/clear");
+});
+
+it("goes on through the history past a command, its list closed (final review maj §1)", async () => {
+  await act(async () => historyStore.setState({ entries: ["@zeus lance les tests", "@thot/zeus /compact"] }));
+  await press("ArrowUp");
+  expect(field().value).toBe("@thot/zeus /compact");
+  expect(options()).toEqual([]);
+  await press("ArrowUp");
+  expect(field().value).toBe("@zeus lance les tests");
+});
+
+it("does not send a /command whose target is unknown to the selection instead (final review maj §1)", async () => {
+  await act(async () => root.render(<CommandInput agents={agents} groups={[]} fallback={["d"]} placeholder="Consigne" emptyHint="Tape @" />));
+  await type("/clear @thot/zues");
+  await press("Enter");
+  expect(sendCommand).not.toHaveBeenCalled();
+  expect(host.textContent).toContain("Cible inconnue : @thot/zues");
+});
+
