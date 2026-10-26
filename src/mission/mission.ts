@@ -31,6 +31,12 @@ export interface Member {
   sentAt?: number;
   report?: Report;
   merged?: boolean;
+  /** Minutes added by `prolonger` (spec §8.2). */
+  extraMin?: number;
+  /** The overruns already told: 1 at 100 % of its budget, 2 at 200 % (spec §8.2). */
+  overdue?: 1 | 2;
+  /** Its sub-task went to this agent (`reattribuer`): its clock stops. */
+  handedTo?: string;
 }
 
 export interface Mission {
@@ -51,6 +57,10 @@ export interface Mission {
   members: Member[];
   summary?: string;
   error?: string;
+  /** The go-ahead: the global budget runs from then (spec §8.1). */
+  startedAt?: number;
+  /** The end of the global budget was told (spec §8.2). */
+  globalOverdue?: boolean;
 }
 
 export const NEW_AGENT = "nouveau";
@@ -90,6 +100,9 @@ function readMember(raw: unknown): Member | null {
   if (report && typeof report.summary === "string" && typeof report.status === "string" && STATUSES.includes(report.status)) {
     member.report = { summary: report.summary, status: report.status as ReportStatus, at: typeof report.at === "number" ? report.at : 0 };
   }
+  if (typeof r.extraMin === "number") member.extraMin = r.extraMin;
+  if (r.overdue === 1 || r.overdue === 2) member.overdue = r.overdue;
+  if (typeof r.handedTo === "string") member.handedTo = r.handedTo;
   return member;
 }
 
@@ -113,6 +126,8 @@ export function readMission(raw: unknown): Mission | undefined {
     if (typeof r[key] === "string") mission[key] = r[key];
   }
   if (Array.isArray(r.plan)) mission.plan = r.plan.filter(isSubTask);
+  if (typeof r.startedAt === "number") mission.startedAt = r.startedAt;
+  if (r.globalOverdue === true) mission.globalOverdue = true;
   return mission;
 }
 
@@ -150,4 +165,61 @@ export function proposedPlan(
     return `Les budgets font ${total} min, plus que le budget global (${mission.budgetMin} min).`;
   }
   return { name, task, plan };
+}
+
+const MINUTE = 60_000;
+
+/** A member's budget with its extensions. */
+export const budgetOf = (member: Member) => member.budgetMin + (member.extraMin ?? 0);
+
+/** Minutes a member has spent: from its sub-task's sending to its report, in real time (spec §8.1). */
+export function spentMin(member: Member, now: number): number {
+  if (member.sentAt === undefined) return 0;
+  return Math.max(0, ((member.report?.at ?? now) - member.sentAt) / MINUTE);
+}
+
+export interface Overrun {
+  nodeId: string;
+  name: string;
+  task: string;
+  level: 1 | 2;
+  budget: number;
+}
+
+/**
+ * What the clock has to tell (spec §8.2): the members past 100 % or 200 % of
+ * their budget without a report, each step once, and the end of the global budget.
+ */
+export function overruns(mission: Mission, now: number): { members: Overrun[]; global: boolean } {
+  if (mission.state !== "en_cours") return { members: [], global: false };
+  const members = mission.members.flatMap((m): Overrun[] => {
+    if (m.sentAt === undefined || m.report || m.handedTo) return [];
+    const ratio = spentMin(m, now) / budgetOf(m);
+    const level = ratio >= 2 ? 2 : ratio >= 1 ? 1 : 0;
+    return level > (m.overdue ?? 0) ? [{ nodeId: m.nodeId, name: m.name, task: m.task, level: level as 1 | 2, budget: budgetOf(m) }] : [];
+  });
+  const global =
+    mission.budgetMin !== undefined && mission.startedAt !== undefined && !mission.globalOverdue && (now - mission.startedAt) / MINUTE >= mission.budgetMin;
+  return { members, global };
+}
+
+/** What `prolonger` may still take from the global budget; undefined without one. */
+export function remainingGlobal(mission: Mission): number | undefined {
+  if (mission.budgetMin === undefined) return undefined;
+  return mission.budgetMin - mission.members.filter((m) => !m.handedTo).reduce((sum, m) => sum + budgetOf(m), 0);
+}
+
+export type BudgetTone = "ok" | "late" | "over";
+
+/** A budget's bar (spec §8.3): green, orange past 80 %, red past 100 %. */
+export function budgetBar(spent: number, budget: number): { ratio: number; tone: BudgetTone } {
+  const ratio = budget > 0 ? spent / budget : 0;
+  return { ratio: Math.min(1, ratio), tone: ratio > 1 ? "over" : ratio > 0.8 ? "late" : "ok" };
+}
+
+/** The orchestrator's header during a mission (spec §8.3): time spent, over the global budget if any. */
+export function clockText(mission: Mission, now: number): string | null {
+  if (mission.state !== "en_cours" || mission.startedAt === undefined) return null;
+  const spent = Math.floor((now - mission.startedAt) / MINUTE);
+  return mission.budgetMin === undefined ? `${spent} min` : `${spent} / ${mission.budgetMin} min`;
 }

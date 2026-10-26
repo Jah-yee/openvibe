@@ -97,6 +97,7 @@ describe("launchMission (spec §7.3)", () => {
     );
     expect(linkOrchestrator).toHaveBeenCalledWith("chef", "f1");
     expect(mission).toMatchObject({ state: "en_cours", project: "C:/code/proj", slug: "auth", branch: "openvibe/auth", frameId: "f1" });
+    expect(mission.startedAt).toEqual(expect.any(Number));
     expect(mission.members.map((m) => [m.nodeId, m.linked, m.branch])).toEqual([
       ["isis", true, "openvibe/auth-isis"],
       ["n1", false, tree(`auth-${fresh.toLowerCase()}`).branch],

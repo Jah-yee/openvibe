@@ -137,7 +137,7 @@ export async function launchMission(orchestratorId: string): Promise<void> {
     notify(orchestratorId, `La mission n'a pas pu démarrer : ${errorText(error)}`);
     return;
   }
-  setMission(orchestratorId, { state: "en_cours", ...team });
+  setMission(orchestratorId, { state: "en_cours", startedAt: Date.now(), ...team });
   const names = team.members.map((m) => `${m.name} (${m.task})`).join(", ");
   notify(orchestratorId, `Feu vert : l'équipe est formée — ${names}. Branche de la mission : ${team.branch}. Chacun reçoit sa sous-tâche dès que son terminal est prêt.`);
   const plan = mission.plan;
