@@ -1,4 +1,5 @@
 import { AGENT_IDS, type AgentId, type OllamaLaunch, type ShellKind } from "@/ipc/pty";
+import { readMission, type Mission } from "@/mission/mission";
 import { readSteps, type Step } from "./steps";
 
 /** Content of a terminal node (spec habillage §15.2). */
@@ -26,6 +27,8 @@ export interface OrchestratorPayload {
   name: string;
   /** Its Claude session, created when it is first shown. */
   session?: TerminalPayload;
+  /** Its mission (spec orchestrateur §7). */
+  mission?: Mission;
 }
 
 export const ORCHESTRATOR_NAME = "Orchestrateur";
@@ -38,6 +41,8 @@ export function readOrchestratorPayload(raw: unknown): OrchestratorPayload {
   const payload: OrchestratorPayload = { name: typeof r.name === "string" && r.name.trim() ? r.name : ORCHESTRATOR_NAME };
   const session = readTerminalPayload(r.session);
   if (session?.agent === "claude") payload.session = { ...session, role: "orchestrator" };
+  const mission = readMission(r.mission);
+  if (mission) payload.mission = mission;
   return payload;
 }
 

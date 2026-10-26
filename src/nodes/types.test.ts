@@ -57,3 +57,9 @@ describe("an orchestrator's session (spec orchestrateur §6)", () => {
     expect(readOrchestratorPayload({ name: "Chef", session: 3 })).toEqual({ name: "Chef" });
   });
 });
+
+it("reads an orchestrator's mission with it (spec orchestrateur §7)", () => {
+  const mission = { state: "plan", maxAgents: 4, name: "Auth", members: [] };
+  expect(readOrchestratorPayload({ name: "Chef", mission })).toEqual({ name: "Chef", mission });
+  expect(readOrchestratorPayload({ name: "Chef", mission: { state: "?" } })).toEqual({ name: "Chef" });
+});
