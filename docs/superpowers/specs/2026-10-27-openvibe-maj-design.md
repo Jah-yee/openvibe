@@ -67,3 +67,33 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Le modèle passe en argument de ligne de commande, entre guillemets, et seuls les caractères d'un nom de modèle sont acceptés (lettres, chiffres, `-._[]`).
 - Relecture : « Lancer la mission » refuse un plan sans niveau quand le routeur a été coché après coup, et le dit à l'orchestrateur pour qu'il repropose le plan.
 - Relecture : le modèle d'un agent s'affiche dans son en-tête (« Haiku 5.5 »), avec « Modèle par défaut au prochain démarrage » ; une copie d'agent (Ctrl+D) ne reprend ni son modèle ni son Remote Control.
+
+## 4. Icônes Excalidraw intégrées (`feat/icones-excalidraw`)
+
+**Demande** : « Pouvoir importer/embarquer nativement les icônes de system design, AWS, Azure et GCP d'Excalidraw dans l'application. »
+
+**Comportement**
+
+- La barre d'outils de gauche a un bouton « Icônes », sous « Image ». Il ouvre un panneau qui contient :
+  - un champ de recherche ;
+  - quatre onglets : Conception système, AWS, Azure, GCP ;
+  - une grille de vignettes dessinées par Excalidraw dans le thème du canvas.
+- Un clic pose une copie de l'icône au centre de la vue, sélectionnée, en une seule étape d'annulation. L'icône reçoit de nouveaux identifiants ; ses groupes, ses textes dans leurs formes et ses flèches liées sont conservés. Elle est regroupée pour se déplacer d'un bloc.
+- La recherche parcourt les quatre catégories à la fois, sur le nom de l'icône et celui de sa bibliothèque, sans tenir compte des accents ni de la casse.
+- Bibliothèques embarquées : `public/libraries`, 12 fichiers, environ 6 Mo minifiés. Elles viennent de https://github.com/excalidraw/excalidraw-libraries, sous licence MIT ; les crédits sont dans `public/libraries/CREDITS.md`.
+
+  | catégorie | bibliothèques | icônes |
+  |---|---|---|
+  | Conception système | System Design Components, Software Architecture, System Design Icons | 34 |
+  | AWS | AWS Architecture Icons (Anna Pastushko), AWS Serverless Icons v2 | 273 |
+  | Azure | Azure cloud services icons, Azure General, Compute, Network, Storage | 97 |
+  | GCP | GCP Icons (Clément Bosc), Google Icons (Marcus Guidoti) | 222 |
+
+- `scripts/fetch-icon-libraries.mjs` retélécharge les fichiers listés dans `src/canvas/icons/catalog.json`. L'application ne va jamais les chercher sur Internet.
+
+**Décisions**
+
+- Un panneau d'OpenVibe plutôt que la bibliothèque d'Excalidraw : l'interface d'Excalidraw est masquée dans OpenVibe, et y verser 600 icônes encombrerait la bibliothèque personnelle de l'utilisateur.
+- Les icônes sans nom dans leur bibliothèque prennent le texte qu'elles contiennent, sinon « <bibliothèque> <n> ».
+- Une recherche affiche 120 icônes au plus. Les vignettes ne sont dessinées qu'à leur apparition dans la grille, une fois par thème.
+- Les logos AWS, Azure et Google Cloud restent des marques de leurs propriétaires. Les crédits le rappellent, et ces logos servent à dessiner des architectures.
