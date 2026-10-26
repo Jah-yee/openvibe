@@ -2,6 +2,16 @@
 
 Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-openvibe-habillage-et-flotte-design.md` (habillage Symvibe et flotte d'agents). Les références « vidéo » renvoient aux démos de Symvibe analysées le 2026-10-24.
 
+## Idée générale de prochaine mise à jour
+
+- Mettre dans la barre du haut les % d'usages (Current Session, Current week (all models), Current week (Fable))
+    1. Quand tu cliques dessus, tu as le détail (Total cost, Total duration (API), Total duration (Wall), code changes, usage by model, prompt cache, warm, CO² consumption etc...)
+- Pouvoir via la consigne aux agents, executer une commande pour plusieurs agents en même temps type @athena/zeus/héra /effort ultracode etça executera "/effort ultracode" dans les fenêtres des agents athena zeus et héra.
+- Pouvoir visualiser les diffs réalisés, par les agents et faciliter le code review de la sortie des agents. (un peu IDE embarqué avec visualisation de fichiers du workspace)
+- Pouvoir importer/embarqué nativement les icones de system design, aws azure et GCP d'excalidraw dans l'application.
+- Avoir une option Routeur dans l'orchestrateur, qui attribue pour chaque agent un modèle faible pour les tâches faibles Haiku 5.5, moyen Sonnet 5.5, elevé Opus, extrême Fable 5.1
+- Permettre d'activer le remote-control sur plusieurs terminaux, à l'unité ou au travers de l'orchestrateur pour gérer et avoir accès aux workflows à distance.
+
 ## Priorité haute
 
 - **Reprendre une session Claude qui n'a jamais eu de conversation** (constaté après J8b, le 2026-10-26) : « Relancer » de la palette, « Reprendre la session » de l'en-tête et « Reprendre toutes les conversations » lancent `claude --resume <id>` (`src-tauri/src/pty/shell.rs`, `ClaudeMode::Resume`). Si l'agent n'a encore reçu aucun message, Claude n'a rien enregistré sous cet identifiant : il affiche « No conversation found with session ID » et rend la main au shell nu. Correctif proposé : avant le lancement, vérifier que la conversation existe (fichier `<id>.jsonl` dans `~/.claude/projects/<dossier>/`) et, sinon, démarrer une nouvelle session sous le même identifiant (`--session-id <id>`).
