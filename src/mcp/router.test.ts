@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { answer } from "./router";
+import { pauseAgents } from "@/fleet/broadcast";
 import { ptySendText } from "@/ipc/pty";
 import { terminalText } from "@/nodes/terminal/registry";
 import { notify } from "@/mission/events";
@@ -16,6 +17,7 @@ vi.mock("@/ipc/pty", async (importOriginal) => ({ ...(await importOriginal<typeo
 vi.mock("@/nodes/terminal/registry", () => ({ terminalText: vi.fn(() => "ligne 1\nligne 2") }));
 vi.mock("@/mission/launch", () => ({ mergeMission: vi.fn(() => Promise.resolve("Branche openvibe/auth :\nIsis : fusionné")), endMission: vi.fn() }));
 vi.mock("@/mission/events", () => ({ notify: vi.fn() }));
+vi.mock("@/fleet/broadcast", () => ({ pauseAgents: vi.fn(() => Promise.resolve(1)) }));
 vi.mock("@/mission/store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/mission/store")>()),
   linkedClaudeAgents: vi.fn(() => [{ nodeId: "isis", name: "Isis" }]),
@@ -84,7 +86,7 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
 
   it("lists them for the orchestrator only, and each side refuses the other's", async () => {
     const list = (await answer({ callId: 1, nodeId: "chef", method: "tools/list", params: {} })) as { tools: { name: string }[] };
-    expect(list.tools.map((t) => t.name)).toEqual(["mission", "proposer_plan", "equipe", "lire_sortie", "ecrire", "fusionner", "terminer"]);
+    expect(list.tools.map((t) => t.name)).toEqual(["mission", "proposer_plan", "equipe", "lire_sortie", "ecrire", "prolonger", "interrompre", "reattribuer", "fusionner", "terminer"]);
     expect(textOf(await call("isis", "proposer_plan", plan))).toBe("Outil réservé à l'orchestrateur.");
     expect(textOf(await call("chef", "rendre_compte", { resume: "x", statut: "termine" }))).toBe("Outil réservé aux agents.");
   });
@@ -152,6 +154,24 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       updateMember("chef", "isis", { merged: true });
       await call("isis", "rendre_compte", { resume: "Vérifié", statut: "termine" });
       expect(missionOf(nodesStore.getState().nodes.chef)?.members[0]).toMatchObject({ merged: true, report: { summary: "Vérifié" } });
+    });
+
+    it("extends an agent's budget from what is left of the global one (spec §7.2)", async () => {
+      setMission("chef", { budgetMin: 30 });
+      expect(textOf(await call("chef", "prolonger", { agent: "Isis", minutes: 20 }))).toBe("Il reste 10 min sur le budget global.");
+      updateMember("chef", "isis", { overdue: 1 });
+      expect(textOf(await call("chef", "prolonger", { agent: "Isis", minutes: 10 }))).toBe("Isis : +10 min, budget 30 min.");
+      expect(missionOf(nodesStore.getState().nodes.chef)?.members[0]).toMatchObject({ extraMin: 10 });
+      expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].overdue).toBeUndefined();
+      expect(await call("chef", "prolonger", { agent: "Isis", minutes: 0 })).toMatchObject({ isError: true });
+      setMission("chef", { budgetMin: undefined });
+    });
+
+    it("interrupts an agent's turn like « Pause » (spec §7.2)", async () => {
+      expect(textOf(await call("chef", "interrompre", { agent: "Isis" }))).toBe("Tour d'Isis interrompu. ecrire « continue » le reprend.");
+      expect(pauseAgents).toHaveBeenCalledWith(["isis"]);
+      vi.mocked(pauseAgents).mockResolvedValueOnce(0);
+      expect(textOf(await call("chef", "interrompre", { agent: "Isis" }))).toBe("Isis n'est pas au travail : rien à interrompre.");
     });
 
     it("merges and ends the mission through OpenVibe; no new plan meanwhile", async () => {

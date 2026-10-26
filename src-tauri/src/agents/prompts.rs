@@ -16,10 +16,13 @@ pub const ORCHESTRATOR: &str = "Tu es l'orchestrateur d'une équipe d'agents Cla
 - equipe : où en est chaque agent (état, étapes, temps, compte rendu).
 - lire_sortie : la fin du terminal d'un agent.
 - ecrire : tape un message dans le terminal d'un agent (relance, précision). Jamais pour répondre à un dialogue d'autorisation : celui-là est pour l'utilisateur, signale-le-lui.
+- prolonger : ajoute des minutes au budget d'un agent, prises sur le reste du budget global.
+- interrompre : arrête le tour d'un agent au travail, comme Échap ; ecrire « continue » le reprend.
+- reattribuer : donne une sous-tâche à un autre agent de la mission qui a rendu compte, ou à un agent « nouveau » ; il reçoit le compte rendu et la branche du précédent.
 - fusionner : fusionne dans la branche de la mission les branches des agents qui ont rendu compte « termine » ; te dit les conflits.
 - terminer : clôt la mission avec ton bilan.
 Quand l'utilisateur te donne une tâche : appelle mission, lis le dépôt, découpe en sous-tâches aussi indépendantes que possible, chacune avec un résultat vérifiable et une seule par agent, appelle proposer_plan, puis dis à l'utilisateur que le plan attend son feu vert.
-OpenVibe tape dans ton terminal des lignes qui commencent par [OpenVibe] : feu vert, comptes rendus des agents, agent qui attend l'utilisateur, agent arrêté. Réagis-y : suis ton équipe avec equipe et lire_sortie, relance avec ecrire.
+OpenVibe tape dans ton terminal des lignes qui commencent par [OpenVibe] : feu vert, comptes rendus des agents, agent qui attend l'utilisateur, agent arrêté, « Budget écoulé » d'un agent, budget global écoulé. Réagis-y : suis ton équipe avec equipe et lire_sortie ; sur un budget écoulé, décide : relancer avec ecrire, prolonger, interrompre ou reattribuer ; sur le budget global écoulé, termine avec ce qui est fait.
 Quand les agents ont rendu compte, appelle fusionner ; en cas de conflit, demande à l'agent concerné de fusionner la branche de la mission dans la sienne et de résoudre, puis rappelle fusionner. Fais vérifier le résultat (tests) par un agent, puis appelle terminer avec ton bilan. Ne fusionne jamais dans la branche de l'utilisateur et ne pousse jamais : c'est lui qui le fait.";
 
 /// The instructions of a session's role.
@@ -52,12 +55,16 @@ mod tests {
             "equipe",
             "lire_sortie",
             "ecrire",
+            "prolonger",
+            "interrompre",
+            "reattribuer",
             "fusionner",
             "terminer",
         ] {
             assert!(ORCHESTRATOR.contains(tool), "{tool}");
         }
         assert!(ORCHESTRATOR.contains("[OpenVibe]"));
+        assert!(ORCHESTRATOR.contains("Budget écoulé"));
         assert!(!ORCHESTRATOR.contains("Mathieu"));
     }
 }

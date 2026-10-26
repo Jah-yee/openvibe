@@ -1,7 +1,8 @@
+import { pauseAgents } from "@/fleet/broadcast";
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission } from "@/mission/launch";
-import { NEW_AGENT, oneLine, proposedPlan, sameName, type Member, type Mission } from "@/mission/mission";
-import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission } from "@/mission/store";
+import { NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
+import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
@@ -59,6 +60,21 @@ export const ORCHESTRATOR_TOOLS = [
     inputSchema: { type: "object", properties: { agent: { type: "string" }, texte: { type: "string" } }, required: ["agent", "texte"] },
   },
   {
+    name: "prolonger",
+    description: "Ajoute des minutes au budget d'un agent de la mission, prises sur le reste du budget global.",
+    inputSchema: { type: "object", properties: { agent: { type: "string" }, minutes: { type: "integer", minimum: 1 } }, required: ["agent", "minutes"] },
+  },
+  {
+    name: "interrompre",
+    description: "Arrête le tour d'un agent au travail (Échap), comme « Pause » ; ecrire « continue » le reprend.",
+    inputSchema: { type: "object", properties: { agent: { type: "string" } }, required: ["agent"] },
+  },
+  {
+    name: "reattribuer",
+    description: "Donne une sous-tâche à un autre agent de la mission qui a rendu compte, ou à un agent « nouveau » : il la reçoit avec le compte rendu et la branche du précédent.",
+    inputSchema: { type: "object", properties: { sous_tache: { type: "string" }, agent: { type: "string" } }, required: ["sous_tache", "agent"] },
+  },
+  {
     name: "fusionner",
     description: "Fusionne dans la branche de la mission les branches des agents qui ont rendu compte « termine » ; dit ce qui est fusionné et les conflits.",
     inputSchema: NO_ARGS,
@@ -74,6 +90,8 @@ const AGENT_ONLY = new Set(["declarer_etapes", "etape", "rendre_compte"]);
 /** The wires are only known for the workspace on screen (final review H2). */
 const HIDDEN_AGENTS = "inconnus : l'espace de l'orchestrateur n'est pas affiché";
 const json = (value: unknown) => said(JSON.stringify(value, null, 2));
+/** « d'Isis », « de Horus ». */
+const of = (name: string) => (/^[aeiouyéèêàâîôûh]/i.test(name) && !/^h[aeiouy]/i.test(name) ? `d'${name}` : `de ${name}`);
 const formed = (mission: Mission) => mission.state === "en_cours" || mission.state === "terminee";
 
 function memberNamed(mission: Mission, raw: unknown): Member | string {
@@ -153,6 +171,31 @@ async function write(mission: Mission, args: Record<string, unknown>): Promise<T
   return said(`Écrit à ${member.name}.`);
 }
 
+function prolong(orchestratorId: string, mission: Mission, args: Record<string, unknown>): ToolResult {
+  if (mission.state !== "en_cours") return refused("Aucune mission en cours.");
+  const member = memberNamed(mission, args.agent);
+  if (typeof member === "string") return refused(member);
+  const minutes = args.minutes;
+  if (typeof minutes !== "number" || !Number.isInteger(minutes) || minutes < 1) return refused("Donne un nombre entier de minutes (1 au moins).");
+  const left = remainingGlobal(mission);
+  if (left !== undefined && minutes > left) return refused(`Il reste ${Math.max(0, left)} min sur le budget global.`);
+  const extraMin = (member.extraMin ?? 0) + minutes;
+  const budget = member.budgetMin + extraMin;
+  const spent = spentMin(member, Date.now());
+  // Below its new budget it may be told again later; still past it, it is not told twice (spec §8.2).
+  const overdue = spent >= 2 * budget ? 2 : spent >= budget ? 1 : undefined;
+  updateMember(orchestratorId, member.nodeId, { extraMin, overdue });
+  return said(`${member.name} : +${minutes} min, budget ${budget} min.`);
+}
+
+async function interrupt(mission: Mission, args: Record<string, unknown>): Promise<ToolResult> {
+  const member = memberNamed(mission, args.agent);
+  if (typeof member === "string") return refused(member);
+  // The same as « Pause »: « Tout reprendre » knows it.
+  if ((await pauseAgents([member.nodeId])) === 0) return refused(`${member.name} n'est pas au travail : rien à interrompre.`);
+  return said(`Tour ${of(member.name)} interrompu. ecrire « continue » le reprend.`);
+}
+
 function finish(orchestratorId: string, mission: Mission, args: Record<string, unknown>): ToolResult {
   if (mission.state !== "en_cours") return refused("Aucune mission en cours.");
   const summary = typeof args.bilan === "string" ? args.bilan.trim() : "";
@@ -176,6 +219,10 @@ export async function orchestratorTool(orchestratorId: string, name: string, arg
       return readOutput(mission, args);
     case "ecrire":
       return write(mission, args);
+    case "prolonger":
+      return prolong(orchestratorId, mission, args);
+    case "interrompre":
+      return mission.state === "en_cours" ? interrupt(mission, args) : refused("Aucune mission en cours.");
     case "fusionner":
       return mission.state === "en_cours" ? said(await mergeMission(orchestratorId)) : refused("Aucune mission en cours.");
     case "terminer":
