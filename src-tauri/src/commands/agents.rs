@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::agents::activity::{Activity, Change, HookSource, Tracker};
 use crate::agents::claude_settings;
-use crate::agents::hooks_server::{self, HookHit, HookServer};
+use crate::agents::hooks_server::{self, HookHit, HookServer, HookSink};
 use crate::error::AppResult;
 use crate::pty::shell::{Agent, AgentHooks};
 
@@ -68,8 +68,7 @@ fn emit(app: &AppHandle, change: &Change) {
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let hooks_dir = app.path().app_data_dir()?.join("hooks");
     claude_settings::clear(&hooks_dir);
-    let handle = app.clone();
-    let hooks = match hooks_server::start(move |hit| on_hook(&handle, hit)) {
+    let hooks = match hooks_server::start(AppSink(app.clone())) {
         Ok(server) => Some(server),
         Err(err) => {
             eprintln!("hook server not started: {err}");
@@ -97,6 +96,27 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         }
     });
     Ok(())
+}
+
+/// The app behind the hook server.
+struct AppSink(AppHandle);
+
+impl HookSink for AppSink {
+    fn hit(&self, hit: HookHit) {
+        on_hook(&self.0, hit);
+    }
+    fn subagent(&self, _node_id: &str, _started: bool) {}
+    fn mcp_node(&self, _token: &str) -> Option<String> {
+        None
+    }
+    fn mcp_call(
+        &self,
+        _node_id: &str,
+        _method: &str,
+        _params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        Err("OpenVibe ne répond pas".into())
+    }
 }
 
 fn on_hook(app: &AppHandle, hit: HookHit) {

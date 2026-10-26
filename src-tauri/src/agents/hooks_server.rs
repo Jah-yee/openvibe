@@ -3,12 +3,15 @@
 //! token drawn at startup.
 
 use std::io::Read;
+use std::sync::Arc;
 
-use tiny_http::{Method, Request, Response, Server};
+use serde_json::Value;
+use tiny_http::{Header, Method, Request, Response, Server};
 
 use super::activity::{
     Activity, HookSource, claude_activity, claude_session_ended, codex_activity,
 };
+use super::mcp;
 
 /// Larger bodies are refused (spec §10.3).
 pub const MAX_BODY: usize = 64 * 1024;
@@ -21,6 +24,18 @@ pub struct HookHit {
     pub activity: Activity,
     /// Claude left (`SessionEnd`): its shell's output decides again.
     pub session_ended: bool,
+}
+
+/// What the server reports, and the questions it forwards.
+pub trait HookSink: Send + Sync + 'static {
+    /// A hook event that changes a terminal's activity.
+    fn hit(&self, hit: HookHit);
+    /// A Claude session started (`true`) or ended (`false`) a subagent.
+    fn subagent(&self, node_id: &str, started: bool);
+    /// The node an MCP token was given to.
+    fn mcp_node(&self, token: &str) -> Option<String>;
+    /// `tools/list` or `tools/call` for a node, answered by the interface.
+    fn mcp_call(&self, node_id: &str, method: &str, params: Value) -> Result<Value, String>;
 }
 
 pub struct HookServer {
@@ -40,11 +55,16 @@ impl HookServer {
             self.port, self.token
         )
     }
+
+    /// The URL of OpenVibe's MCP server (spec orchestrateur §4.1).
+    pub fn mcp_url(&self) -> String {
+        format!("http://127.0.0.1:{}/mcp", self.port)
+    }
 }
 
-/// Starts the server; `on_hit` runs on the server's thread for each event
-/// that maps to an activity.
-pub fn start(on_hit: impl Fn(HookHit) + Send + 'static) -> std::io::Result<HookServer> {
+/// Starts the server; hooks are answered on its thread, MCP calls each on
+/// their own (a tools call waits for the interface, never in the hooks' way).
+pub fn start(sink: impl HookSink) -> std::io::Result<HookServer> {
     let server =
         Server::http("127.0.0.1:0").map_err(|err| std::io::Error::other(err.to_string()))?;
     let port = server
@@ -54,9 +74,15 @@ pub fn start(on_hit: impl Fn(HookHit) + Send + 'static) -> std::io::Result<HookS
         .ok_or_else(|| std::io::Error::other("no TCP port for the hook server"))?;
     let token = uuid::Uuid::new_v4().to_string();
     let expected = token.clone();
+    let sink = Arc::new(sink);
     std::thread::spawn(move || {
         for mut request in server.incoming_requests() {
-            let status = status_of(&mut request, &expected, &on_hit);
+            if request.url().split('?').next() == Some("/mcp") {
+                let sink = Arc::clone(&sink);
+                std::thread::spawn(move || answer_mcp(request, &*sink));
+                continue;
+            }
+            let status = status_of(&mut request, &expected, &*sink);
             let _ = request.respond(Response::empty(status));
         }
     });
@@ -94,7 +120,7 @@ pub fn parse_route(url: &str, token: &str) -> Result<(HookSource, String), u16> 
     }
 }
 
-fn status_of(request: &mut Request, token: &str, on_hit: &dyn Fn(HookHit)) -> u16 {
+fn status_of(request: &mut Request, token: &str, sink: &dyn HookSink) -> u16 {
     let (source, node_id) = match parse_route(request.url(), token) {
         Ok(route) => route,
         Err(status) => return status,
@@ -120,6 +146,10 @@ fn status_of(request: &mut Request, token: &str, on_hit: &dyn Fn(HookHit)) -> u1
     let (activity, session_ended) = match source {
         HookSource::Claude => {
             let event = json["hook_event_name"].as_str().unwrap_or_default();
+            if matches!(event, "SubagentStart" | "SubagentStop") {
+                sink.subagent(&node_id, event == "SubagentStart");
+                return 204;
+            }
             if claude_session_ended(event, json["reason"].as_str()) {
                 (Some(Activity::Idle), true)
             } else {
@@ -135,7 +165,7 @@ fn status_of(request: &mut Request, token: &str, on_hit: &dyn Fn(HookHit)) -> u1
         ),
     };
     if let Some(activity) = activity {
-        on_hit(HookHit {
+        sink.hit(HookHit {
             node_id,
             source,
             activity,
@@ -145,11 +175,67 @@ fn status_of(request: &mut Request, token: &str, on_hit: &dyn Fn(HookHit)) -> u1
     204
 }
 
+fn answer_mcp(mut request: Request, sink: &dyn HookSink) {
+    let (status, body) = mcp_response(&mut request, sink);
+    let mut response = Response::from_data(
+        body.map(|json| json.to_string().into_bytes())
+            .unwrap_or_default(),
+    )
+    .with_status_code(status);
+    if status == 200 {
+        response = response.with_header(
+            Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..]).unwrap(),
+        );
+    }
+    let _ = request.respond(response);
+}
+
+/// The token names the calling node (401 first, like the hooks' 403).
+fn mcp_response(request: &mut Request, sink: &dyn HookSink) -> (u16, Option<Value>) {
+    let header = request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv("Authorization"))
+        .map(|header| header.value.as_str().to_string());
+    let Some(node_id) = mcp::bearer(header.as_deref()).and_then(|token| sink.mcp_node(token))
+    else {
+        return (401, None);
+    };
+    if *request.method() != Method::Post {
+        return (405, None);
+    }
+    let mut body = Vec::new();
+    if request
+        .as_reader()
+        .take(mcp::MAX_BODY as u64 + 1)
+        .read_to_end(&mut body)
+        .is_err()
+    {
+        return (400, None);
+    }
+    if body.len() > mcp::MAX_BODY {
+        return (413, None);
+    }
+    let Ok(message) = serde_json::from_slice::<Value>(&body) else {
+        return (400, None);
+    };
+    match mcp::action(&message) {
+        mcp::Action::Accept => (202, None),
+        mcp::Action::Reply(json) => (200, Some(json)),
+        mcp::Action::Forward { id, method, params } => {
+            match sink.mcp_call(&node_id, &method, params) {
+                Ok(result) => (200, Some(mcp::reply(&id, result))),
+                Err(message) => (200, Some(mcp::failure(&id, -32603, &message))),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::{Read, Write};
     use std::net::TcpStream;
-    use std::sync::mpsc;
+    use std::sync::{Arc, Mutex, mpsc};
     use std::time::Duration;
 
     use super::*;
@@ -196,6 +282,46 @@ mod tests {
         assert!(valid_node_id("0b9c4b5e-6f1a-4c39-9d2e-8f6c2d1a7e10"));
     }
 
+    struct TestSink {
+        hits: Mutex<mpsc::Sender<HookHit>>,
+        subagents: Mutex<Vec<(String, bool)>>,
+    }
+
+    impl TestSink {
+        fn new(hits: mpsc::Sender<HookHit>) -> Self {
+            Self {
+                hits: Mutex::new(hits),
+                subagents: Mutex::new(Vec::new()),
+            }
+        }
+    }
+
+    impl HookSink for Arc<TestSink> {
+        fn hit(&self, hit: HookHit) {
+            let _ = self.hits.lock().unwrap().send(hit);
+        }
+        fn subagent(&self, node_id: &str, started: bool) {
+            self.subagents
+                .lock()
+                .unwrap()
+                .push((node_id.to_string(), started));
+        }
+        fn mcp_node(&self, token: &str) -> Option<String> {
+            token.strip_prefix("tok-").map(str::to_string)
+        }
+        fn mcp_call(
+            &self,
+            node_id: &str,
+            method: &str,
+            params: serde_json::Value,
+        ) -> Result<serde_json::Value, String> {
+            if node_id == "slow" {
+                return Err("OpenVibe ne répond pas".into());
+            }
+            Ok(serde_json::json!({ "node": node_id, "method": method, "params": params }))
+        }
+    }
+
     /// One raw HTTP/1.1 request; returns the status code.
     fn send(port: u16, method: &str, path: &str, body: &[u8]) -> u16 {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
@@ -221,10 +347,7 @@ mod tests {
     #[test]
     fn answers_hooks_and_reports_their_activity() {
         let (tx, rx) = mpsc::channel();
-        let server = start(move |hit| {
-            let _ = tx.send(hit);
-        })
-        .unwrap();
+        let server = start(Arc::new(TestSink::new(tx))).unwrap();
         let claude = server.url(HookSource::Claude, "n1");
         let path = claude.trim_start_matches(&format!("http://127.0.0.1:{}", server.port));
 
@@ -289,10 +412,7 @@ mod tests {
     #[test]
     fn rejects_bad_requests_without_reporting_anything() {
         let (tx, rx) = mpsc::channel();
-        let server = start(move |hit| {
-            let _ = tx.send(hit);
-        })
-        .unwrap();
+        let server = start(Arc::new(TestSink::new(tx))).unwrap();
         let path = format!("/hook/claude/n1?t={}", server.token);
         assert_eq!(
             send(server.port, "POST", "/hook/claude/n1?t=wrong", b"{}"),
@@ -322,5 +442,158 @@ mod tests {
             204
         );
         assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+    }
+
+    /// One raw HTTP/1.1 request with extra headers; returns the status and the body.
+    fn exchange(
+        port: u16,
+        method: &str,
+        path: &str,
+        headers: &[(&str, &str)],
+        body: &[u8],
+    ) -> (u16, String) {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        let extra: String = headers
+            .iter()
+            .map(|(k, v)| format!("{k}: {v}\r\n"))
+            .collect();
+        let head = format!(
+            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        stream.write_all(head.as_bytes()).unwrap();
+        let _ = stream.write_all(body);
+        let mut response = String::new();
+        let _ = stream.read_to_string(&mut response);
+        let status = response
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or("0")
+            .parse()
+            .unwrap();
+        let body = response
+            .split_once("\r\n\r\n")
+            .map(|(_, b)| b.to_string())
+            .unwrap_or_default();
+        (status, body)
+    }
+
+    #[test]
+    fn serves_mcp_to_the_node_a_token_was_given_to() {
+        let (tx, _rx) = mpsc::channel();
+        let server = start(Arc::new(TestSink::new(tx))).unwrap();
+        assert_eq!(
+            server.mcp_url(),
+            format!("http://127.0.0.1:{}/mcp", server.port)
+        );
+        let auth = [("Authorization", "Bearer tok-n1")];
+        let (status, body) = exchange(
+            server.port,
+            "POST",
+            "/mcp",
+            &auth,
+            br#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#,
+        );
+        assert_eq!(status, 200);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["result"]["serverInfo"]["name"], "openvibe");
+        let (status, body) = exchange(
+            server.port,
+            "POST",
+            "/mcp",
+            &auth,
+            br#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"etape"}}"#,
+        );
+        assert_eq!(status, 200);
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(
+            json["result"],
+            serde_json::json!({ "node": "n1", "method": "tools/call", "params": { "name": "etape" } })
+        );
+        let (status, _) = exchange(
+            server.port,
+            "POST",
+            "/mcp",
+            &auth,
+            br#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        );
+        assert_eq!(status, 202);
+        let slow = [("Authorization", "Bearer tok-slow")];
+        let (_, body) = exchange(
+            server.port,
+            "POST",
+            "/mcp",
+            &slow,
+            br#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#,
+        );
+        let json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(json["error"]["message"], "OpenVibe ne répond pas");
+    }
+
+    #[test]
+    fn refuses_mcp_without_a_known_token_and_counts_subagents() {
+        let (tx, _rx) = mpsc::channel();
+        let sink = Arc::new(TestSink::new(tx));
+        let server = start(Arc::clone(&sink)).unwrap();
+        assert_eq!(exchange(server.port, "POST", "/mcp", &[], b"{}").0, 401);
+        assert_eq!(
+            exchange(
+                server.port,
+                "POST",
+                "/mcp",
+                &[("Authorization", "Bearer nope")],
+                b"{}"
+            )
+            .0,
+            401
+        );
+        assert_eq!(
+            exchange(
+                server.port,
+                "GET",
+                "/mcp",
+                &[("Authorization", "Bearer tok-n1")],
+                b""
+            )
+            .0,
+            405
+        );
+        assert_eq!(
+            exchange(
+                server.port,
+                "POST",
+                "/mcp",
+                &[("Authorization", "Bearer tok-n1")],
+                b"not json"
+            )
+            .0,
+            400
+        );
+        let path = format!("/hook/claude/n1?t={}", server.token);
+        assert_eq!(
+            send(
+                server.port,
+                "POST",
+                &path,
+                br#"{"hook_event_name":"SubagentStart","agent_type":"Explore"}"#
+            ),
+            204
+        );
+        assert_eq!(
+            send(
+                server.port,
+                "POST",
+                &path,
+                br#"{"hook_event_name":"SubagentStop","agent_type":"Explore"}"#
+            ),
+            204
+        );
+        assert_eq!(
+            *sink.subagents.lock().unwrap(),
+            vec![("n1".to_string(), true), ("n1".to_string(), false)]
+        );
     }
 }

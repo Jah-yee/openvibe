@@ -1,6 +1,7 @@
 pub mod activity;
 pub mod claude_settings;
 pub mod hooks_server;
+pub mod mcp;
 
 use std::process::Command;
 
