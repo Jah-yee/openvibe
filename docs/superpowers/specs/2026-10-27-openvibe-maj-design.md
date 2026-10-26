@@ -167,3 +167,7 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - **Pas de point d'accès non documenté** : Anthropic expose aussi l'usage à une adresse non documentée. Il faudrait y présenter le jeton OAuth de ton abonnement, lu dans `~/.claude/.credentials.json` ; OpenVibe ne s'en sert pas.
 - **Mémoire de l'app** : les sessions sont gardées en mémoire, depuis l'ouverture d'OpenVibe, et rien n'est enregistré. Les limites viennent de la dernière ligne d'état reçue, toutes sessions confondues.
 - **Sessions sans `--settings`** : une session Claude lancée hors d'OpenVibe, ou sans serveur local, ne compte pas.
+- Relecture :
+  - **limites** : chaque fenêtre (5 h, semaine, modèle) garde la lecture la plus récente, c'est-à-dire la remise à zéro la plus tardive puis l'usage le plus haut. La ligne d'état d'une ancienne session ne fait donc plus redescendre le compteur, et une fenêtre passée sa remise à zéro s'affiche à 0 % ;
+  - **ligne d'état reprise** : c'est celle que Claude aurait montrée, dans cet ordre : `.claude/settings.local.json` du dossier, puis `.claude/settings.json`, puis les réglages de l'utilisateur (un fichier enregistré avec BOM est lu aussi) ;
+  - **script** : si `statusline.sh` ne peut pas être écrit, la session démarre sans la ligne d'état, mais avec ses hooks et ses outils.

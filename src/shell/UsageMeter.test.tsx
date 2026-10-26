@@ -16,7 +16,7 @@ const STATUS = {
   model: { id: "claude-haiku-5-5", display_name: "Haiku 5.5" },
   cost: { total_api_duration_ms: 95_000, total_cost_usd: 0.00738, total_duration_ms: 3_900_000, total_lines_added: 12, total_lines_removed: 3 },
   context_window: { total_input_tokens: 67_785, total_output_tokens: 4_200, used_percentage: 7 },
-  rate_limits: { five_hour: { resets_at: 1793069400, used_percentage: 29 }, seven_day: { resets_at: 1793311200, used_percentage: 93 } },
+  rate_limits: { five_hour: { resets_at: 4102444800, used_percentage: 29 }, seven_day: { resets_at: 4102531200, used_percentage: 93 } },
   prompt_cache: { warm: true, hit_ratio: 0.48, expires_at: 4102444800, ttl: "1h" },
 };
 

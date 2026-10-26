@@ -79,13 +79,29 @@ pub fn status_line_json(status: &StatusLine) -> Value {
 
 /// The `statusLine` of Claude's user settings when it runs a command.
 pub fn user_status_line(settings: &Path) -> Option<Value> {
-    let read: Value = serde_json::from_slice(&std::fs::read(settings).ok()?).ok()?;
+    let bytes = std::fs::read(settings).ok()?;
+    // Notepad saves with a byte order mark (final review maj §6).
+    let bytes = bytes.strip_prefix("\u{feff}".as_bytes()).unwrap_or(&bytes);
+    let read: Value = serde_json::from_slice(bytes).ok()?;
     let line = read.get("statusLine")?;
     let runs = line["type"] == "command"
         && line["command"]
             .as_str()
             .is_some_and(|c| !c.trim().is_empty());
     runs.then(|| line.clone())
+}
+
+/// The status line Claude would show in `cwd`: its local settings', its
+/// project's, then the user's (final review maj §6: `--settings` outranks them all).
+pub fn status_line_for(cwd: &Path, user: Option<&Path>) -> Option<Value> {
+    let project = cwd.join(".claude");
+    [
+        project.join("settings.local.json"),
+        project.join("settings.json"),
+    ]
+    .iter()
+    .find_map(|file| user_status_line(file))
+    .or_else(|| user.and_then(user_status_line))
 }
 
 /// Claude's user settings: `$CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json`.
@@ -116,8 +132,11 @@ pub fn write(
     let path = dir.join(format!("{node_id}.json"));
     let mut settings = settings_json(url, role);
     if let Some(status) = status {
-        std::fs::write(&status.script, STATUS_SCRIPT)?;
-        settings["statusLine"] = status_line_json(status);
+        // Without its script, Claude goes without the status line, never without its hooks.
+        match std::fs::write(&status.script, STATUS_SCRIPT) {
+            Ok(()) => settings["statusLine"] = status_line_json(status),
+            Err(err) => eprintln!("status line of {node_id} not written: {err}"),
+        }
     }
     std::fs::write(&path, serde_json::to_vec_pretty(&settings)?)?;
     Ok(path)
@@ -276,6 +295,63 @@ mod tests {
         assert_eq!(user_status_line(&file), None);
         std::fs::write(&file, "pas du json").unwrap();
         assert_eq!(user_status_line(&file), None);
+    }
+
+    #[test]
+    fn takes_the_project_s_status_line_before_the_user_s_as_claude_does() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("proj");
+        std::fs::create_dir_all(project.join(".claude")).unwrap();
+        let user = dir.path().join("settings.json");
+        let line = |command: &str| {
+            format!(r#"{{ "statusLine": {{ "type": "command", "command": "{command}" }} }}"#)
+        };
+        std::fs::write(&user, line("user.sh")).unwrap();
+        let read = || status_line_for(&project, Some(&user)).map(|v| v["command"].clone());
+        assert_eq!(read(), Some(json!("user.sh")));
+        std::fs::write(
+            project.join(".claude").join("settings.json"),
+            line("project.sh"),
+        )
+        .unwrap();
+        assert_eq!(read(), Some(json!("project.sh")));
+        std::fs::write(
+            project.join(".claude").join("settings.local.json"),
+            line("local.sh"),
+        )
+        .unwrap();
+        assert_eq!(read(), Some(json!("local.sh")));
+        assert_eq!(status_line_for(&dir.path().join("none"), None), None);
+    }
+
+    #[test]
+    fn reads_a_settings_file_saved_with_a_byte_order_mark() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.json");
+        std::fs::write(
+            &file,
+            "\u{feff}{ \"statusLine\": { \"type\": \"command\", \"command\": \"carbon.sh\" } }",
+        )
+        .unwrap();
+        assert_eq!(
+            user_status_line(&file),
+            Some(json!({ "type": "command", "command": "carbon.sh" }))
+        );
+    }
+
+    #[test]
+    fn keeps_the_hooks_when_its_status_line_script_cannot_be_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let line = StatusLine {
+            script: dir.path().join("missing").join("statusline.sh"),
+            url: STATUS_URL.into(),
+            user: None,
+        };
+        let path = write(dir.path(), "n1", URL, Role::Agent, Some(&line)).unwrap();
+        let read: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert!(read.get("statusLine").is_none());
+        assert_eq!(read["hooks"], settings_json(URL, Role::Agent)["hooks"]);
     }
 
     #[test]

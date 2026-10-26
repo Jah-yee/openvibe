@@ -44,7 +44,13 @@ pub async fn pty_spawn(
         )));
     }
     let role = spec.claude.as_ref().map(|c| c.role).unwrap_or_default();
-    let hooks = agents::hooks_for(&app, &node_id, spec.agent, role);
+    let hooks = agents::hooks_for(
+        &app,
+        &node_id,
+        spec.agent,
+        role,
+        std::path::Path::new(&spec.cwd),
+    );
     let plan = match build_plan(&node_id, &spec, &which_locate, &hooks) {
         Ok(plan) => plan,
         Err(err) => {
