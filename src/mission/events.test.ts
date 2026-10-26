@@ -6,9 +6,15 @@ import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { installMissionEvents, notify, pendingEvents } from "./events";
+import { whenReady } from "./ready";
 import type { Member } from "./mission";
 
 vi.mock("@/ipc/pty", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/ipc/pty")>()), ptySendText: vi.fn(() => Promise.resolve()) }));
+vi.mock("@/nodes/terminal/registry", () => ({ freshText: vi.fn(() => ""), quietFor: vi.fn(() => 0) }));
+vi.mock("./ready", () => ({ whenReady: vi.fn(() => Promise.resolve(true)) }));
+
+/** Lets the started orchestrator's readiness settle. */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 const member = (nodeId: string, name: string, sentAt?: number): Member => ({ nodeId, name, task: "t", budgetMin: 5, linked: false, branch: `openvibe/m-${nodeId}`, worktree: "C:/w", sentAt });
 const activity = (nodeId: string, value: "idle" | "working" | "waiting") => agentActivityStore.getState().apply({ nodeId, activity: value, since: 0 });
@@ -27,8 +33,9 @@ beforeAll(async () => {
   uninstall = installMissionEvents();
 });
 afterAll(() => uninstall());
-beforeEach(() => {
+beforeEach(async () => {
   status("chef", "running");
+  await tick();
   activity("chef", "idle");
   status("isis", "running");
   activity("isis", "working");
@@ -41,7 +48,7 @@ describe("events to the orchestrator (spec orchestrateur §7.5)", () => {
     expect(sent()).toEqual(["chef: [OpenVibe] Isis a rendu compte (termine) : fait"]);
   });
 
-  it("holds the lines while it waits for the user or is stopped, then sends them in order", () => {
+  it("holds the lines while it waits for the user or is stopped, then sends them in order", async () => {
     activity("chef", "waiting");
     notify("chef", "un");
     notify("chef", "deux");
@@ -51,6 +58,7 @@ describe("events to the orchestrator (spec orchestrateur §7.5)", () => {
     status("chef", "stopped");
     notify("chef", "trois");
     status("chef", "running");
+    await tick();
     expect(sent()).toEqual(["chef: [OpenVibe] un", "chef: [OpenVibe] deux", "chef: [OpenVibe] trois"]);
     expect(pendingEvents("chef")).toEqual([]);
   });
@@ -69,5 +77,30 @@ describe("events to the orchestrator (spec orchestrateur §7.5)", () => {
   it("counts a member's terminal removed from the canvas as stopped", () => {
     terminalStatusStore.getState().remove("isis");
     expect(sent()).toEqual(["chef: [OpenVibe] Isis s'est arrêté : son terminal ne tourne plus."]);
+  });
+
+  it("waits for a restarted orchestrator's Claude to be up, never typing into its trust dialog (final review H2)", async () => {
+    let up!: (ready: boolean) => void;
+    vi.mocked(whenReady).mockImplementationOnce(() => new Promise((resolve) => (up = resolve)));
+    status("chef", "stopped");
+    status("chef", "running");
+    notify("chef", "Isis a rendu compte");
+    await tick();
+    expect(sent()).toEqual([]);
+    const calls = vi.mocked(whenReady).mock.calls;
+    expect(calls[calls.length - 1][2]).toBe(false);
+    up(true);
+    await vi.waitFor(() => expect(sent()).toEqual(["chef: [OpenVibe] Isis a rendu compte"]));
+  });
+
+  it("puts back a line that could not be typed, for the orchestrator's next start (final review H2)", async () => {
+    vi.mocked(ptySendText).mockRejectedValueOnce(new Error("NotFound"));
+    notify("chef", "perdu ?");
+    await tick();
+    expect(pendingEvents("chef")).toEqual(["perdu ?"]);
+    status("chef", "stopped");
+    status("chef", "running");
+    await vi.waitFor(() => expect(sent()).toEqual(["chef: [OpenVibe] perdu ?", "chef: [OpenVibe] perdu ?"]));
+    expect(pendingEvents("chef")).toEqual([]);
   });
 });

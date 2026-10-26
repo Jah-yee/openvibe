@@ -1,14 +1,23 @@
 import { ptySendText } from "@/ipc/pty";
+import { freshText, quietFor } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
+import { nodesStore } from "@/store/nodes";
 import { isRunning, terminalStatusStore } from "@/store/terminalStatus";
+import { whenReady } from "./ready";
 import { memberOf } from "./store";
 
 /** Lines waiting for their orchestrator to be free. */
 const queues = new Map<string, string[]>();
+/** Orchestrators just (re)started whose Claude's prompt is not up yet (final review H2). */
+const starting = new Set<string>();
 
-/** An orchestrator takes a line while its session runs and no dialog waits for the user (spec §7.5). */
+/** An orchestrator takes a line while its Claude's prompt is up and no dialog waits for the user (spec §7.5). */
 function free(orchestratorId: string): boolean {
-  return isRunning(orchestratorId) && agentActivityStore.getState().activities[orchestratorId]?.activity !== "waiting";
+  return (
+    isRunning(orchestratorId) &&
+    !starting.has(orchestratorId) &&
+    agentActivityStore.getState().activities[orchestratorId]?.activity !== "waiting"
+  );
 }
 
 function flush(orchestratorId: string) {
@@ -16,7 +25,29 @@ function flush(orchestratorId: string) {
   if (!queue?.length || !free(orchestratorId)) return;
   queues.delete(orchestratorId);
   // ptySendText keeps a node's writes in order; Claude queues what comes while it works.
-  for (const line of queue) void ptySendText(orchestratorId, `[OpenVibe] ${line}`).catch(() => undefined);
+  for (const line of queue) {
+    void ptySendText(orchestratorId, `[OpenVibe] ${line}`).catch(() => {
+      // Not typed (its session ended meanwhile): back in line for its next start.
+      queues.set(orchestratorId, [...(queues.get(orchestratorId) ?? []), line]);
+    });
+  }
+}
+
+/** Holds an orchestrator's lines from its start until its Claude's prompt is up; its trust prompt is the user's. */
+function awaitPrompt(orchestratorId: string) {
+  if (starting.has(orchestratorId)) return;
+  starting.add(orchestratorId);
+  const probe = {
+    running: () => isRunning(orchestratorId),
+    quietMs: () => quietFor(orchestratorId),
+    screen: () => freshText(orchestratorId, 50),
+    press: () => Promise.resolve(),
+  };
+  void (async () => {
+    while (isRunning(orchestratorId) && !(await whenReady(probe, undefined, false)));
+    starting.delete(orchestratorId);
+    flush(orchestratorId);
+  })();
 }
 
 /** Types `line` in the orchestrator's terminal, now or as soon as it is free. */
@@ -43,6 +74,8 @@ export function installMissionEvents(): () => void {
   const offStatus = terminalStatusStore.subscribe((state, previous) => {
     // A terminal removed from the canvas leaves the statuses: it stopped too.
     for (const nodeId of new Set([...Object.keys(previous.statuses), ...Object.keys(state.statuses)])) {
+      const started = previous.statuses[nodeId]?.state !== "running" && state.statuses[nodeId]?.state === "running";
+      if (started && nodesStore.getState().nodes[nodeId]?.kind === "orchestrator") awaitPrompt(nodeId);
       if (previous.statuses[nodeId]?.state !== "running" || state.statuses[nodeId]?.state === "running") continue;
       const found = memberOf(nodeId);
       if (found) notify(found.orchestratorId, `${found.member.name} s'est arrêté : son terminal ne tourne plus.`);
