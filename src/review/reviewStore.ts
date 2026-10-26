@@ -6,6 +6,8 @@ interface ReviewState {
   nodeId: string | null;
   /** The remarks written for it, sent together. */
   remarks: Remark[];
+  /** Whose the remarks are: they wait for it through a close (final review maj §5). */
+  remarksFor: string | null;
   open: (nodeId: string) => void;
   close: () => void;
   add: (remark: Remark) => void;
@@ -17,7 +19,8 @@ interface ReviewState {
 export const reviewStore = createStore<ReviewState>()((set, get) => ({
   nodeId: null,
   remarks: [],
-  open: (nodeId) => set({ nodeId, remarks: get().nodeId === nodeId ? get().remarks : [] }),
+  remarksFor: null,
+  open: (nodeId) => set({ nodeId, remarksFor: nodeId, remarks: get().remarksFor === nodeId ? get().remarks : [] }),
   close: () => set({ nodeId: null }),
   add: (remark) => set((s) => ({ remarks: [...s.remarks, remark] })),
   remove: (index) => set((s) => ({ remarks: s.remarks.filter((_, i) => i !== index) })),
