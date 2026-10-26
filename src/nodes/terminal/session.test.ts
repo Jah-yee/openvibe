@@ -111,6 +111,8 @@ it("marks the screen after the old process exited, before the new one starts (fi
     if (cmd === "pty_kill") setTimeout(() => terminalStatusStore.getState().set("t", { state: "exited", code: 1 }), 5);
     return null;
   });
-  await relaunchSession("t", fakeTerm(), payload, "new", () => order.push(`marked while ${statusOf("t").state}`));
+  await relaunchSession("t", fakeTerm(), payload, "new", () => {
+    order.push(`marked while ${statusOf("t").state}`);
+  });
   expect(order).toEqual(["pty_kill", "marked while exited", "pty_spawn"]);
 });

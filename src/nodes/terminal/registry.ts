@@ -13,6 +13,7 @@ import { TERMINAL_THEME } from "./terminalTheme";
 import { watchDevicePixelRatio } from "./dprWatch";
 import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, renderZoom, type FontMeasure } from "./crisp";
 import { bufferText } from "./bufferText";
+import { freshScreen, textSince } from "./freshScreen";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import { newConversation, type LaunchMode } from "./launch";
 import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
@@ -181,9 +182,9 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
 }
 
 /** A new session starts: its screen and its silence are measured from here, not from the previous one's. */
-function freshen(entry: Entry) {
+async function freshen(entry: Entry) {
   entry.since?.dispose();
-  entry.since = entry.term.registerMarker(0);
+  entry.since = await freshScreen(entry.term);
   entry.lastOutput = undefined;
 }
 
@@ -217,8 +218,7 @@ export function quietFor(nodeId: string): number {
 export function freshText(nodeId: string, lines: number): string {
   const entry = entries.get(nodeId);
   if (!entry) return "";
-  const from = entry.since && !entry.since.isDisposed ? entry.since.line : 0;
-  return bufferText(entry.term.buffer.active, lines, from);
+  return textSince(entry.term, entry.since, lines);
 }
 
 /** The last `lines` lines of the terminal, as plain text (spec orchestrateur §7.2 `lire_sortie`). */
