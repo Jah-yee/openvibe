@@ -32,4 +32,8 @@ for (const category of catalog.categories) {
   }
   credits.push("");
 }
+// MIT asks for its notice in every copy: the libraries ship inside the app.
+const license = await fetch("https://raw.githubusercontent.com/excalidraw/excalidraw-libraries/main/LICENSE");
+if (!license.ok) throw new Error(`LICENSE: ${license.status}`);
+credits.push("## Licence (MIT)", "", (await license.text()).trim(), "");
 writeFileSync(`${target}CREDITS.md`, credits.join("\n"));

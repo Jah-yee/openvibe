@@ -23,7 +23,8 @@ export function IconsMenu() {
           <Boxes />
         </ToolButton>
       </PopoverTrigger>
-      <PopoverContent side="right" className="w-[400px]">
+      {/* The keyboard goes to the icon just put on the canvas, not back to this button (final review maj §4). */}
+      <PopoverContent side="right" className="w-[400px]" onCloseAutoFocus={(e) => e.preventDefault()}>
         {open && (
           <IconsPanel
             onPick={(item) => {

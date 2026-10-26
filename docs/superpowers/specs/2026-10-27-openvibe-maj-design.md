@@ -97,6 +97,7 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Les icônes sans nom dans leur bibliothèque prennent le texte qu'elles contiennent, sinon « <bibliothèque> <n> ».
 - Une recherche affiche 120 icônes au plus. Les vignettes ne sont dessinées qu'à leur apparition dans la grille, une fois par thème.
 - Les logos AWS, Azure et Google Cloud restent des marques de leurs propriétaires. Les crédits le rappellent, et ces logos servent à dessiner des architectures.
+- Relecture : `CREDITS.md` contient le texte complet de la licence MIT (le script l'écrit). Après la pose, le clavier revient au canvas sur l'icône sélectionnée, et aucun terminal ne reste actif.
 
 ## 5. Revue des changements des agents (`feat/revue-diffs`)
 
