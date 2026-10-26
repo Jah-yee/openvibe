@@ -17,6 +17,7 @@ import {
   resumedText,
   sendToAgents,
   skippedText,
+  unsuitedText,
   waitingText,
 } from "./broadcast";
 
@@ -51,21 +52,31 @@ describe("sendToAgents", () => {
     await agent("isis", "claude", "running", "idle");
     await agent("thot", "claude", "stopped");
     await agent("anubis", "codex", "stopped");
-    expect(await sendToAgents(["isis", "thot", "anubis"], "lance les tests")).toEqual({ sent: 1, skipped: ["Thot", "Anubis"], waiting: [] });
+    expect(await sendToAgents(["isis", "thot", "anubis"], "lance les tests")).toEqual({ sent: 1, skipped: ["Thot", "Anubis"], waiting: [], unsuited: [] });
     expect(calls).toEqual([{ cmd: "pty_send_text", nodeId: "isis", text: "lance les tests" }]);
   });
 
   it("counts an agent whose process just died as ignored", async () => {
     await agent("osiris", "claude", "running", "idle");
     dead.add("osiris");
-    expect(await sendToAgents(["osiris"], "x")).toEqual({ sent: 0, skipped: ["Osiris"], waiting: [] });
+    expect(await sendToAgents(["osiris"], "x")).toEqual({ sent: 0, skipped: ["Osiris"], waiting: [], unsuited: [] });
   });
 
   it("leaves an agent waiting for an answer alone: Enter would approve its dialog", async () => {
     await agent("horus", "claude", "running", "waiting");
     await agent("seth2", "codex", "running", "working");
-    expect(await sendToAgents(["horus", "seth2"], "lance les tests")).toEqual({ sent: 1, skipped: [], waiting: ["Horus"] });
+    expect(await sendToAgents(["horus", "seth2"], "lance les tests")).toEqual({ sent: 1, skipped: [], waiting: ["Horus"], unsuited: [] });
     expect(calls.map((c) => c.nodeId)).toEqual(["seth2"]);
+  });
+
+  it("types a /command to the agents only: a shell would run it as a program", async () => {
+    await agent("isis", "claude", "running", "idle");
+    await agent("thot", "shell", "running");
+    await agent("anubis", "codex", "running", "idle");
+    expect(await sendToAgents(["isis", "thot", "anubis"], "/effort ultracode")).toEqual({ sent: 2, skipped: [], waiting: [], unsuited: ["Thot"] });
+    expect(calls.map((c) => c.nodeId)).toEqual(["isis", "anubis"]);
+    calls = [];
+    expect((await sendToAgents(["thot"], "npm test")).sent).toBe(1);
   });
 });
 
@@ -74,6 +85,9 @@ describe("skippedText / pausedText / resumedText", () => {
     expect(skippedText([])).toBeNull();
     expect(skippedText(["Thot"])).toBe("1 agent arrêté ignoré : Thot");
     expect(skippedText(["Thot", "Anubis"])).toBe("2 agents arrêtés ignorés : Thot, Anubis");
+    expect(unsuitedText([])).toBeNull();
+    expect(unsuitedText(["Thot"])).toBe("1 terminal sans agent ignoré : Thot — une commande / ne va qu'aux agents");
+    expect(unsuitedText(["Thot", "Rê"])).toBe("2 terminaux sans agent ignorés : Thot, Rê — une commande / ne va qu'aux agents");
     expect(waitingText([])).toBeNull();
     expect(waitingText(["Horus"])).toBe("1 agent en attente ignoré : Horus — réponds-lui dans son terminal");
     expect(waitingText(["Horus", "Isis"])).toBe("2 agents en attente ignorés : Horus, Isis — réponds-leur dans leur terminal");

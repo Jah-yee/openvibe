@@ -5,6 +5,8 @@ import {
   keptDismissal,
   matchOptions,
   mentionAt,
+  mentionParts,
+  partTargets,
   resolveTargets,
   selectionTargets,
   slug,
@@ -84,6 +86,21 @@ describe("mentionAt", () => {
   });
 });
 
+describe("mentionParts / partTargets", () => {
+  it("completes the last name of a slashed mention, the others already typed", () => {
+    expect(mentionParts("thot/ze")).toEqual({ typed: ["thot"], query: "ze" });
+    expect(mentionParts("zeu")).toEqual({ typed: [], query: "zeu" });
+    expect(mentionParts("thot//")).toEqual({ typed: ["thot"], query: "" });
+  });
+
+  it("turns the typed names that match one target into targets", () => {
+    expect(partTargets(["thot", "nobody", "isis", "docs"], options)).toEqual([
+      { kind: "agent", id: "b" },
+      { kind: "group", id: "g2" },
+    ]);
+  });
+});
+
 describe("keptDismissal", () => {
   it("keeps the list closed only while the same mention is typed", () => {
     expect(keptDismissal(0, "@tou", 4)).toBe(0);
@@ -123,6 +140,25 @@ describe("extractMentions", () => {
   it("keeps the indentation, tabs and inner spaces of the command", () => {
     expect(extractMentions("@tous corrige :\n    if x:\n\treturn 1", options).text).toBe("corrige :\n    if x:\n\treturn 1");
     expect(extractMentions("  garde  ces  espaces  ", options).text).toBe("garde  ces  espaces");
+  });
+
+  it("reads several targets joined by slashes: @athena/zeus/héra", () => {
+    expect(extractMentions("@thot/zeus /effort high", options)).toEqual({
+      targets: [
+        { kind: "agent", id: "b" },
+        { kind: "agent", id: "d" },
+      ],
+      text: "/effort high",
+    });
+    expect(extractMentions("@Docs/thot, relisez", options).targets).toEqual([
+      { kind: "group", id: "g2" },
+      { kind: "agent", id: "b" },
+    ]);
+  });
+
+  it("leaves a slashed mention as typed when one of its names is unknown or ambiguous", () => {
+    expect(extractMentions("@thot/nobody lance", options)).toEqual({ targets: [], text: "@thot/nobody lance" });
+    expect(extractMentions("@isis/zeus lance", options)).toEqual({ targets: [], text: "@isis/zeus lance" });
   });
 
   it("reads a mention followed by punctuation", () => {

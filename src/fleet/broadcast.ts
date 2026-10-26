@@ -7,6 +7,7 @@ import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { AGENTS } from "./catalog";
+import { isSlashCommand, takesCommands } from "./slashCommands";
 
 /** "Tout reprendre" only restarts agents OpenVibe paused less than this ago (spec habillage §14). */
 export const RESUME_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -82,18 +83,25 @@ function nameOf(id: string): string {
  * Types `text` into each running terminal of `ids` (spec §12). Stopped ones,
  * and those whose process dies meanwhile, are ignored and named (spec §17).
  * An agent waiting for an answer is left alone: the Enter after the text
- * would confirm its dialog's highlighted choice (spec §12).
+ * would confirm its dialog's highlighted choice (spec §12). A `/command`
+ * goes to the agents only, never to a plain terminal.
  */
 export async function sendToAgents(
   ids: readonly string[],
   text: string,
-): Promise<{ sent: number; skipped: string[]; waiting: string[] }> {
+): Promise<{ sent: number; skipped: string[]; waiting: string[]; unsuited: string[] }> {
   const waiting: string[] = [];
+  const unsuited: string[] = [];
+  const command = isSlashCommand(text);
   const results = await Promise.all(
     ids.map(async (id) => {
       const facts = factsOf(id);
       if (!facts) return null;
       if (!facts.running) return nameOf(id);
+      if (command && !takesCommands(facts.agent)) {
+        unsuited.push(nameOf(id));
+        return null;
+      }
       if (facts.activity === "waiting") {
         waiting.push(nameOf(id));
         return null;
@@ -110,6 +118,7 @@ export async function sendToAgents(
     sent: results.filter((result) => result === true).length,
     skipped: results.filter((result): result is string => typeof result === "string"),
     waiting,
+    unsuited,
   };
 }
 
@@ -162,6 +171,14 @@ export function waitingText(names: readonly string[]): string | null {
   return `${names.length} agents en attente ignorés : ${names.join(", ")} — réponds-leur dans leur terminal`;
 }
 
+/** "1 terminal sans agent ignoré : Thot — une commande / ne va qu'aux agents". */
+export function unsuitedText(names: readonly string[]): string | null {
+  if (names.length === 0) return null;
+  const why = "une commande / ne va qu'aux agents";
+  if (names.length === 1) return `1 terminal sans agent ignoré : ${names[0]} — ${why}`;
+  return `${names.length} terminaux sans agent ignorés : ${names.join(", ")} — ${why}`;
+}
+
 export function pausedText(count: number): string {
   if (count === 0) return "Aucun agent en cours à mettre en pause";
   return count === 1 ? "1 agent mis en pause" : `${count} agents mis en pause`;
@@ -174,8 +191,8 @@ export function resumedText(count: number): string {
 
 /** The command bar's and the orchestrator's send, with the toasts of ignored agents. */
 export async function sendCommand(ids: readonly string[], text: string) {
-  const { skipped, waiting } = await sendToAgents(ids, text);
-  for (const warning of [skippedText(skipped), waitingText(waiting)]) {
+  const { skipped, waiting, unsuited } = await sendToAgents(ids, text);
+  for (const warning of [skippedText(skipped), waitingText(waiting), unsuitedText(unsuited)]) {
     if (warning) toast.warning(warning);
   }
 }
