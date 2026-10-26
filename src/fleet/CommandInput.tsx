@@ -6,7 +6,7 @@ import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
 import { cn } from "@/lib/utils";
 import { sendCommand } from "./broadcast";
 import { browseHistory, historyStore } from "./history";
-import { commandAt, matchCommands } from "./slashCommands";
+import { commandAt, isKnownCommand, isSlashCommand, matchCommands } from "./slashCommands";
 import {
   extractMentions,
   keptDismissal,
@@ -73,7 +73,9 @@ export function CommandInput(props: {
   const parts = mention ? mentionParts(mention.query) : null;
   const command = mention ? null : commandAt(text, caret);
   const menuStart = mention?.start ?? command?.start ?? null;
-  const shown = menuStart !== null && menuStart !== dismissedAt;
+  // A recalled command keeps its list closed: ↑ goes on through the history.
+  const shown = menuStart !== null && menuStart !== dismissedAt && browsing === null;
+  const fullCommand = command !== null && isKnownCommand(`/${command.query}`);
   const suggestions: Suggestion[] = !shown
     ? []
     : parts
@@ -91,7 +93,9 @@ export function CommandInput(props: {
   const typed = extractMentions(text, options);
   const allTargets = uniqueTargets([...chips, ...typed.targets]);
   const ids = resolveTargets(allTargets, { all: agents.map((a) => a.id), groups }, fallback);
-  const canSend = typed.text.length > 0 && ids.length > 0;
+  // A command for a mistyped target must not go to the selection instead.
+  const unknown = isSlashCommand(typed.text) ? /(?:^|\s)(@[^\s@,;:.!?…]+)/.exec(typed.text)?.[1] : undefined;
+  const canSend = typed.text.length > 0 && ids.length > 0 && unknown === undefined;
   const nothingTargeted = allTargets.length === 0 && fallback.length === 0;
 
   useLayoutEffect(() => {
@@ -152,7 +156,7 @@ export function CommandInput(props: {
         setActive((i) => (i + step) % suggestions.length);
         return;
       }
-      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !fullCommand)) {
         e.preventDefault();
         suggestions[Math.min(active, suggestions.length - 1)].pick();
         return;
@@ -213,6 +217,7 @@ export function CommandInput(props: {
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {text.trim() && nothingTargeted && <p className="text-[11px] text-ov-text-2">{emptyHint}</p>}
+        {unknown && <p className="text-[11px] text-ov-text-2">Cible inconnue : {unknown}</p>}
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           {chips.map((target) => (
             <span
