@@ -18,6 +18,7 @@ import { pauseAll, resumeAll } from "./broadcast";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS } from "./catalog";
 import { addAgentToGroup, groupMembers, requestCloseGroup, ungroup } from "./groups";
 import { orchestrateGroup } from "./orchestrators";
+import { setRemoteControlAll } from "./remoteControl";
 
 /**
  * The menu of a group: the `⌄` of its label on the canvas (spec habillage
@@ -86,6 +87,8 @@ export function GroupMenu({ groupId, trigger, answersRequests = false }: { group
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void pauseAll(groupMembers(groupId))}>Tout mettre en pause</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void resumeAll(groupMembers(groupId))}>Tout reprendre</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void setRemoteControlAll(groupMembers(groupId), true)}>Activer Remote Control</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void setRemoteControlAll(groupMembers(groupId), false)}>Couper Remote Control</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => ungroup(groupId)}>Dégrouper</DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onSelect={() => requestCloseGroup(groupId)}>

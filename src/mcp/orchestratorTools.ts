@@ -1,4 +1,5 @@
 import { pauseAgents } from "@/fleet/broadcast";
+import { setRemoteControl } from "@/fleet/remoteControl";
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission, reassignTask } from "@/mission/launch";
 import { budgetOf, NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
@@ -83,6 +84,19 @@ export const ORCHESTRATOR_TOOLS = [
     name: "terminer",
     description: "Clôt la mission avec ton bilan : les agents créés pour elle sont fermés, les agents reliés reviennent dans le dossier du projet.",
     inputSchema: { type: "object", properties: { bilan: { type: "string" } }, required: ["bilan"] },
+  },
+  {
+    name: "remote_control",
+    description:
+      "Active ou coupe Remote Control (suivre et piloter une session depuis claude.ai ou le téléphone) pour des agents Claude reliés ou de la mission, ou pour toi : rend leurs liens.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        actif: { type: "boolean" },
+        agents: { type: "array", minItems: 1, items: { type: "string" }, description: "Prénoms ; « tous » pour toute l'équipe ; « moi » pour ta propre session." },
+      },
+      required: ["actif", "agents"],
+    },
   },
 ] as const;
 
@@ -218,6 +232,49 @@ function finish(orchestratorId: string, mission: Mission, args: Record<string, u
   return said("Mission terminée. Le bilan est dans le panneau ; l'utilisateur fusionne la branche de la mission dans la sienne.");
 }
 
+/** Its team as `remote_control` names it: the linked Claude agents and the mission's members. */
+function teamOf(orchestratorId: string, mission: Mission): { nodeId: string; name: string }[] {
+  const team = orchestratorShown(orchestratorId) ? linkedClaudeAgents(orchestratorId) : [];
+  for (const member of mission.members) {
+    if (!member.handedTo && !team.some((t) => t.nodeId === member.nodeId)) team.push({ nodeId: member.nodeId, name: member.name });
+  }
+  return team;
+}
+
+async function remote(orchestratorId: string, mission: Mission, args: Record<string, unknown>): Promise<ToolResult> {
+  if (typeof args.actif !== "boolean") return refused("Dis si Remote Control doit être actif (actif : true ou false).");
+  const on = args.actif;
+  const names = Array.isArray(args.agents) ? args.agents.filter((name): name is string => typeof name === "string") : [];
+  if (names.length === 0) return refused("Nomme les agents (agents), « tous » ou « moi ».");
+  const team = teamOf(orchestratorId, mission);
+  const chosen: { nodeId: string; name: string }[] = [];
+  const unknown: string[] = [];
+  for (const name of names) {
+    if (sameName(name, "moi")) chosen.push({ nodeId: orchestratorId, name: "Toi" });
+    else if (sameName(name, "tous")) chosen.push(...team);
+    else {
+      const found = team.find((t) => sameName(t.name, name));
+      if (found) chosen.push(found);
+      else unknown.push(name);
+    }
+  }
+  if (unknown.length > 0) return refused(`Ni reliés ni dans la mission : ${unknown.join(", ")}.`);
+  const targets = chosen.filter((t, i) => chosen.findIndex((o) => o.nodeId === t.nodeId) === i);
+  if (targets.length === 0) return refused("Aucun agent Claude dans l'équipe.");
+  const results = await Promise.all(targets.map(async (t) => ({ ...t, running: isRunning(t.nodeId), result: await setRemoteControl(t.nodeId, on) })));
+  return said(
+    results
+      .map(({ name, running, result }) => {
+        if (!result) return `${name} : pas une session Claude`;
+        if ("error" in result) return `${name} : échec — ${result.error}`;
+        if (!result.on) return `${name} : coupé`;
+        if (!running) return `${name} : actif à son prochain démarrage`;
+        return `${name} : actif — ${result.url ?? "lien pas encore affiché"}`;
+      })
+      .join("\n"),
+  );
+}
+
 /** One call of the orchestrator; it acts on its own mission only (spec orchestrateur §4.3). */
 export async function orchestratorTool(orchestratorId: string, name: string, args: Record<string, unknown>): Promise<ToolResult> {
   const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
@@ -243,6 +300,8 @@ export async function orchestratorTool(orchestratorId: string, name: string, arg
       return mission.state === "en_cours" ? said(await mergeMission(orchestratorId)) : refused("Aucune mission en cours.");
     case "terminer":
       return finish(orchestratorId, mission, args);
+    case "remote_control":
+      return remote(orchestratorId, mission, args);
     default:
       return refused(AGENT_ONLY.has(name) ? "Outil réservé aux agents." : `Outil inconnu : ${name}`);
   }

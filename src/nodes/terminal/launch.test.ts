@@ -46,6 +46,12 @@ describe("buildSpawnSpec", () => {
     });
   });
 
+  it("starts Claude with Remote Control, under the agent's name, when it is on (spec maj §2)", () => {
+    const payload = { ...newTerminalPayload({ ...base, agent: "claude", title: "Agent" }, "Isis"), remoteControl: true };
+    expect(buildSpawnSpec(payload, "new").claude?.remoteControl).toBe("Isis");
+    expect(buildSpawnSpec({ ...payload, name: "" }, "new").claude?.remoteControl).toBe("Agent");
+  });
+
   it("passes Ollama options", () => {
     const payload = newTerminalPayload({ ...base, agent: "ollama", ollama: { model: "llama3", mode: "code" } });
     expect(buildSpawnSpec(payload, "new").ollama).toEqual({ model: "llama3", mode: "code" });

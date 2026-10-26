@@ -12,6 +12,7 @@ import { useUiRequest } from "@/commands/uiRequests";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
+import { RemoteButton } from "@/fleet/RemoteButton";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
@@ -163,6 +164,7 @@ export function TerminalHeader(props: {
       )}
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
         <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
+        {payload.agent === "claude" && <RemoteButton nodeId={nodeId} wanted={payload.remoteControl === true} running={status.state === "running"} />}
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
         {actions}
       </div>
