@@ -1,3 +1,4 @@
+import type { BudgetTone } from "@/mission/mission";
 import type { Step, StepState } from "@/nodes/steps";
 
 /**
@@ -28,3 +29,6 @@ export function dotsOf(steps: readonly Step[], width: number): Dot[] {
   const slot = width / steps.length;
   return steps.map((step, i) => ({ x: slot * (i + 0.5), slot, title: step.title, state: step.state, color: STEP_COLOR[step.state] }));
 }
+
+/** A budget's bar (spec orchestrateur §8.3): green, orange past 80 %, red past 100 %. */
+export const BUDGET_COLOR: Record<BudgetTone, string> = { ok: "var(--ov-ok)", late: "var(--ov-accent)", over: "var(--ov-danger)" };

@@ -67,9 +67,10 @@ it("shows the team's reports and the summary, and cleans the mission (spec §7.7
     name: "Auth",
     branch: "openvibe/auth",
     summary: "Tout est fait.",
-    members: [{ nodeId: "isis", name: "Isis", task: "Login", budgetMin: 20, linked: true, branch: "openvibe/auth-isis", worktree: "C:/w", report: { summary: "ok", status: "termine", at: 1 }, merged: true }],
+    members: [{ nodeId: "isis", name: "Isis", task: "Login", budgetMin: 20, linked: true, branch: "openvibe/auth-isis", worktree: "C:/w", sentAt: 0, report: { summary: "ok", status: "termine", at: 6 * 60_000 }, merged: true }],
   });
   expect(host.querySelector('[data-member="Isis"]')?.textContent).toContain("terminé · fusionné");
+  expect(host.querySelector('[data-member="Isis"]')?.textContent).toContain("6 / 20 min");
   expect(host.textContent).toContain("Tout est fait.");
   await act(async () => button("Nettoyer la mission").click());
   expect(cleanMission).toHaveBeenCalledWith("chef");

@@ -1,10 +1,13 @@
 import { screenRectOf } from "@/fleet/placement";
+import { useNow } from "@/lib/useNow";
+import { budgetBar, type BudgetTone } from "@/mission/mission";
+import { memberBudgets } from "@/mission/store";
 import type { Step } from "@/nodes/steps";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { useSubagents } from "@/store/subagents";
 import { useCanvas, type CanvasView } from "../canvasStore";
 import type { Rect } from "../groups";
-import { dotsOf, TIMELINE_GAP } from "./timeline";
+import { BUDGET_COLOR, dotsOf, TIMELINE_GAP } from "./timeline";
 
 /**
  * Each Claude terminal's steps, under it (spec orchestrateur §5). Like the
@@ -16,17 +19,22 @@ export function StepTimelines() {
   const rects = useCanvas((s) => s.nodeRects);
   const view = useCanvas((s) => s.view);
   const nodes = useNodes((s) => s.nodes);
+  // The budget bars move with time, not only with the canvas (spec orchestrateur §8.3).
+  const now = useNow(15_000);
+  const budgets = memberBudgets(nodes, now);
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {Object.entries(rects).map(([id, rect]) => {
-        const steps = terminalOf(nodes[id])?.steps;
-        return steps?.length ? <Timeline key={id} nodeId={id} steps={steps} rect={rect} view={view} /> : null;
+        const steps = terminalOf(nodes[id])?.steps ?? [];
+        const budget = budgets[id];
+        return steps.length || budget ? <Timeline key={id} nodeId={id} steps={steps} budget={budget} rect={rect} view={view} /> : null;
       })}
     </div>
   );
 }
 
-function Timeline({ nodeId, steps, rect, view }: { nodeId: string; steps: Step[]; rect: Rect; view: CanvasView }) {
+function Timeline(props: { nodeId: string; steps: Step[]; budget?: { spent: number; budget: number }; rect: Rect; view: CanvasView }) {
+  const { nodeId, steps, budget, rect, view } = props;
   const running = useSubagents(nodeId);
   const screen = screenRectOf(rect, view);
   const dots = dotsOf(steps, rect.width);
@@ -42,7 +50,8 @@ function Timeline({ nodeId, steps, rect, view }: { nodeId: string; steps: Step[]
         transformOrigin: "0 0",
       }}
     >
-      <div className="absolute inset-x-0 top-[3px] h-px bg-ov-line" />
+      {budget && <BudgetBar {...budgetBar(budget.spent, budget.budget)} title={`${Math.floor(budget.spent)} / ${budget.budget} min`} />}
+      {steps.length > 0 && <div className="absolute inset-x-0 top-[3px] h-px bg-ov-line" />}
       {dots.map((dot) => (
         <div key={dot.title} className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: dot.x, width: dot.slot }}>
           <span className={dot.state === "en_cours" ? "size-[7px] animate-pulse rounded-full" : "size-[7px] rounded-full"} style={{ backgroundColor: dot.color }} />
@@ -52,6 +61,15 @@ function Timeline({ nodeId, steps, rect, view }: { nodeId: string; steps: Step[]
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Time spent over budget, in the gap between the terminal and its steps. */
+function BudgetBar({ ratio, tone, title }: { ratio: number; tone: BudgetTone; title: string }) {
+  return (
+    <div className="absolute inset-x-0 -top-[3px] h-[2px] bg-ov-line" aria-label={title}>
+      <div className="h-full" style={{ width: `${ratio * 100}%`, backgroundColor: BUDGET_COLOR[tone] }} />
     </div>
   );
 }

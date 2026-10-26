@@ -5,7 +5,7 @@ import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf, type NodeRecord } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { workspacesStore } from "@/store/workspaces";
-import { NEW_MISSION, type Member, type Mission } from "./mission";
+import { budgetOf, NEW_MISSION, spentMin, type Member, type Mission } from "./mission";
 
 /** An orchestrator's mission — a fresh one until it has its own; undefined for any other node. */
 export function missionOf(record: NodeRecord | undefined): Mission | undefined {
@@ -56,4 +56,17 @@ export function agentState(nodeId: string): AgentState {
   if (!isRunning(nodeId)) return "arrêté";
   const activity = agentActivityStore.getState().activities[nodeId]?.activity;
   return activity === "working" ? "travaille" : activity === "waiting" ? "attend" : "inactif";
+}
+
+/** The time and budget of each agent of a running mission, by node (spec §8.3). */
+export function memberBudgets(nodes: Record<string, NodeRecord>, now: number): Record<string, { spent: number; budget: number }> {
+  const budgets: Record<string, { spent: number; budget: number }> = {};
+  for (const record of Object.values(nodes)) {
+    const mission = missionOf(record);
+    if (mission?.state !== "en_cours") continue;
+    for (const m of mission.members) {
+      if (m.sentAt !== undefined && !m.handedTo) budgets[m.nodeId] = { spent: spentMin(m, now), budget: budgetOf(m) };
+    }
+  }
+  return budgets;
 }

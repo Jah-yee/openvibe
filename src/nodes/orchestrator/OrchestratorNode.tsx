@@ -14,6 +14,8 @@ import { removeOrchestrator, renameOrchestrator } from "@/fleet/orchestrators";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
 import type { Activity } from "@/ipc/activity";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
+import { useNow } from "@/lib/useNow";
+import { clockText } from "@/mission/mission";
 import { MissionPanel } from "@/mission/MissionPanel";
 import { useActivity } from "@/store/agentActivity";
 import { nodesStore, useNodes } from "@/store/nodes";
@@ -35,6 +37,8 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   const activity = useActivity(nodeId);
   const hostRef = useRef<HTMLDivElement>(null);
   const session = record?.kind === "orchestrator" ? record.payload.session : undefined;
+  const now = useNow(15_000);
+  const clock = record?.kind === "orchestrator" && record.payload.mission ? clockText(record.payload.mission, now) : null;
 
   useEffect(() => {
     const current = nodesStore.getState().nodes[nodeId];
@@ -64,7 +68,10 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-ov-line px-3">
         <Network className="size-4 shrink-0 text-ov-accent" />
         <NameField nodeId={nodeId} value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
-        <span className="ml-auto font-mono text-[11px] text-ov-text-2">{sessionLabel(status.state, activity?.activity)}</span>
+        <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ov-text-2">
+          {clock && <span title="Temps passé / budget global">{clock}</span>}
+          <span>{sessionLabel(status.state, activity?.activity)}</span>
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dotsOf, STEP_COLOR } from "./timeline";
+import { BUDGET_COLOR, dotsOf, STEP_COLOR } from "./timeline";
 
 describe("the steps' frieze (spec orchestrateur §5.1)", () => {
   it("spreads the steps evenly along the terminal's width, half a slot from each end", () => {
@@ -20,4 +20,8 @@ describe("the steps' frieze (spec orchestrateur §5.1)", () => {
   it("colors by state: done, running, to come, failed", () => {
     expect(STEP_COLOR).toEqual({ fait: "var(--ov-ok)", en_cours: "var(--ov-working)", a_venir: "var(--ov-text-3)", echec: "var(--ov-danger)" });
   });
+});
+
+it("colours a budget's bar with the identity's tokens (spec orchestrateur §8.3)", () => {
+  expect(BUDGET_COLOR).toEqual({ ok: "var(--ov-ok)", late: "var(--ov-accent)", over: "var(--ov-danger)" });
 });

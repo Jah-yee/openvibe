@@ -1,13 +1,15 @@
 import { toast } from "sonner";
 import { useStore } from "zustand";
 import { useCanvas } from "@/canvas/canvasStore";
+import { BUDGET_COLOR } from "@/canvas/overlay/timeline";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
+import { useNow } from "@/lib/useNow";
 import { useActivities } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { uiStore, useUi } from "@/store/ui";
 import { cleanMission, launchMission } from "./launch";
-import { MAX_AGENTS, type Member, type Mission, type MissionState } from "./mission";
+import { budgetBar, budgetOf, MAX_AGENTS, spentMin, type Member, type Mission, type MissionState } from "./mission";
 import { agentState, missionOf, setMission } from "./store";
 
 const STATE_LABEL: Record<MissionState, string> = {
@@ -133,8 +135,9 @@ function Plan({ nodeId, mission }: { nodeId: string; mission: Mission }) {
 }
 
 function Team({ members }: { members: readonly Member[] }) {
-  // The agents' states follow their activity and their processes.
+  // The agents' states follow their activity and their processes; their times, the clock.
   useActivities();
+  const now = useNow(15_000);
   useStore(terminalStatusStore, (s) => s.statuses);
   const nodes = useNodes((s) => s.nodes);
   return (
@@ -152,6 +155,11 @@ function Team({ members }: { members: readonly Member[] }) {
                 {done}/{steps.length}
               </span>
             )}
+            {member.handedTo ? (
+              <span className="shrink-0">→ {member.handedTo}</span>
+            ) : member.sentAt !== undefined ? (
+              <BudgetTime spent={spentMin(member, now)} budget={budgetOf(member)} />
+            ) : null}
             {member.report && (
               <span title={member.report.summary} className="shrink-0 rounded-full bg-ov-field px-1.5 text-[11px] text-ov-text">
                 {REPORT_LABEL[member.report.status]}
@@ -162,6 +170,15 @@ function Team({ members }: { members: readonly Member[] }) {
         );
       })}
     </ul>
+  );
+}
+
+/** « 6 / 20 min », coloured like its bar (spec §8.3). */
+function BudgetTime({ spent, budget }: { spent: number; budget: number }) {
+  return (
+    <span className="shrink-0 font-mono text-[11px]" style={{ color: BUDGET_COLOR[budgetBar(spent, budget).tone] }}>
+      {Math.floor(spent)} / {budget} min
+    </span>
   );
 }
 
