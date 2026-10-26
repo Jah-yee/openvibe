@@ -115,6 +115,10 @@ pub struct AgentHooks {
     pub claude_settings: Option<PathBuf>,
     /// Codex: the URL its `notify` posts to.
     pub codex_notify: Option<String>,
+    /// Claude: `--mcp-config <file>`, OpenVibe's tools (spec orchestrateur §4.2).
+    pub mcp_config: Option<PathBuf>,
+    /// Claude: `--append-system-prompt-file <file>`, its role.
+    pub system_prompt: Option<PathBuf>,
 }
 
 /// Claude Code marks the processes its tools start; an OpenVibe launched from
@@ -263,11 +267,7 @@ pub fn agent_command(
             }
             Some(command.to_string())
         }
-        Agent::Claude => Some(claude_command(
-            spec.claude.as_ref(),
-            syntax,
-            hooks.claude_settings.as_deref(),
-        )?),
+        Agent::Claude => Some(claude_command(spec.claude.as_ref(), syntax, hooks)?),
         Agent::Codex => Some(codex_command(syntax, hooks.codex_notify.as_deref())),
         Agent::Ollama => Some(ollama_command(spec.ollama.as_ref(), syntax)?),
         other => Some(binary(other).into()),
@@ -301,17 +301,24 @@ fn ollama_command(launch: Option<&OllamaLaunch>, syntax: ShellSyntax) -> AppResu
 fn claude_command(
     launch: Option<&ClaudeLaunch>,
     syntax: ShellSyntax,
-    settings: Option<&Path>,
+    hooks: &AgentHooks,
 ) -> AppResult<String> {
     let launch =
         launch.ok_or_else(|| AppError::InvalidInput("options Claude manquantes".into()))?;
-    let claude = match settings {
-        Some(path) => format!(
-            "claude --settings {}",
-            quote(syntax, &path.to_string_lossy())
-        ),
-        None => "claude".to_string(),
-    };
+    let mut claude = "claude".to_string();
+    let flags = [
+        ("--settings", &hooks.claude_settings),
+        ("--mcp-config", &hooks.mcp_config),
+        ("--append-system-prompt-file", &hooks.system_prompt),
+    ];
+    for (flag, path) in flags {
+        if let Some(path) = path {
+            claude.push_str(&format!(
+                " {flag} {}",
+                quote(syntax, &path.to_string_lossy())
+            ));
+        }
+    }
     if launch.mode == ClaudeMode::Continue {
         return Ok(format!("{claude} --continue"));
     }
@@ -638,6 +645,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(plan.interrupt, Some(&b"\x1b"[..]));
+    }
+
+    #[test]
+    fn gives_claude_openvibe_s_tools_and_its_role() {
+        let hooks = AgentHooks {
+            claude_settings: Some(PathBuf::from(r"C:\data\hooks\n1.json")),
+            mcp_config: Some(PathBuf::from(r"C:\data\mcp\n1.json")),
+            system_prompt: Some(PathBuf::from(r"C:\data\mcp\n1.md")),
+            ..Default::default()
+        };
+        assert_eq!(
+            agent_command(
+                &spec(Agent::Claude, claude(ClaudeMode::Resume, "")),
+                ShellSyntax::PowerShell,
+                &hooks
+            )
+            .unwrap(),
+            Some(format!(
+                r"claude --settings 'C:\data\hooks\n1.json' --mcp-config 'C:\data\mcp\n1.json' --append-system-prompt-file 'C:\data\mcp\n1.md' --resume {SESSION}"
+            ))
+        );
     }
 
     fn hooked(settings: &str) -> AgentHooks {

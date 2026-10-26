@@ -2,6 +2,9 @@ pub mod activity;
 pub mod claude_settings;
 pub mod hooks_server;
 pub mod mcp;
+pub mod mcp_files;
+pub mod prompts;
+pub mod subagents;
 
 use std::process::Command;
 

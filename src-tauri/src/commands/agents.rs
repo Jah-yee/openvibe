@@ -6,21 +6,47 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::agents::activity::{Activity, Change, HookSource, Tracker};
-use crate::agents::claude_settings;
 use crate::agents::hooks_server::{self, HookHit, HookServer, HookSink};
+use crate::agents::mcp::{Pending, Tokens};
+use crate::agents::subagents::SubagentCounts;
+use crate::agents::{claude_settings, mcp_files, prompts};
 use crate::error::AppResult;
 use crate::pty::shell::{Agent, AgentHooks};
 
 /// Quiet terminals are checked this often (the 1.5 s rule).
 const TICK: Duration = Duration::from_millis(250);
+/// An MCP call the interface has not answered by then fails (spec orchestrateur §4.1).
+const MCP_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub struct AgentState {
     tracker: Mutex<Tracker>,
     hooks: Option<HookServer>,
     hooks_dir: PathBuf,
+    mcp_dir: PathBuf,
+    /// One token per Claude launch, naming its node (spec orchestrateur §4.1).
+    mcp_tokens: Tokens,
+    mcp_calls: Pending,
+    subagents: Mutex<SubagentCounts>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct McpCallEvent {
+    call_id: u64,
+    node_id: String,
+    method: String,
+    params: Value,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SubagentsEvent {
+    node_id: String,
+    running: u32,
 }
 
 #[derive(Clone, Serialize)]
@@ -68,6 +94,8 @@ fn emit(app: &AppHandle, change: &Change) {
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let hooks_dir = app.path().app_data_dir()?.join("hooks");
     claude_settings::clear(&hooks_dir);
+    let mcp_dir = app.path().app_data_dir()?.join("mcp");
+    mcp_files::clear(&mcp_dir);
     let hooks = match hooks_server::start(AppSink(app.clone())) {
         Ok(server) => Some(server),
         Err(err) => {
@@ -79,6 +107,10 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
         tracker: Mutex::new(Tracker::default()),
         hooks,
         hooks_dir,
+        mcp_dir,
+        mcp_tokens: Tokens::default(),
+        mcp_calls: Pending::default(),
+        subagents: Mutex::new(SubagentCounts::default()),
     });
     let ticker = app.clone();
     std::thread::spawn(move || {
@@ -105,17 +137,54 @@ impl HookSink for AppSink {
     fn hit(&self, hit: HookHit) {
         on_hook(&self.0, hit);
     }
-    fn subagent(&self, _node_id: &str, _started: bool) {}
-    fn mcp_node(&self, _token: &str) -> Option<String> {
-        None
+
+    fn subagent(&self, node_id: &str, started: bool) {
+        let Some(state) = self.0.try_state::<AgentState>() else {
+            return;
+        };
+        let running = state.subagents.lock().unwrap().change(node_id, started);
+        let _ = self.0.emit(
+            "agent-subagents",
+            SubagentsEvent {
+                node_id: node_id.into(),
+                running,
+            },
+        );
     }
-    fn mcp_call(
-        &self,
-        _node_id: &str,
-        _method: &str,
-        _params: serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        Err("OpenVibe ne répond pas".into())
+
+    fn mcp_node(&self, token: &str) -> Option<String> {
+        self.0.try_state::<AgentState>()?.mcp_tokens.node(token)
+    }
+
+    fn mcp_call(&self, node_id: &str, method: &str, params: Value) -> Result<Value, String> {
+        let state = self
+            .0
+            .try_state::<AgentState>()
+            .ok_or("OpenVibe ne répond pas")?;
+        let (call_id, answer) = state.mcp_calls.open();
+        let event = McpCallEvent {
+            call_id,
+            node_id: node_id.into(),
+            method: method.into(),
+            params,
+        };
+        let _ = self.0.emit("mcp-call", event);
+        let result = answer.recv_timeout(MCP_TIMEOUT);
+        state.mcp_calls.close(call_id);
+        result.map_err(|_| "OpenVibe ne répond pas".to_string())
+    }
+}
+
+/// A session or its process ended: its subagents went with it.
+fn clear_subagents(app: &AppHandle, state: &AgentState, node_id: &str) {
+    if state.subagents.lock().unwrap().clear(node_id) {
+        let _ = app.emit(
+            "agent-subagents",
+            SubagentsEvent {
+                node_id: node_id.into(),
+                running: 0,
+            },
+        );
     }
 }
 
@@ -130,6 +199,9 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
         tracker.hook(&hit.node_id, hit.source, hit.activity, Instant::now())
     };
     drop(tracker);
+    if hit.session_ended {
+        clear_subagents(app, &state, &hit.node_id);
+    }
     if let Some(change) = change {
         emit(app, &change);
     }
@@ -143,20 +215,34 @@ pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent) -> AgentHooks {
         return AgentHooks::default();
     };
     match agent {
-        Agent::Claude => match claude_settings::write(
-            &state.hooks_dir,
-            node_id,
-            &server.url(HookSource::Claude, node_id),
-        ) {
-            Ok(path) => AgentHooks {
-                claude_settings: Some(path),
+        Agent::Claude => {
+            let settings = claude_settings::write(
+                &state.hooks_dir,
+                node_id,
+                &server.url(HookSource::Claude, node_id),
+            );
+            let Ok(settings) =
+                settings.inspect_err(|err| eprintln!("hooks of {node_id} not written: {err}"))
+            else {
+                return AgentHooks::default();
+            };
+            let token = state.mcp_tokens.issue(node_id);
+            let files = mcp_files::write(
+                &state.mcp_dir,
+                node_id,
+                &server.mcp_url(),
+                &token,
+                prompts::AGENT,
+            )
+            .inspect_err(|err| eprintln!("tools of {node_id} not written: {err}"))
+            .ok();
+            AgentHooks {
+                claude_settings: Some(settings),
+                mcp_config: files.as_ref().map(|f| f.config.clone()),
+                system_prompt: files.map(|f| f.prompt),
                 ..Default::default()
-            },
-            Err(err) => {
-                eprintln!("hooks of {node_id} not written: {err}");
-                AgentHooks::default()
             }
-        },
+        }
         Agent::Codex => AgentHooks {
             codex_notify: Some(server.url(HookSource::Codex, node_id)),
             ..Default::default()
@@ -207,6 +293,16 @@ pub fn ended(app: &AppHandle, node_id: &str) {
     let state = app.state::<AgentState>();
     state.tracker.lock().unwrap().remove(node_id);
     claude_settings::remove(&state.hooks_dir, node_id);
+    state.mcp_tokens.revoke(node_id);
+    mcp_files::remove(&state.mcp_dir, node_id);
+    clear_subagents(app, &state, node_id);
+}
+
+/// The interface's answer to an MCP call (spec orchestrateur §4.1).
+#[tauri::command]
+pub async fn mcp_reply(state: State<'_, AgentState>, call_id: u64, result: Value) -> AppResult<()> {
+    state.mcp_calls.answer(call_id, result);
+    Ok(())
 }
 
 #[tauri::command]

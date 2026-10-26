@@ -21,8 +21,12 @@ pub fn settings_json(url: &str) -> Value {
             "Stop": every,
             "StopFailure": every,
             "SessionEnd": every,
+            "SubagentStart": every,
+            "SubagentStop": every,
             "Notification": [{ "matcher": NOTIFICATIONS, "hooks": [hook] }],
-        }
+        },
+        // OpenVibe's own tools never ask (spec orchestrateur §4.2).
+        "permissions": { "allow": ["mcp__openvibe"] },
     })
 }
 
@@ -80,6 +84,8 @@ mod tests {
                 "SessionEnd",
                 "Stop",
                 "StopFailure",
+                "SubagentStart",
+                "SubagentStop",
                 "UserPromptSubmit"
             ]
         );
@@ -90,6 +96,14 @@ mod tests {
         assert_eq!(
             json["hooks"]["Notification"][0]["matcher"],
             "permission_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input|idle_prompt"
+        );
+    }
+
+    #[test]
+    fn allows_openvibe_s_tools_without_asking() {
+        assert_eq!(
+            settings_json(URL)["permissions"],
+            serde_json::json!({ "allow": ["mcp__openvibe"] })
         );
     }
 

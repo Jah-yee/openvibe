@@ -84,6 +84,7 @@ pub fn run() {
             commands::workspace::set_workspace_pantheon,
             commands::git::git_status,
             commands::agents::agent_activity_snapshot,
+            commands::agents::mcp_reply,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the OpenVibe application");
