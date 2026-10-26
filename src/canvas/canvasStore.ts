@@ -1,7 +1,7 @@
 import { createStore, useStore } from "zustand";
 import type { AppState, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import { sameLinks, type Links } from "@/fleet/wires";
-import { sameFrames, type SceneFrame } from "./groups";
+import { sameFrames, type Rect, type SceneFrame } from "./groups";
 
 /** The part of Excalidraw's state that the shell around the canvas shows. */
 export interface CanvasView {
@@ -96,6 +96,9 @@ interface CanvasState {
   /** What each orchestrator of the scene is wired to (spec habillage §13). */
   links: Record<string, Links>;
   setLinks: (links: Record<string, Links>) => void;
+  /** The scene rectangle of each node: where the overlays anchor (spec orchestrateur §5.1). */
+  nodeRects: Record<string, Rect>;
+  setNodeRects: (rects: Record<string, Rect>) => void;
 }
 
 export const canvasStore = createStore<CanvasState>()((set, get) => ({
@@ -113,6 +116,19 @@ export const canvasStore = createStore<CanvasState>()((set, get) => ({
   setNodeIds: (ids) => {
     const current = get().nodeIds;
     if (ids.length !== current.length || ids.some((id, i) => id !== current[i])) set({ nodeIds: ids });
+  },
+  nodeRects: {},
+  setNodeRects: (rects) => {
+    const current = get().nodeRects;
+    const ids = Object.keys(rects);
+    const same =
+      ids.length === Object.keys(current).length &&
+      ids.every((id) => {
+        const a = rects[id];
+        const b = current[id];
+        return b !== undefined && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+      });
+    if (!same) set({ nodeRects: rects });
   },
   links: {},
   setLinks: (links) => {
