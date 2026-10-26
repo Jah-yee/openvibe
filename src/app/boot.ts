@@ -5,6 +5,7 @@ import { agentActivitySnapshot, onAgentActivity } from "@/ipc/activity";
 import { onAgentSubagents } from "@/ipc/mcp";
 import { onPtyExit, ptyList } from "@/ipc/pty";
 import { installMcp } from "@/mcp/router";
+import { installMissionClock } from "@/mission/clock";
 import { installMissionEvents } from "@/mission/events";
 import { setLivePtys } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
@@ -39,6 +40,7 @@ export function boot(): Promise<void> {
     await onAgentSubagents(({ nodeId, running }) => subagentsStore.getState().set(nodeId, running));
     await installMcp();
     installMissionEvents();
+    installMissionClock();
     setLivePtys(await ptyList());
     await getCurrentWindow().onCloseRequested(saveBeforeClose);
     setForgetWorkspaces(forgetWorkspaces);
