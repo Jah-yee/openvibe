@@ -18,6 +18,7 @@ import { ProjectPicker } from "./ProjectPicker";
 import { SearchField } from "./SearchField";
 import { TitleBar } from "./TitleBar";
 import { ToolRail } from "./ToolRail";
+import { UsageMeter } from "./UsageMeter";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { ZoomControl } from "./ZoomControl";
 
@@ -64,7 +65,16 @@ export function ProjectView() {
         </div>
       )}
       <div className="absolute inset-x-0 top-0 z-30">
-        <TitleBar leading={<ProjectPicker />} center={<SearchField />} trailing={<AgentCounts />} />
+        <TitleBar
+          leading={<ProjectPicker />}
+          center={<SearchField />}
+          trailing={
+            <>
+              <UsageMeter />
+              <AgentCounts />
+            </>
+          }
+        />
         <WorkspaceTabs />
       </div>
       <CloseAgentDialog />

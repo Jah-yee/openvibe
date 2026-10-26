@@ -11,6 +11,7 @@ import { setLivePtys } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { subagentsStore } from "@/store/subagents";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { installUsage } from "@/usage/usageStore";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
@@ -39,6 +40,7 @@ export function boot(): Promise<void> {
     if (!activity.hooksAvailable) toast.warning("États des agents approximatifs : serveur local indisponible");
     await onAgentSubagents(({ nodeId, running }) => subagentsStore.getState().set(nodeId, running));
     await installMcp();
+    await installUsage();
     installMissionEvents();
     installMissionClock();
     setLivePtys(await ptyList());
