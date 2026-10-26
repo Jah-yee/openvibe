@@ -65,3 +65,5 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Sans le routeur, le niveau est gardé et affiché mais ne change rien.
 - Un agent qui reprend une sous-tâche avec `reattribuer` garde le modèle avec lequel il a démarré : le changer voudrait dire le relancer et perdre sa conversation.
 - Le modèle passe en argument de ligne de commande, entre guillemets, et seuls les caractères d'un nom de modèle sont acceptés (lettres, chiffres, `-._[]`).
+- Relecture : « Lancer la mission » refuse un plan sans niveau quand le routeur a été coché après coup, et le dit à l'orchestrateur pour qu'il repropose le plan.
+- Relecture : le modèle d'un agent s'affiche dans son en-tête (« Haiku 5.5 »), avec « Modèle par défaut au prochain démarrage » ; une copie d'agent (Ctrl+D) ne reprend ni son modèle ni son Remote Control.

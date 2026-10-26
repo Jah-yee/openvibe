@@ -30,3 +30,10 @@ it("leaves the source's steps behind: they belong to its conversation (final rev
   const copy = cloneTerminalPayload({ ...claude, steps: [{ title: "Plan", state: "en_cours" }] }, "Osiris");
   expect(copy.steps).toBeUndefined();
 });
+
+it("leaves the router's model and Remote Control behind: they were the source's (final review maj §3)", () => {
+  const copy = cloneTerminalPayload({ ...claude, model: "claude-haiku-5-5", remoteControl: true }, "Osiris");
+  expect(copy.model).toBeUndefined();
+  expect(copy.remoteControl).toBeUndefined();
+});
+

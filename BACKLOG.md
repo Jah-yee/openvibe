@@ -261,3 +261,10 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `remote_control` : un prénom en double (agent relié et membre de la mission) prend le premier ; « tous » oublie sans le dire les agents reliés quand l'espace de l'orchestrateur n'est pas affiché.
 - Juste après un démarrage, Claude dessine encore son écran : OpenVibe le croit au travail ~1,5 s et répond « à la fin de son tour ». La demande est appliquée dès qu'il se calme.
 
+### Routeur de modèles
+- « Nettoyer la mission » garde le budget et le nombre d'agents mais pas le routeur : la mission suivante part sans, case décochée.
+- Côté Rust, un nom de modèle qui commence par un tiret (`--model '--…'`) est accepté : exiger un premier caractère alphanumérique et une longueur maximale (les valeurs viennent de la table du routeur, c'est une précaution).
+- `mission()` donne le modèle prévu par le niveau de la sous-tâche, même quand `reattribuer` l'a confiée à un agent qui garde le sien (`equipe` donne le bon).
+- Supprimer un orchestrateur en pleine mission laisse ses agents reliés dans leur worktree, avec le modèle du routeur (la puce de l'en-tête permet de revenir au modèle par défaut).
+- Tests absents : `withModel` de `launchGroup`, le modèle d'un agent « nouveau » de `reattribuer`, les guillemets de `--model` sous cmd et Git Bash.
+
