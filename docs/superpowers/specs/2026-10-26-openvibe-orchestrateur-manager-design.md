@@ -76,7 +76,7 @@ Un nœud n'agit que sur son périmètre : un agent sur lui-même ; un orchestrat
 
 | Outil | Effet |
 |---|---|
-| `declarer_etapes(etapes: string[])` | Ses étapes, dans l'ordre (2 à 12, 40 caractères chacune) ; remplace les précédentes. |
+| `declarer_etapes(etapes: string[])` | Ses étapes, dans l'ordre (1 à 12, 40 caractères chacune) ; remplace les précédentes. |
 | `etape(titre, etat)` | `etat` : `en_cours`, `fait`, `echec`. Une étape inconnue est ajoutée à la fin. |
 | `rendre_compte(resume, statut)` | `statut` : `termine`, `bloque`, `echec`. Hors mission : « pas d'orchestrateur » ; en mission : transmis à l'orchestrateur (§7.5). |
 
@@ -87,7 +87,7 @@ Consigne de rôle d'un agent : il travaille dans OpenVibe ; quand sa tâche dema
 ### 5.1 Ce qu'elle montre
 
 - Sous chaque terminal Claude qui a déclaré des étapes : une ligne de la largeur du terminal, un point par étape à intervalles réguliers, son titre dessous (tronqué, entier au survol).
-- Couleur = état : fait (vert), en cours (bleu, pulse), à venir (gris), échec (rouge). Sans étape déclarée : rien.
+- Couleur = état : fait (vert `--ov-ok`), en cours (couleur « au travail » de l'identité, `--ov-working`, pulse), à venir (gris), échec (rouge). Sans étape déclarée : rien. (Le bleu du croquis de Mathieu n'existe pas dans la palette de l'identité : à revoir avec le design.)
 - Pendant une mission, la barre du budget de l'agent se place au-dessus de la frise (§8.3).
 
 ### 5.2 Les sous-agents
