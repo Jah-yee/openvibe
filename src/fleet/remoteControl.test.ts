@@ -22,6 +22,17 @@ const MENU = [
 const DISCONNECTED = ["❯ /remote-control", "❯ /remote-control", "  ⎿  Remote Control disconnected.", ...PROMPT].join("\n");
 const EMPTY = ["  Claude Code v2.1.304", ...PROMPT].join("\n");
 
+/** The consent Claude asks for the first Remote Control of an account (spec maj §2). */
+const CONSENT = [
+  "  Claude Code v2.1.304",
+  "▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔",
+  "   Remote Control",
+  "   Continue this session from claude.ai or the Claude app.",
+  "   ❯ Enable Remote Control",
+  "     Never mind",
+  "   Enter to select · Esc to cancel",
+].join("\n");
+
 describe("remoteScreen", () => {
   it("reads what the last /remote-control said", () => {
     expect(remoteScreen(ACTIVE)).toEqual({ kind: "active", url: URL });
@@ -38,6 +49,26 @@ describe("remoteScreen", () => {
     expect(remoteScreen(MENU.replace("   ❯ Continue", "     Continue").replace("     Disconnect this session", "   ❯ Disconnect this session"))).toMatchObject({
       choice: "Disconnect this session",
     });
+  });
+
+  it("is not fooled by the same words printed elsewhere on the screen (final review maj §2)", () => {
+    const printed = [
+      "❯ /remote-control",
+      "  /remote-control is active · Continue here, on your phone, or at",
+      `  ${URL}`,
+      "● Read(src/fleet/remoteControl.test.ts)",
+      '  ⎿  const DISCONNECTED = ["❯ /remote-control", "  ⎿  Remote Control disconnected."];',
+      "     Disconnect this session",
+      "     Enter to select · Esc to continue",
+      "● Lu.",
+      ...PROMPT,
+    ].join("\n");
+    expect(remoteScreen(printed)).toEqual({ kind: "active", url: URL });
+    expect(remoteScreen(["  Claude Code v2.1.304", "", "", "", "", "", "", "", "", "● Relu :", "  Remote Control disconnected.", ...PROMPT].join("\n"))).toEqual({ kind: "none" });
+  });
+
+  it("knows Claude's consent dialog, which is the user's to answer", () => {
+    expect(remoteScreen(CONSENT)).toEqual({ kind: "consent" });
   });
 
   it("knows a session started with Remote Control by its link", () => {
@@ -87,6 +118,19 @@ describe("enableRemote", () => {
     const refusal = ["❯ /remote-control", "  ⎿  Remote Control requires a claude.ai subscription", ...PROMPT].join("\n");
     expect(await enableRemote(fakeTerminal(EMPTY, () => refusal).io)).toEqual({ error: "Remote Control requires a claude.ai subscription" });
     expect(await enableRemote(fakeTerminal(EMPTY, () => EMPTY).io)).toEqual({ error: "Claude n'a pas confirmé Remote Control." });
+  });
+});
+
+describe("the consent dialog (final review maj §2)", () => {
+  it("is never answered: enable and disable stop and say so", async () => {
+    const consent = { error: "Claude demande ton accord pour Remote Control : réponds dans son terminal." };
+    const shown = fakeTerminal(CONSENT, () => CONSENT);
+    expect(await enableRemote(shown.io)).toEqual(consent);
+    expect(await disableRemote(shown.io)).toEqual(consent);
+    expect(shown.typed).toEqual([]);
+    const asked = fakeTerminal(EMPTY, () => CONSENT);
+    expect(await enableRemote(asked.io)).toEqual(consent);
+    expect(asked.typed).toEqual(["/remote-control"]);
   });
 });
 
