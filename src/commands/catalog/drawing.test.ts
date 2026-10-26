@@ -2,12 +2,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
+import { CANVAS_KEYS, copyCanvasSelection, openNativeMenuAt, pasteOnCanvasAt, pressCanvasKey, startTextAt } from "@/radial/bridges";
 import { exportCurrentPng, exportCurrentScene, importIntoScene } from "@/shell/sceneActions";
 import { labelOf, type CommandContext } from "../command";
 import { DRAWING, SCENE } from "./drawing";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("@/shell/sceneActions", () => ({ exportCurrentScene: vi.fn(), importIntoScene: vi.fn(), exportCurrentPng: vi.fn() }));
+vi.mock("@/radial/bridges", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/radial/bridges")>()),
+  pressCanvasKey: vi.fn(),
+  copyCanvasSelection: vi.fn(),
+  pasteOnCanvasAt: vi.fn(() => Promise.resolve()),
+  startTextAt: vi.fn(),
+  openNativeMenuAt: vi.fn(),
+}));
 
 const busy: CommandContext = { project: true, workspaceId: "w1", terminalCount: 0, terminalId: null };
 const setActiveTool = vi.fn();
@@ -18,7 +27,7 @@ const keys: KeyboardEvent[] = [];
 beforeEach(() => {
   setActiveTool.mockClear();
   keys.length = 0;
-  canvasStore.setState({ api: { setActiveTool, updateScene } as unknown as ExcalidrawImperativeAPI });
+  canvasStore.setState({ api: { setActiveTool, updateScene, getAppState: () => ({ selectedElementIds: {} }), getSceneElements: () => [] } as unknown as ExcalidrawImperativeAPI });
   document.body.innerHTML = '<div class="excalidraw excalidraw-container" tabindex="0"></div><textarea></textarea>';
   container = document.querySelector<HTMLDivElement>(".excalidraw-container")!;
   container.addEventListener("keydown", (e) => keys.push(e));
@@ -42,6 +51,14 @@ describe("Dessin (spec fenêtre §7.3)", () => {
       ["Image", null],
       ["Annuler", "Ctrl+Z"],
       ["Rétablir", "Ctrl+Y"],
+      ["Copier", "Ctrl+C"],
+      ["Coller", "Ctrl+V"],
+      ["Dupliquer", "Ctrl+D"],
+      ["Premier plan", "Ctrl+Maj+]"],
+      ["Arrière-plan", "Ctrl+Maj+["],
+      ["Verrouiller", "Ctrl+Maj+L"],
+      ["Supprimer", "Suppr"],
+      ["Plus…", null],
     ]);
   });
 
@@ -72,6 +89,65 @@ describe("Dessin (spec fenêtre §7.3)", () => {
     expect(order).toEqual(["key z", "release", "key y", "release"]);
     expect(document.activeElement).toBe(container);
     updateScene.mockReset();
+  });
+});
+
+describe("Dessin, sur la sélection (spec menu radial §4.5)", () => {
+  const view = { scrollX: 0, scrollY: 0, zoom: 2, width: 800, height: 600, offsetLeft: 5, offsetTop: 7, tool: "selection", selectedIds: [], editingFrame: null };
+  const scene = (selected: Record<string, boolean>, locked = false) =>
+    canvasStore.setState({
+      view,
+      api: {
+        setActiveTool,
+        updateScene,
+        getAppState: () => ({ selectedElementIds: selected }),
+        getSceneElements: () => [{ id: "r1", locked }],
+      } as unknown as ExcalidrawImperativeAPI,
+    });
+  const run = (id: string, ctx: CommandContext = busy) => DRAWING.find((c) => c.id === id)!.run(ctx);
+
+  it("acts on the selection with Excalidraw's own keys, offered only with a selection", async () => {
+    scene({});
+    expect(DRAWING.filter((c) => c.id.startsWith("drawing.") && c.available(busy)).map((c) => c.id)).toEqual(["drawing.paste"]);
+    scene({ r1: true });
+    await run("drawing.duplicate");
+    expect(pressCanvasKey).toHaveBeenLastCalledWith(CANVAS_KEYS.duplicate);
+    await run("drawing.front");
+    expect(pressCanvasKey).toHaveBeenLastCalledWith(CANVAS_KEYS.front);
+    await run("drawing.back");
+    expect(pressCanvasKey).toHaveBeenLastCalledWith(CANVAS_KEYS.back);
+    await run("drawing.delete");
+    expect(pressCanvasKey).toHaveBeenLastCalledWith(CANVAS_KEYS.delete);
+    await run("drawing.copy");
+    expect(copyCanvasSelection).toHaveBeenCalled();
+  });
+
+  it("names the lock after the selection's state", () => {
+    scene({ r1: true });
+    expect(labelOf(DRAWING.find((c) => c.id === "drawing.lock")!, busy)).toBe("Verrouiller");
+    scene({ r1: true }, true);
+    expect(labelOf(DRAWING.find((c) => c.id === "drawing.lock")!, busy)).toBe("Déverrouiller");
+  });
+
+  it("pastes and starts a text where the radial menu was opened, else at the middle of the canvas", async () => {
+    scene({});
+    await run("drawing.paste", { ...busy, at: { x: 10, y: 20 } });
+    expect(pasteOnCanvasAt).toHaveBeenLastCalledWith({ x: 25, y: 47 });
+    await run("drawing.paste");
+    expect(pasteOnCanvasAt).toHaveBeenLastCalledWith({ x: 405, y: 307 });
+    await run("tool.text", { ...busy, at: { x: 10, y: 20 } });
+    expect(startTextAt).toHaveBeenLastCalledWith({ x: 25, y: 47 });
+    await run("tool.text");
+    expect(setActiveTool).toHaveBeenLastCalledWith({ type: "text" });
+  });
+
+  it("offers « Plus… » in the radial menu only: Excalidraw's menu at its point", async () => {
+    scene({ r1: true });
+    const more = DRAWING.find((c) => c.id === "drawing.more")!;
+    expect(more.available(busy)).toBe(false);
+    expect(more.available({ ...busy, at: { x: 10, y: 20 } })).toBe(true);
+    await more.run({ ...busy, at: { x: 10, y: 20 } });
+    expect(openNativeMenuAt).toHaveBeenCalledWith({ x: 25, y: 47 });
   });
 });
 
