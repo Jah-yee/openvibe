@@ -17,7 +17,7 @@ import { nextName } from "./names";
 import { nameForNewAgent, namesInWorkspace, pantheonForNewGroup } from "./naming";
 import { viewportCenter } from "./placement";
 import { ROLES, type RoleId } from "./roles";
-import { addTerminal } from "./terminals";
+import { addTerminal, type Point } from "./terminals";
 
 export interface GroupPlan {
   name: string;
@@ -29,17 +29,17 @@ export interface GroupPlan {
 export const LAUNCH_STAGGER_MS = 300;
 
 /**
- * Creates a group around the view's center — its frame and terminals in one
+ * Creates a group around `at`, else the view's center — its frame and terminals in one
  * scene update, so one undo removes it — then shows it whole and starts its
  * agents one by one (spec habillage §11.3).
  */
-export async function launchGroup(plan: GroupPlan, options: LaunchOptions = defaultLaunchOptions()) {
+export async function launchGroup(plan: GroupPlan, options: LaunchOptions = defaultLaunchOptions(), at?: Point) {
   const { api, view } = canvasStore.getState();
   const workspaceId = workspacesStore.getState().activeId;
   if (!api || !workspaceId || plan.agents.length === 0) return;
   const pantheon = pantheonForNewGroup(workspaceId);
   const grid = groupGrid(plan.agents.length);
-  const center = viewportCenter(view);
+  const center = at ?? viewportCenter(view);
   const obstacles = api.getSceneElements().map(({ x, y, width, height }) => ({ x, y, width, height }));
   const origin = clearSpot(
     { x: center.x - grid.width / 2, y: center.y - grid.height / 2, width: grid.width, height: grid.height },

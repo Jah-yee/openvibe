@@ -10,9 +10,11 @@ import { terminalStatusStore } from "@/store/terminalStatus";
 import { requestUi } from "@/commands/uiRequests";
 import { agentsPanelStore } from "./agentsPanelState";
 import { AgentsPanel } from "./AgentsPanel";
+import { newConsole } from "./quickActions";
 
 // Excalidraw does not load under Vitest (roughjs); the panel only reaches it through menu actions.
 vi.mock("@excalidraw/excalidraw", () => ({}));
+vi.mock("./quickActions", () => ({ newConsole: vi.fn(), launchFour: vi.fn(), placeOrchestrator: vi.fn() }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -51,6 +53,11 @@ it("floats under the tabs, down to the command bar at most, with the chips' acti
   for (const label of ["Lancer un agent", "Nouvelle console", "Composer un groupe", "Tout mettre en pause", "Tout reprendre", "Plus d'actions", "Fermer le panneau"]) {
     expect(byLabel(label), label).not.toBeNull();
   }
+});
+
+it("starts « Nouvelle console » at the center of the view, the click not taken for a point", async () => {
+  await act(async () => byLabel("Nouvelle console")!.click());
+  expect(newConsole).toHaveBeenCalledWith();
 });
 
 it("filters on the store's filter, labelled Prêts for idle agents", async () => {

@@ -82,7 +82,7 @@ export function AgentsPanel() {
               </IconButton>
             )}
           />
-          <IconButton label="Nouvelle console" onClick={newConsole}>
+          <IconButton label="Nouvelle console" onClick={() => newConsole()}>
             <SquareTerminal />
           </IconButton>
           <ComposeGroup
@@ -107,7 +107,7 @@ export function AgentsPanel() {
               </IconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={launchFour}>Lancer 4 agents</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => launchFour()}>Lancer 4 agents</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setFolded(new Set([...sections.map((s) => keyOf(s.id)), "orchestrators"]))}>
                 Tout replier
               </DropdownMenuItem>

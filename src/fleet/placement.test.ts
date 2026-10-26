@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientRectOf, ghostRect, sceneOf, screenRectOf, viewportCenter } from "./placement";
+import { clientOf, clientRectOf, ghostRect, sceneOf, screenRectOf, viewportCenter } from "./placement";
 
 const view = { scrollX: -100, scrollY: 50, zoom: 0.5, offsetLeft: 10, offsetTop: 20, width: 1000, height: 800 };
 
@@ -8,6 +8,12 @@ describe("sceneOf", () => {
     const scene = { x: 300, y: -40 };
     const client = { x: (scene.x + view.scrollX) * view.zoom + view.offsetLeft, y: (scene.y + view.scrollY) * view.zoom + view.offsetTop };
     expect(sceneOf(client, view)).toEqual(scene);
+  });
+
+  it("finds the window point of a scene point, the inverse of sceneOf (the radial menu's paste and text)", () => {
+    const view = { scrollX: -40, scrollY: 25, zoom: 2, offsetLeft: 8, offsetTop: 30 };
+    const client = { x: 300, y: 200 };
+    expect(clientOf(sceneOf(client, view), view)).toEqual(client);
   });
 });
 

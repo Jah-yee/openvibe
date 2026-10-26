@@ -25,7 +25,7 @@ export const AGENT_COMMANDS: readonly Command[] = [
       keywords: [AGENTS[agent].label, AGENTS[agent].vendor, "agent", "lancer"],
       available: inProject,
       disabled: notFound(agent),
-      run: () => (agent === "ollama" ? requestUi({ kind: "agentMenu", view: "ollama" }) : launchAt(agent)),
+      run: (ctx) => (agent === "ollama" ? requestUi({ kind: "agentMenu", view: "ollama", at: ctx.at }) : launchAt(agent, ctx.at)),
     }),
   ),
   {
@@ -34,11 +34,20 @@ export const AGENT_COMMANDS: readonly Command[] = [
     section: "Agents",
     keywords: ["commande", "personnalisé", "agent"],
     available: inProject,
-    run: () => requestUi({ kind: "agentMenu", view: "options" }),
+    run: (ctx) => requestUi({ kind: "agentMenu", view: "options", at: ctx.at }),
   },
-  { id: "agent.console", label: "Nouvelle console", section: "Agents", keywords: ["console", "terminal"], available: inProject, run: () => newConsole() },
-  { id: "agent.four", label: "Lancer 4 agents", section: "Agents", keywords: ["quatre", "groupe", "agents"], available: inProject, run: () => launchFour() },
-  { id: "agent.orchestrator", label: "Orchestrateur", section: "Agents", keywords: ["orchestrateur", "chef"], available: inProject, run: () => placeOrchestrator() },
+  {
+    id: "agent.other",
+    label: "Autre agent…",
+    section: "Agents",
+    keywords: ["agent", "catalogue", "lancer"],
+    available: inProject,
+    // The ＋ menu's catalog; from the radial menu, the agent starts at its point (spec menu radial §4.1).
+    run: (ctx) => requestUi({ kind: "agentMenu", view: "agents", at: ctx.at }),
+  },
+  { id: "agent.console", label: "Nouvelle console", section: "Agents", keywords: ["console", "terminal"], available: inProject, run: (ctx) => newConsole(ctx.at) },
+  { id: "agent.four", label: "Lancer 4 agents", section: "Agents", keywords: ["quatre", "groupe", "agents"], available: inProject, run: (ctx) => launchFour(ctx.at) },
+  { id: "agent.orchestrator", label: "Orchestrateur", section: "Agents", keywords: ["orchestrateur", "chef"], available: inProject, run: (ctx) => placeOrchestrator(ctx.at) },
   {
     id: "group.compose",
     label: "Composer un groupe…",
