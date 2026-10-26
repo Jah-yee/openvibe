@@ -180,3 +180,14 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Une demande d'interface (`uiRequests`) sans réponse n'expire jamais : aucun chemin actuel ne la laisse en attente, mais une commande future ou une erreur de rendu la ferait partir au montage suivant (le composeur s'ouvrant au prochain affichage du panneau). L'abandonner après une image, ou au changement de workspace ou de projet.
 - Tests : `registry.test` ne vérifie plus la liste exacte par contexte (accueil : Aller à, Projets, Fenêtre, Aide seulement ; Workspaces, Dessin et Scène absents). Ajouter un test de liste exacte par contexte sur `COMMANDS` (spec §11).
 - `current.ts` : les conversions forcées (`groupId`, le payload de Relancer) lèvent une `TypeError` si le groupe ou le terminal a disparu entre l'affichage et Entrée (toast « Cannot read properties of null »). Rendre la main sans rien faire.
+
+## Constats du plan G1 (menu radial, relecture finale)
+
+- « Coller » de la palette, sans point, colle au centre de la vue : si un nœud actif s'y trouve (le terminal où l'on travaille, que `arrive` centre), Excalidraw ne colle pas et rien ne le dit (spec menu radial §7). Vérifier `elementFromPoint` dans `pasteOnCanvasAt` et afficher un toast.
+- « Verrouiller » / « Déverrouiller » se trompe sur une sélection mêlée : Excalidraw verrouille seulement si tout est déverrouillé, et déverrouille tout sinon. Une sélection mêlée affiche « Verrouiller » mais Ctrl+Maj+L déverrouille. `selectionLocked` = `some(e => e.locked)`.
+- Sans Claude ni Codex installés, l'agent par défaut est le Shell : ↑ et ↗ de l'anneau du fond affichent tous deux « Lancer Shell » (icônes différentes).
+- L'anneau qui s'ouvre laisse ouverts les autres menus : le menu d'Excalidraw ouvert par « Plus… », le ＋ ouvert par « Autre agent… ». L'appui droit est arrêté en capture et leurs écouteurs « clic dehors » ne le voient pas. Fermer `contextMenu` d'Excalidraw (et les popovers) à l'ouverture.
+- Les lignes et flèches tracées vers la gauche ou vers le haut ont leur cadre à `x + minX…` : « dans la sélection » et le centre de rotation de `target.ts` (`boundsOf`, `unturned`) sont faux pour elles.
+- `readClipboardText` dit « Presse-papiers vide » quand le presse-papiers ne contient qu'une image : le texte est inexact (le comportement est juste).
+- `lib.rs` prend la fenêtre de la configuration par son index (`windows[0]`) : la chercher par son label `main`.
+
