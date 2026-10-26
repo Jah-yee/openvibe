@@ -52,6 +52,12 @@ describe("buildSpawnSpec", () => {
     expect(buildSpawnSpec({ ...payload, name: "" }, "new").claude?.remoteControl).toBe("Agent");
   });
 
+  it("starts Claude on the model the router chose (spec maj §3)", () => {
+    const payload = { ...newTerminalPayload({ ...base, agent: "claude", title: "Agent" }), model: "claude-haiku-5-5" };
+    expect(buildSpawnSpec(payload, "new").claude?.model).toBe("claude-haiku-5-5");
+    expect(buildSpawnSpec({ ...payload, model: undefined }, "new").claude).not.toHaveProperty("model");
+  });
+
   it("passes Ollama options", () => {
     const payload = newTerminalPayload({ ...base, agent: "ollama", ollama: { model: "llama3", mode: "code" } });
     expect(buildSpawnSpec(payload, "new").ollama).toEqual({ model: "llama3", mode: "code" });

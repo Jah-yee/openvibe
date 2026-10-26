@@ -113,6 +113,22 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
     });
   });
 
+  it("takes each sub-task's level and says whether the router is on (spec maj §3)", async () => {
+    setMission("chef", { router: true });
+    expect(textOf(await call("chef", "proposer_plan", plan))).toContain("niveau");
+    const leveled = { ...plan, sous_taches: plan.sous_taches.map((s, i) => ({ ...s, niveau: i === 0 ? "faible" : "extrême" })) };
+    expect(textOf(await call("chef", "proposer_plan", leveled))).toContain("Plan proposé");
+    expect(JSON.parse(textOf(await call("chef", "mission", {})))).toMatchObject({
+      routeur: true,
+      plan: [
+        { niveau: "faible", modele: "Haiku 5.5" },
+        { niveau: "extreme", modele: "Fable 5.1" },
+      ],
+    });
+    setMission("chef", { router: undefined });
+    expect(JSON.parse(textOf(await call("chef", "mission", {})))).toMatchObject({ routeur: false, plan: [{ niveau: "faible", modele: null }, {}] });
+  });
+
   it("turns Remote Control on or off for its agents or itself, and gives the links (spec maj §2)", async () => {
     vi.mocked(setRemoteControl).mockImplementation(async (id, on) => (on ? { on: true, url: `https://claude.ai/code/session_${id}` } : { on: false }));
     terminalStatusStore.getState().set("isis", { state: "running" });
@@ -150,7 +166,7 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
 
     it("reports the team and reads an agent's terminal", async () => {
       expect(JSON.parse(textOf(await call("chef", "equipe", {})))).toEqual([
-        expect.objectContaining({ prenom: "Isis", sous_tache: "Login", temps: "0 / 20 min", compte_rendu: null, fusionne: false, passe_a: null, depassement: 0 }),
+        expect.objectContaining({ prenom: "Isis", sous_tache: "Login", temps: "0 / 20 min", compte_rendu: null, fusionne: false, passe_a: null, depassement: 0, modele: null }),
       ]);
       expect(textOf(await call("chef", "lire_sortie", { agent: "ISIS", lignes: 2 }))).toBe("ligne 1\nligne 2");
       expect(terminalText).toHaveBeenCalledWith("isis", 2);

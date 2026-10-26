@@ -80,6 +80,28 @@ it("writes an agent's sub-task on one line, with its budget, branch and duties (
   );
 });
 
+describe("the model router (spec maj §3)", () => {
+  it("starts each agent on the model of its sub-task's level, and gives the linked ones theirs back at the end", async () => {
+    await setup({ router: true, plan: [{ ...plan[0], level: "eleve" }, { ...plan[1], level: "faible" }] });
+    await launchMission("chef");
+    expect(launchGroup).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined, expect.objectContaining({ models: ["claude-haiku-5-5"] }));
+    expect(terminalOf(nodesStore.getState().nodes.isis)?.model).toBe("claude-opus-5-5");
+    expect(relaunchTerminal).toHaveBeenCalledWith("isis", expect.objectContaining({ model: "claude-opus-5-5" }), "new");
+    expect(missionNow().members.map((m) => m.model)).toEqual(["claude-opus-5-5", "claude-haiku-5-5"]);
+    endMission("chef", "Fini.");
+    expect(terminalOf(nodesStore.getState().nodes.isis)?.model).toBeUndefined();
+    expect(relaunchTerminal).toHaveBeenLastCalledWith("isis", expect.objectContaining({ cwd: "C:/code/proj", model: undefined }), "new");
+  });
+
+  it("leaves the models alone without the router", async () => {
+    await setup({ plan: [{ ...plan[0], level: "eleve" }, { ...plan[1], level: "faible" }] });
+    await launchMission("chef");
+    expect(launchGroup).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined, expect.objectContaining({ models: [undefined] }));
+    expect(terminalOf(nodesStore.getState().nodes.isis)?.model).toBeUndefined();
+    expect(missionNow().members.map((m) => m.model)).toEqual([undefined, undefined]);
+  });
+});
+
 describe("launchMission (spec §7.3)", () => {
   it("forms the team: a worktree each, linked agents relaunched there anew, new ones in the mission's group", async () => {
     await setup();

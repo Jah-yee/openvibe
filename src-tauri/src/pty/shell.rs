@@ -76,6 +76,9 @@ pub struct ClaudeLaunch {
     /// Remote Control from the start, under this name (`--remote-control`).
     #[serde(default)]
     pub remote_control: Option<String>,
+    /// The model the orchestrator's router chose (`--model`).
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 /// What the frontend asks for when it starts a terminal (spec §9).
@@ -335,6 +338,17 @@ fn claude_command(
             ));
         }
     }
+    if let Some(model) = launch.model.as_deref() {
+        // Typed into a shell: a model's name, or an alias like `sonnet[1m]`, nothing else.
+        let valid = !model.is_empty()
+            && model
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '[' | ']'));
+        if !valid {
+            return Err(AppError::InvalidInput(format!("modèle invalide : {model}")));
+        }
+        claude.push_str(&format!(" --model {}", quote(syntax, model)));
+    }
     let remote = remote_flag(launch, syntax);
     if launch.mode == ClaudeMode::Continue {
         return Ok(format!("{claude} --continue{remote}"));
@@ -459,6 +473,7 @@ mod tests {
             title: title.into(),
             role: Role::Agent,
             remote_control: None,
+            model: None,
         })
     }
 
@@ -602,6 +617,7 @@ mod tests {
             title: String::new(),
             role: Role::Agent,
             remote_control: None,
+            model: None,
         });
         let err = agent_command(
             &spec(Agent::Claude, launch),
@@ -866,6 +882,38 @@ mod tests {
         assert_eq!(
             with_remote(ClaudeMode::Continue, "", " \"\n"),
             "claude --continue --remote-control"
+        );
+    }
+
+    #[test]
+    fn starts_claude_on_the_model_the_router_chose() {
+        let with_model = |mode, model: &str| {
+            let mut launch = claude(mode, "");
+            launch.as_mut().unwrap().model = Some(model.into());
+            agent_command(
+                &spec(Agent::Claude, launch),
+                ShellSyntax::PowerShell,
+                &AgentHooks::default(),
+            )
+        };
+        assert_eq!(
+            with_model(ClaudeMode::New, "claude-haiku-5-5")
+                .unwrap()
+                .unwrap(),
+            format!("claude --model 'claude-haiku-5-5' --session-id {SESSION}")
+        );
+        assert_eq!(
+            with_model(ClaudeMode::Continue, "sonnet[1m]")
+                .unwrap()
+                .unwrap(),
+            "claude --model 'sonnet[1m]' --continue"
+        );
+        // Typed into a shell: anything but a model's name is refused.
+        assert_eq!(
+            with_model(ClaudeMode::New, "opus; rm -rf /")
+                .unwrap_err()
+                .kind(),
+            "invalidInput"
         );
     }
 

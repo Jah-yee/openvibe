@@ -1,3 +1,5 @@
+import { readLevel, type Level } from "./router";
+
 /** The mission of an orchestrator (spec orchestrateur §7), saved in its payload. */
 export type MissionState = "redaction" | "plan" | "lancement" | "en_cours" | "terminee";
 export type ReportStatus = "termine" | "bloque" | "echec";
@@ -8,6 +10,8 @@ export interface SubTask {
   brief: string;
   agent: string;
   budgetMin: number;
+  /** Its difficulty: with the router, its agent's model (spec maj §3). */
+  level?: Level;
 }
 
 export interface Report {
@@ -39,6 +43,8 @@ export interface Member {
   handedTo?: string;
   /** Sub-tasks it finished before taking another one (`reattribuer`). */
   done?: string[];
+  /** The model the router started it on (spec maj §3). */
+  model?: string;
 }
 
 export interface Mission {
@@ -63,6 +69,8 @@ export interface Mission {
   startedAt?: number;
   /** The end of the global budget was told (spec §8.2). */
   globalOverdue?: boolean;
+  /** Each agent gets the model of its sub-task's level (spec maj §3). */
+  router?: boolean;
 }
 
 export const NEW_AGENT = "nouveau";
@@ -106,12 +114,19 @@ function readMember(raw: unknown): Member | null {
   if (r.overdue === 1 || r.overdue === 2) member.overdue = r.overdue;
   if (typeof r.handedTo === "string") member.handedTo = r.handedTo;
   if (Array.isArray(r.done)) member.done = r.done.filter((title): title is string => typeof title === "string");
+  if (typeof r.model === "string" && r.model) member.model = r.model;
   return member;
 }
 
 function isSubTask(raw: unknown): raw is SubTask {
   const r = raw as Record<string, unknown>;
   return typeof raw === "object" && raw !== null && typeof r.title === "string" && typeof r.brief === "string" && typeof r.agent === "string" && typeof r.budgetMin === "number";
+}
+
+function readSubTask(task: SubTask): SubTask {
+  const { title, brief, agent, budgetMin } = task;
+  const level = readLevel(task.level);
+  return level ? { title, brief, agent, budgetMin, level } : { title, brief, agent, budgetMin };
 }
 
 /** A saved mission; undefined when absent or unreadable. A launch cut short by a restart is back to its plan. */
@@ -128,9 +143,10 @@ export function readMission(raw: unknown): Mission | undefined {
   for (const key of ["name", "task", "project", "slug", "branch", "worktree", "frameId", "summary", "error"] as const) {
     if (typeof r[key] === "string") mission[key] = r[key];
   }
-  if (Array.isArray(r.plan)) mission.plan = r.plan.filter(isSubTask);
+  if (Array.isArray(r.plan)) mission.plan = r.plan.filter(isSubTask).map(readSubTask);
   if (typeof r.startedAt === "number") mission.startedAt = r.startedAt;
   if (r.globalOverdue === true) mission.globalOverdue = true;
+  if (r.router === true) mission.router = true;
   return mission;
 }
 
@@ -161,7 +177,11 @@ export function proposedPlan(
     const known = sameName(agent, NEW_AGENT) ? NEW_AGENT : linked.find((l) => sameName(l, agent));
     if (!known) return `Sous-tâche ${n} : « ${agent} » n'est pas un agent Claude relié (prénom, ou « nouveau »).`;
     if (known !== NEW_AGENT && plan.some((s) => s.agent === known)) return `${known} a déjà une sous-tâche : une sous-tâche par agent.`;
-    plan.push({ title, brief, agent: known, budgetMin: budget });
+    const given = r.niveau !== undefined && r.niveau !== null;
+    const level = readLevel(r.niveau);
+    if (given && !level) return `Sous-tâche ${n} : niveau faible, moyen, élevé ou extrême.`;
+    if (mission.router && !level) return `Sous-tâche ${n} : un niveau (faible, moyen, élevé ou extrême) — le routeur choisit le modèle de l'agent avec.`;
+    plan.push(level ? { title, brief, agent: known, budgetMin: budget, level } : { title, brief, agent: known, budgetMin: budget });
   }
   const total = plan.reduce((sum, s) => sum + s.budgetMin, 0);
   if (mission.budgetMin !== undefined && total > mission.budgetMin) {

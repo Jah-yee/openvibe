@@ -53,6 +53,15 @@ it("sets the mission's global budget and team size before the plan (spec §7.1)"
   expect(missionOf(nodesStore.getState().nodes.chef)).toMatchObject({ state: "redaction", budgetMin: 90, maxAgents: 8 });
 });
 
+it("turns the model router on, and shows each sub-task's level and model (spec maj §3)", async () => {
+  await show({ state: "plan", name: "Auth", plan: [{ title: "Login", brief: "Fais le login", agent: "Isis", budgetMin: 20, level: "faible" }] });
+  expect(host.textContent).toContain("faible");
+  expect(host.textContent).not.toContain("Haiku 5.5");
+  await act(async () => (host.querySelector('[aria-label="Routeur de modèles"]') as HTMLInputElement).click());
+  expect(missionOf(nodesStore.getState().nodes.chef)?.router).toBe(true);
+  expect(host.textContent).toContain("faible · Haiku 5.5");
+});
+
 it("shows the plan and gives the go-ahead (spec §7.3)", async () => {
   await show({ state: "plan", name: "Auth", task: "Ajoute l'authentification", budgetMin: 60, plan: [{ title: "Login", brief: "Fais le login", agent: "Isis", budgetMin: 20 }] });
   expect(host.textContent).toContain("Fais le login");
