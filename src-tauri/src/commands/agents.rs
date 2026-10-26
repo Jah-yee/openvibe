@@ -15,7 +15,7 @@ use crate::agents::mcp::{Pending, Tokens};
 use crate::agents::subagents::SubagentCounts;
 use crate::agents::{claude_settings, mcp_files, prompts};
 use crate::error::AppResult;
-use crate::pty::shell::{Agent, AgentHooks};
+use crate::pty::shell::{Agent, AgentHooks, Role};
 
 /// Quiet terminals are checked this often (the 1.5 s rule).
 const TICK: Duration = Duration::from_millis(250);
@@ -209,7 +209,7 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
 
 /// The hooks a new process gets: Claude's settings file, Codex's notify URL.
 /// Without a server, Claude starts without `--settings`.
-pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent) -> AgentHooks {
+pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent, role: Role) -> AgentHooks {
     let state = app.state::<AgentState>();
     let Some(server) = &state.hooks else {
         return AgentHooks::default();
@@ -220,6 +220,7 @@ pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent) -> AgentHooks {
                 &state.hooks_dir,
                 node_id,
                 &server.url(HookSource::Claude, node_id),
+                role,
             );
             let Ok(settings) =
                 settings.inspect_err(|err| eprintln!("hooks of {node_id} not written: {err}"))
@@ -232,7 +233,7 @@ pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent) -> AgentHooks {
                 node_id,
                 &server.mcp_url(),
                 &token,
-                prompts::AGENT,
+                prompts::for_role(role),
             )
             .inspect_err(|err| eprintln!("tools of {node_id} not written: {err}"))
             .ok();

@@ -36,7 +36,8 @@ pub async fn pty_spawn(
     rows: u16,
     on_data: Channel<Response>,
 ) -> AppResult<Option<u32>> {
-    let hooks = agents::hooks_for(&app, &node_id, spec.agent);
+    let role = spec.claude.as_ref().map(|c| c.role).unwrap_or_default();
+    let hooks = agents::hooks_for(&app, &node_id, spec.agent, role);
     let plan = match build_plan(&node_id, &spec, &which_locate, &hooks) {
         Ok(plan) => plan,
         Err(err) => {

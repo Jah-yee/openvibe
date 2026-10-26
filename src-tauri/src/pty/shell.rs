@@ -54,12 +54,25 @@ pub enum ClaudeMode {
     Continue,
 }
 
+/// What a Claude session is for (spec orchestrateur §4.2): an agent, or the
+/// orchestrator that manages a team without coding.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Role {
+    #[default]
+    Agent,
+    Orchestrator,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeLaunch {
     pub mode: ClaudeMode,
     pub session_id: String,
     pub title: String,
+    /// Interfaces of before the orchestrator send none: an agent.
+    #[serde(default)]
+    pub role: Role,
 }
 
 /// What the frontend asks for when it starts a terminal (spec §9).
@@ -430,6 +443,7 @@ mod tests {
             mode,
             session_id: SESSION.into(),
             title: title.into(),
+            role: Role::Agent,
         })
     }
 
@@ -571,6 +585,7 @@ mod tests {
             mode: ClaudeMode::Resume,
             session_id: "x; rm -rf /".into(),
             title: String::new(),
+            role: Role::Agent,
         });
         let err = agent_command(
             &spec(Agent::Claude, launch),
@@ -808,6 +823,22 @@ mod tests {
         let s: SpawnSpec = serde_json::from_value(json).unwrap();
         assert_eq!(s.shell, ShellKind::GitBash);
         assert_eq!(s.claude.unwrap().mode, ClaudeMode::Resume);
+    }
+
+    #[test]
+    fn reads_the_role_of_a_claude_session_an_agent_by_default() {
+        let spec = |claude: serde_json::Value| -> SpawnSpec {
+            serde_json::from_value(serde_json::json!({
+                "cwd": "C:/code", "shell": "cmd", "agent": "claude", "command": "", "claude": claude
+            }))
+            .unwrap()
+        };
+        let orchestrator = spec(
+            serde_json::json!({ "mode": "new", "sessionId": SESSION, "title": "t", "role": "orchestrator" }),
+        );
+        assert_eq!(orchestrator.claude.unwrap().role, Role::Orchestrator);
+        let older = spec(serde_json::json!({ "mode": "new", "sessionId": SESSION, "title": "t" }));
+        assert_eq!(older.claude.unwrap().role, Role::Agent);
     }
 
     #[test]
