@@ -11,6 +11,7 @@ import { duplicateTerminal, requestClose } from "@/fleet/terminals";
 import type { TerminalPayload } from "@/nodes/types";
 import { pasteIntoTerminal, relaunchTerminal, stopTerminal, terminalSelection } from "@/nodes/terminal/registry";
 import { readClipboardText } from "@/radial/bridges";
+import { openReview } from "@/review/reviewStore";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
@@ -74,6 +75,14 @@ export const CURRENT: readonly Command[] = [
     run: async (ctx) => {
       if (ctx.workspaceId) await duplicateTerminal(ctx.workspaceId, terminalId(ctx));
     },
+  },
+  {
+    id: "terminal.review",
+    label: "Revue des changements",
+    section: terminalSection,
+    keywords: ["diff", "revue", "review", "changements", "fichiers", "code"],
+    available: hasTerminal,
+    run: (ctx) => openReview(terminalId(ctx)),
   },
   {
     id: "terminal.relaunch",

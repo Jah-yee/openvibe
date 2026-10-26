@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, RotateCw } from "lucide-react";
+import { ChevronDown, FileDiff, RotateCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ import { groupOf } from "@/canvas/groups";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
 import { RemoteButton } from "@/fleet/RemoteButton";
 import { modelLabel } from "@/mission/router";
+import { openReview } from "@/review/reviewStore";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
@@ -190,6 +191,9 @@ export function TerminalHeader(props: {
         <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
         {payload.model && <ModelChip nodeId={nodeId} model={payload.model} />}
         {payload.agent === "claude" && <RemoteButton nodeId={nodeId} wanted={payload.remoteControl === true} running={status.state === "running"} />}
+        <HeaderButton label="Revue des changements" onClick={() => openReview(nodeId)}>
+          <FileDiff />
+        </HeaderButton>
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
         {actions}
       </div>

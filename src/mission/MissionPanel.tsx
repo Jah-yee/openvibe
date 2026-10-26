@@ -7,6 +7,7 @@ import { useNow } from "@/lib/useNow";
 import { useActivities } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { openReview } from "@/review/reviewStore";
 import { uiStore, useUi } from "@/store/ui";
 import { cleanMission, launchMission } from "./launch";
 import { budgetBar, budgetOf, MAX_AGENTS, spentMin, type Member, type Mission, type MissionState } from "./mission";
@@ -181,6 +182,15 @@ function Team({ members }: { members: readonly Member[] }) {
             ) : member.sentAt !== undefined ? (
               <BudgetTime spent={spentMin(member, now)} budget={budgetOf(member)} />
             ) : null}
+            <button
+              type="button"
+              title={`Revue du travail de ${member.name}`}
+              aria-label={`Revue de ${member.name}`}
+              onClick={() => openReview(member.nodeId)}
+              className="shrink-0 rounded px-1 text-[11px] text-ov-text-2 hover:bg-ov-field hover:text-ov-text"
+            >
+              diff
+            </button>
             {member.report && (
               <span title={member.report.summary} className="shrink-0 rounded-full bg-ov-field px-1.5 text-[11px] text-ov-text">
                 {REPORT_LABEL[member.report.status]}

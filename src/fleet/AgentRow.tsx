@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Crosshair, Pause, Play, Smartphone, X } from "lucide-react";
+import { Crosshair, FileDiff, Pause, Play, Smartphone, X } from "lucide-react";
 import { focusNode } from "@/canvas/focusNode";
 import { HeaderButton } from "@/nodes/terminal/TerminalHeader";
+import { openReview } from "@/review/reviewStore";
 import { StatusPill } from "@/nodes/terminal/StatusPill";
 import { useActivity } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
@@ -51,6 +52,9 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
             <Crosshair />
           </HeaderButton>
         )}
+        <HeaderButton label={`Revue de ${name}`} onClick={() => openReview(id)}>
+          <FileDiff />
+        </HeaderButton>
         {canPause(facts) && (
           <HeaderButton label={`Mettre ${name} en pause`} onClick={() => void pauseAgents([id])}>
             <Pause />
