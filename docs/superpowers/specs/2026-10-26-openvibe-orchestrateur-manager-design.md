@@ -136,7 +136,9 @@ Consigne de rôle de l'orchestrateur : il est le manager ; il ne code pas ; il d
 
 - « Lancer la mission » (panneau) : OpenVibe — pas l'IA — forme l'équipe : crée la branche de la mission, puis pour chaque sous-tâche son worktree et sa branche, lance l'agent dedans et lui tape sa sous-tâche quand il est prêt.
 - Agent relié : son processus est arrêté et relancé dans son worktree, en nouvelle session (une session Claude ne se reprend pas depuis un autre dossier). Agent nouveau : un Claude créé à côté de l'orchestrateur, avec un prénom, dans un groupe « Mission <nom> » relié à l'orchestrateur.
-- Un agent est « prêt » quand son processus tourne et qu'il est inactif depuis 2 s ; au bout de 60 s, la sous-tâche est tapée quand même.
+- Un agent est « prêt » quand son processus tourne et qu'il est inactif depuis 2 s ; au bout de 60 s, la sous-tâche est tapée quand même. (Relecture H2, vérifié dans l'application : « inactif » se lit à l'écran de la nouvelle session — sa boîte de saisie `❯` sous un trait, sans invite de confiance — après la relance ; un agent relié est jugé seulement une fois relancé.)
+- Les évènements d'un orchestrateur qui démarre ou reprend attendent sa boîte de saisie ; une ligne qui n'a pas pu être tapée est gardée pour son prochain démarrage.
+- Un lancement qui échoue retire les worktrees et branches qu'il a créés (jamais de force) ; les agents reliés ne bougent qu'une fois toute l'équipe formée. L'espace de l'orchestrateur doit être affiché pendant le lancement.
 - Dans un worktree qu'OpenVibe vient de créer, Claude demande s'il peut faire confiance au dossier : OpenVibe accepte cette invite (texte de l'écran contenant « trust » et « folder » : flèche bas puis Entrée), et seulement dans ces worktrees.
 - La sous-tâche tapée : « [OpenVibe · mission <nom>] <titre> — <consigne> Budget : <n> min. Branche : <branche>. Déclare tes étapes, délègue à tes sous-agents, commit sur ta branche, puis rends compte avec rendre_compte. »
 

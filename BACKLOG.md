@@ -203,3 +203,17 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Tests : un hook servi pendant qu'un appel MCP attend ; `ended()` puis 401 côté Rust ; chemins avec espaces ou apostrophes pour cmd et Git Bash.
 - `std::thread::spawn` par requête `/mcp` : passer par `thread::Builder` et répondre 503 si le fil ne se crée pas.
 
+## Constats du plan H2 (mission de l'orchestrateur, relecture finale)
+
+- Un dépôt sans aucun commit fait échouer « Lancer la mission » avec le texte brut de git (« fatal: invalid reference: HEAD ») : vérifier `rev-parse --verify HEAD` dans `mission::prepare` et dire « Le dépôt n'a pas encore de commit ».
+- Une fusion qui échoue sans fichier en conflit mais laisse `MERGE_HEAD` (hook en échec) n'est pas annulée : les `fusionner` suivants échouent. Annuler dès que `MERGE_HEAD` existe (`mission.rs`, `merge_agent`).
+- Le × d'un orchestrateur au travail arrête sa session sans demander ; son enregistrement reste en mémoire, et les comptes rendus de ses agents leur répondent « transmis » alors que personne ne les lit.
+- Sans serveur de hooks (ou si l'écriture des réglages échoue), l'orchestrateur démarre comme un Claude ordinaire, sans `deny` ni consigne de rôle (il peut modifier la branche de l'utilisateur) ; `Bash` n'est jamais interdit. Refuser de lancer un orchestrateur sans ses réglages, et afficher « Outils OpenVibe indisponibles » dans le nœud (spec §9).
+- Un évènement tapé pendant que l'utilisateur écrit dans le terminal de l'orchestrateur part avec son texte à moitié tapé : attendre quelques secondes après une frappe.
+- `rebaseTerminalFolders` (projet déplacé) ne rebase ni la session de l'orchestrateur ni les chemins de sa mission.
+- Les orchestrateurs créés avant H2 gardent leur taille 320 × 420 : le terminal de Claude et le panneau y sont à l'étroit.
+- Le nettoyage étiquette tout échec de `worktree remove` « changements non commités » (un dossier verrouillé par un processus aussi).
+- Un agent relié à deux orchestrateurs peut être enrôlé dans deux missions : `linkedClaudeAgents` n'écarte pas les membres d'une mission en cours.
+- Les missions ne connaissent les fils et les groupes que de l'espace affiché : hors de l'écran, `proposer_plan` refuse les agents reliés et `terminer` arrête les agents créés au lieu de fermer leur groupe. Lire la scène enregistrée de l'espace de l'orchestrateur.
+- La détection « Claude est prêt » lit l'écran : la boîte de saisie (`❯` sous un trait) et l'invite de confiance (« trust » + « folder »). Une autre mise en page de Claude retombe sur le délai de 60 s.
+
