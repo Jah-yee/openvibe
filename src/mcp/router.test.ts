@@ -7,7 +7,7 @@ import { pauseAgents } from "@/fleet/broadcast";
 import { ptySendText } from "@/ipc/pty";
 import { terminalText } from "@/nodes/terminal/registry";
 import { notify } from "@/mission/events";
-import { endMission } from "@/mission/launch";
+import { endMission, reassignTask } from "@/mission/launch";
 import { missionOf, setMission, updateMember } from "@/mission/store";
 import { workspacesStore } from "@/store/workspaces";
 import { agentActivityStore } from "@/store/agentActivity";
@@ -15,7 +15,11 @@ import { terminalStatusStore } from "@/store/terminalStatus";
 
 vi.mock("@/ipc/pty", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/ipc/pty")>()), ptySendText: vi.fn(() => Promise.resolve()) }));
 vi.mock("@/nodes/terminal/registry", () => ({ terminalText: vi.fn(() => "ligne 1\nligne 2") }));
-vi.mock("@/mission/launch", () => ({ mergeMission: vi.fn(() => Promise.resolve("Branche openvibe/auth :\nIsis : fusionné")), endMission: vi.fn() }));
+vi.mock("@/mission/launch", () => ({
+  mergeMission: vi.fn(() => Promise.resolve("Branche openvibe/auth :\nIsis : fusionné")),
+  endMission: vi.fn(),
+  reassignTask: vi.fn(() => Promise.resolve({ name: "Horus" })),
+}));
 vi.mock("@/mission/events", () => ({ notify: vi.fn() }));
 vi.mock("@/fleet/broadcast", () => ({ pauseAgents: vi.fn(() => Promise.resolve(1)) }));
 vi.mock("@/mission/store", async (importOriginal) => ({
@@ -172,6 +176,12 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       expect(pauseAgents).toHaveBeenCalledWith(["isis"]);
       vi.mocked(pauseAgents).mockResolvedValueOnce(0);
       expect(textOf(await call("chef", "interrompre", { agent: "Isis" }))).toBe("Isis n'est pas au travail : rien à interrompre.");
+    });
+
+    it("hands a sub-task over through OpenVibe (spec §7.2)", async () => {
+      expect(textOf(await call("chef", "reattribuer", { sous_tache: "login", agent: "nouveau" }))).toBe("« Login » passe à Horus.");
+      expect(reassignTask).toHaveBeenCalledWith("chef", "isis", "nouveau");
+      expect(await call("chef", "reattribuer", { sous_tache: "Paiement", agent: "nouveau" })).toMatchObject({ isError: true });
     });
 
     it("merges and ends the mission through OpenVibe; no new plan meanwhile", async () => {

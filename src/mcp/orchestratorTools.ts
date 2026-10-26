@@ -1,6 +1,6 @@
 import { pauseAgents } from "@/fleet/broadcast";
 import { ptySendText } from "@/ipc/pty";
-import { endMission, mergeMission } from "@/mission/launch";
+import { endMission, mergeMission, reassignTask } from "@/mission/launch";
 import { NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
 import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
@@ -196,6 +196,15 @@ async function interrupt(mission: Mission, args: Record<string, unknown>): Promi
   return said(`Tour ${of(member.name)} interrompu. ecrire « continue » le reprend.`);
 }
 
+async function reassign(orchestratorId: string, mission: Mission, args: Record<string, unknown>): Promise<ToolResult> {
+  if (mission.state !== "en_cours") return refused("Aucune mission en cours.");
+  const title = typeof args.sous_tache === "string" ? args.sous_tache : "";
+  const from = mission.members.find((m) => !m.handedTo && sameName(m.task, title));
+  if (!from) return refused(`Aucune sous-tâche « ${title} » dans l'équipe.`);
+  const result = await reassignTask(orchestratorId, from.nodeId, typeof args.agent === "string" ? args.agent : "");
+  return typeof result === "string" ? refused(result) : said(`« ${from.task} » passe à ${result.name}.`);
+}
+
 function finish(orchestratorId: string, mission: Mission, args: Record<string, unknown>): ToolResult {
   if (mission.state !== "en_cours") return refused("Aucune mission en cours.");
   const summary = typeof args.bilan === "string" ? args.bilan.trim() : "";
@@ -223,6 +232,8 @@ export async function orchestratorTool(orchestratorId: string, name: string, arg
       return prolong(orchestratorId, mission, args);
     case "interrompre":
       return mission.state === "en_cours" ? interrupt(mission, args) : refused("Aucune mission en cours.");
+    case "reattribuer":
+      return reassign(orchestratorId, mission, args);
     case "fusionner":
       return mission.state === "en_cours" ? said(await mergeMission(orchestratorId)) : refused("Aucune mission en cours.");
     case "terminer":
