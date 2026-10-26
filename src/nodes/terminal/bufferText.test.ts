@@ -9,3 +9,9 @@ it("reads the last lines of a terminal as plain text, without the empty rows und
   expect(bufferText(screen, 200)).toBe("$ claude\n> Bonjour\n  Fait.");
   expect(bufferText(screen, 0)).toBe("");
 });
+
+it("reads from a line on: the screen of a terminal since its relaunch (final review H2)", () => {
+  const screen = buffer(["Claude Code v2.1.304", "> old work", "── relance ──", "$ claude", ""]);
+  expect(bufferText(screen, 50, 2)).toBe("── relance ──\n$ claude");
+  expect(bufferText(screen, 1, 2)).toBe("$ claude");
+});

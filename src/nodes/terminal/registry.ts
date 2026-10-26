@@ -1,4 +1,4 @@
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type IMarker } from "@xterm/xterm";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -32,6 +32,8 @@ interface Entry {
   session: SessionState;
   /** When output was last written: a quiet agent is ready (spec orchestrateur §7.3). */
   lastOutput?: number;
+  /** Where the current session's output starts; above it is the previous session's (final review H2). */
+  since?: IMarker;
 }
 
 const FONT_FAMILY = "'Cascadia Code', Consolas, monospace";
@@ -178,6 +180,13 @@ export function mountTerminal(nodeId: string, host: HTMLElement, payload: Termin
   else void restoreSession(nodeId, entry.term);
 }
 
+/** A new session starts: its screen and its silence are measured from here, not from the previous one's. */
+function freshen(entry: Entry) {
+  entry.since?.dispose();
+  entry.since = entry.term.registerMarker(0);
+  entry.lastOutput = undefined;
+}
+
 /** Starts a terminal again from a keystroke: a new conversation for Claude. */
 async function startFresh(nodeId: string, entry: Entry) {
   let payload = sessionOf(nodesStore.getState().nodes[nodeId]);
@@ -192,7 +201,7 @@ async function startFresh(nodeId: string, entry: Entry) {
   // after onKey, and it would reach the shell before the agent starts.
   entry.session.restarting = true;
   try {
-    await relaunchSession(nodeId, entry.term, payload, "new");
+    await relaunchSession(nodeId, entry.term, payload, "new", () => freshen(entry));
   } finally {
     entry.session.restarting = false;
   }
@@ -202,6 +211,14 @@ async function startFresh(nodeId: string, entry: Entry) {
 export function quietFor(nodeId: string): number {
   const last = entries.get(nodeId)?.lastOutput;
   return last === undefined ? 0 : Date.now() - last;
+}
+
+/** The last `lines` lines its current session wrote: a relaunched agent is judged on its new screen (final review H2). */
+export function freshText(nodeId: string, lines: number): string {
+  const entry = entries.get(nodeId);
+  if (!entry) return "";
+  const from = entry.since && !entry.since.isDisposed ? entry.since.line : 0;
+  return bufferText(entry.term.buffer.active, lines, from);
 }
 
 /** The last `lines` lines of the terminal, as plain text (spec orchestrateur §7.2 `lire_sortie`). */
@@ -226,14 +243,15 @@ export function resumeTerminal(nodeId: string) {
   const entry = entries.get(nodeId) ?? create(nodeId);
   autostart.cancel(nodeId);
   const mode = payload.agent === "claude" && payload.claudeSessionId ? "resume" : "new";
-  void relaunchSession(nodeId, entry.term, payload, mode);
+  void relaunchSession(nodeId, entry.term, payload, mode, () => freshen(entry));
 }
 
-export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode) {
+/** Resolves once the new process is spawned. */
+export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode): Promise<void> {
   // A terminal not shown since the app started has no xterm yet: a mission still starts it.
   const entry = entries.get(nodeId) ?? create(nodeId);
   autostart.cancel(nodeId);
-  void relaunchSession(nodeId, entry.term, payload, mode);
+  return relaunchSession(nodeId, entry.term, payload, mode, () => freshen(entry));
 }
 
 export function stopTerminal(nodeId: string) {

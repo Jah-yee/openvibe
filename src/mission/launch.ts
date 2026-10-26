@@ -8,7 +8,7 @@ import { linkOrchestrator } from "@/fleet/orchestrators";
 import { missionAddAgent, missionCleanup, missionMerge, missionPrepare, type Cleanup } from "@/ipc/mission";
 import { ptySendText, ptyWrite } from "@/ipc/pty";
 import { newConversation } from "@/nodes/terminal/launch";
-import { quietFor, relaunchTerminal, terminalText } from "@/nodes/terminal/registry";
+import { freshText, quietFor, relaunchTerminal } from "@/nodes/terminal/registry";
 import { nodesStore, sessionOf, terminalOf } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { notify } from "./events";
@@ -30,12 +30,12 @@ export function subTaskText(mission: string, task: SubTask, branch: string): str
 }
 
 /** A linked agent moves to `cwd` in a new conversation: a Claude session does not resume from another folder (spec §7.3). */
-function restartIn(nodeId: string, cwd: string) {
+function restartIn(nodeId: string, cwd: string): Promise<void> {
   const payload = terminalOf(nodesStore.getState().nodes[nodeId]);
-  if (!payload) return;
+  if (!payload) return Promise.resolve();
   const patch = { cwd, ...newConversation() };
   nodesStore.getState().update(nodeId, patch);
-  relaunchTerminal(nodeId, { ...payload, ...patch }, "new");
+  return relaunchTerminal(nodeId, { ...payload, ...patch }, "new");
 }
 
 /** Right of the orchestrator, tops aligned; `launchGroup` moves it down past what it would cover. */
@@ -55,8 +55,11 @@ function newNames(workspaceId: string, pantheon: string, count: number): string[
 
 type Team = Required<Pick<Mission, "project" | "slug" | "branch" | "worktree">> & Pick<Mission, "frameId" | "members">;
 
+/** The relaunch of each linked agent: it is judged ready only once it is done. */
+type Restarts = Map<string, Promise<void>>;
+
 /** OpenVibe — not the AI — forms the team: every worktree first, then the agents (spec §7.3). */
-async function formTeam(orchestratorId: string, workspaceId: string, project: string, mission: Mission): Promise<Team> {
+async function formTeam(orchestratorId: string, workspaceId: string, project: string, mission: Mission, restarts: Restarts): Promise<Team> {
   const plan = mission.plan ?? [];
   const linked = linkedClaudeAgents(orchestratorId);
   const agents = plan.map((task) => (task.agent === NEW_AGENT ? null : (linked.find((a) => sameName(a.name, task.agent)) ?? null)));
@@ -73,7 +76,7 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
     const tree = await missionAddAgent(project, root.slug, name);
     members.push({ nodeId: agent?.nodeId ?? "", name, task: task.title, budgetMin: task.budgetMin, linked: agent !== null, branch: tree.branch, worktree: tree.path });
   }
-  for (const member of members) if (member.linked) restartIn(member.nodeId, member.worktree);
+  for (const member of members) if (member.linked) restarts.set(member.nodeId, restartIn(member.nodeId, member.worktree));
   const created = members.filter((m) => !m.linked);
   let frameId: string | undefined;
   if (created.length > 0) {
@@ -92,9 +95,11 @@ async function formTeam(orchestratorId: string, workspaceId: string, project: st
 }
 
 /** Types its sub-task in a member's terminal once it is ready (spec §7.3). */
-async function assign(orchestratorId: string, member: Member, mission: string, task: SubTask) {
+async function assign(orchestratorId: string, member: Member, mission: string, task: SubTask, restarted: Promise<void> = Promise.resolve()) {
   const id = member.nodeId;
-  await whenReady({ running: () => isRunning(id), quietMs: () => quietFor(id), screen: () => terminalText(id, 50), press: (keys) => ptyWrite(id, keys) });
+  // Before its relaunch ends, its screen and silence are the previous session's (final review H2).
+  await restarted.catch(() => undefined);
+  await whenReady({ running: () => isRunning(id), quietMs: () => quietFor(id), screen: () => freshText(id, 50), press: (keys) => ptyWrite(id, keys) });
   if (missionOf(nodesStore.getState().nodes[orchestratorId])?.state !== "en_cours") return;
   if (!isRunning(id)) {
     notify(orchestratorId, `${member.name} n'a pas démarré : sa sous-tâche n'est pas envoyée.`);
@@ -111,9 +116,10 @@ export async function launchMission(orchestratorId: string): Promise<void> {
   const session = sessionOf(record);
   if (!record || !mission || !session || mission.state !== "plan" || !mission.plan?.length) return;
   setMission(orchestratorId, { state: "lancement", error: undefined });
+  const restarts: Restarts = new Map();
   let team: Team;
   try {
-    team = await formTeam(orchestratorId, record.workspaceId, session.cwd, mission);
+    team = await formTeam(orchestratorId, record.workspaceId, session.cwd, mission, restarts);
   } catch (error) {
     setMission(orchestratorId, { state: "plan", error: errorText(error) });
     notify(orchestratorId, `La mission n'a pas pu démarrer : ${errorText(error)}`);
@@ -123,7 +129,7 @@ export async function launchMission(orchestratorId: string): Promise<void> {
   const names = team.members.map((m) => `${m.name} (${m.task})`).join(", ");
   notify(orchestratorId, `Feu vert : l'équipe est formée — ${names}. Branche de la mission : ${team.branch}. Chacun reçoit sa sous-tâche dès que son terminal est prêt.`);
   const plan = mission.plan;
-  team.members.forEach((member, i) => void assign(orchestratorId, member, mission.name ?? "", plan[i]));
+  team.members.forEach((member, i) => void assign(orchestratorId, member, mission.name ?? "", plan[i], restarts.get(member.nodeId)));
 }
 
 /** `terminer` (spec §7.7): created agents close, linked ones go back to the project. */
@@ -132,7 +138,7 @@ export function endMission(orchestratorId: string, summary: string) {
   if (mission?.state !== "en_cours") return;
   // Ended first: the agents stopping now are no events.
   setMission(orchestratorId, { state: "terminee", summary });
-  for (const member of mission.members) if (member.linked && mission.project) restartIn(member.nodeId, mission.project);
+  for (const member of mission.members) if (member.linked && mission.project) void restartIn(member.nodeId, mission.project);
   if (mission.frameId) closeGroup(mission.frameId);
 }
 

@@ -10,6 +10,7 @@ import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { notify } from "./events";
+import { whenReady } from "./ready";
 import { cleanMission, endMission, launchMission, mergeMission, subTaskText } from "./launch";
 import type { Member, Mission } from "./mission";
 import { missionOf } from "./store";
@@ -21,7 +22,7 @@ vi.mock("@/ipc/pty", async (importOriginal) => ({
   ptySendText: vi.fn(() => Promise.resolve()),
   ptyWrite: vi.fn(() => Promise.resolve()),
 }));
-vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), quietFor: vi.fn(() => 0), terminalText: vi.fn(() => ""), markForAutostart: vi.fn() }));
+vi.mock("@/nodes/terminal/registry", () => ({ relaunchTerminal: vi.fn(), quietFor: vi.fn(() => 0), freshText: vi.fn(() => ""), markForAutostart: vi.fn() }));
 vi.mock("@/fleet/groups", () => ({ launchGroup: vi.fn(), closeGroup: vi.fn() }));
 vi.mock("@/fleet/orchestrators", () => ({ linkOrchestrator: vi.fn() }));
 vi.mock("./ready", () => ({ whenReady: vi.fn(() => Promise.resolve(true)) }));
@@ -102,6 +103,19 @@ describe("launchMission (spec §7.3)", () => {
     await vi.waitFor(() => expect(missionNow().members.every((m) => m.sentAt !== undefined)).toBe(true));
     expect(ptySendText).toHaveBeenCalledWith("isis", subTaskText("Auth", plan[0], "openvibe/auth-isis"));
     expect(ptySendText).toHaveBeenCalledWith("n1", subTaskText("Auth", plan[1], tree(`auth-${fresh.toLowerCase()}`).branch));
+  });
+
+  it("judges a linked agent ready only once it is relaunched in its worktree (final review H2)", async () => {
+    await setup();
+    let relaunched!: () => void;
+    vi.mocked(relaunchTerminal).mockReturnValueOnce(new Promise<void>((resolve) => (relaunched = resolve)));
+    await launchMission("chef");
+    await vi.waitFor(() => expect(ptySendText).toHaveBeenCalledWith("n1", expect.any(String)));
+    expect(whenReady).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(ptySendText).mock.calls.some(([id]) => id === "isis")).toBe(false);
+    relaunched();
+    await vi.waitFor(() => expect(ptySendText).toHaveBeenCalledWith("isis", expect.any(String)));
+    expect(whenReady).toHaveBeenCalledTimes(2);
   });
 
   it("takes a mission whose git fails back to its plan, with the error, and launches no one", async () => {
