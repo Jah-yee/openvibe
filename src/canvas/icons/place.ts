@@ -1,5 +1,6 @@
 import { CaptureUpdateAction, restoreElements } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import { focusCanvas } from "@/radial/bridges";
 import { canvasStore } from "../canvasStore";
 import { instantiate, type IconItem, type RawElement } from "./library";
 
@@ -18,8 +19,12 @@ export function insertIcon(item: IconItem) {
     appState: {
       selectedElementIds: Object.fromEntries(fresh.map((e) => [e.id, true as const])),
       selectedGroupIds: whole ? { [whole]: true } : {},
+      // The icon takes the keyboard: no terminal stays active, no group stays open (final review maj §4).
+      activeEmbeddable: null,
+      editingGroupId: null,
     },
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
   api.setActiveTool({ type: "selection" });
+  focusCanvas();
 }

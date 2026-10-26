@@ -268,3 +268,11 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Supprimer un orchestrateur en pleine mission laisse ses agents reliés dans leur worktree, avec le modèle du routeur (la puce de l'en-tête permet de revenir au modèle par défaut).
 - Tests absents : `withModel` de `launchGroup`, le modèle d'un agent « nouveau » de `reattribuer`, les guillemets de `--model` sous cmd et Git Bash.
 
+### Icônes Excalidraw
+- Messages du panneau : « Icônes introuvables » reste affiché pour toute catégorie après un seul échec, et une recherche dit « Aucune icône » pendant que le gros fichier AWS se charge encore. Tenir un état de chargement par catégorie.
+- Le cache des vignettes garde jusqu'à 1 252 SVG (626 icônes × 2 thèmes) et retient un échec de dessin jusqu'au redémarrage.
+- Le centrage ignore la rotation : 56 icônes ont des formes tournées et tombent à quelques pixels du centre (Excalidraw utilise `getCommonBounds`).
+- Rien ne filtre ce qu'une bibliothèque apporterait de plus lors d'un prochain téléchargement : retirer embeddable, iframe, frame, image et `customData`/`link` dans `readLibrary`. Les fichiers actuels sont propres. « Auto Scaling group » (AWS) contient des éléments verrouillés.
+- Sans canvas, le clic ne pose rien mais ferme quand même le panneau ; le panneau se vide pendant l'animation de fermeture ; chaque copie d'une icône garde les mêmes graines de dessin.
+- Une icône posée sur un groupe d'agents ne rejoint pas son cadre (Excalidraw l'y ajouterait).
+
