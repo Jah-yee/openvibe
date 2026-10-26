@@ -97,3 +97,37 @@ Les six idées de « prochaine mise à jour » du `BACKLOG.md`, faites la nuit d
 - Les icônes sans nom dans leur bibliothèque prennent le texte qu'elles contiennent, sinon « <bibliothèque> <n> ».
 - Une recherche affiche 120 icônes au plus. Les vignettes ne sont dessinées qu'à leur apparition dans la grille, une fois par thème.
 - Les logos AWS, Azure et Google Cloud restent des marques de leurs propriétaires. Les crédits le rappellent, et ces logos servent à dessiner des architectures.
+
+## 5. Revue des changements des agents (`feat/revue-diffs`)
+
+**Demande** : « Pouvoir visualiser les diffs réalisés par les agents et faciliter le code review de la sortie des agents (un peu IDE embarqué avec visualisation de fichiers du workspace). »
+
+**Comportement**
+
+- Un panneau « Revue · <agent> » s'ouvre à droite du canvas. On y accède par :
+  - le bouton de l'en-tête d'un terminal ;
+  - une ligne du panneau Agents ;
+  - « diff » dans l'équipe d'une mission ;
+  - la palette (« Revue des changements »).
+
+  Échap ou × le ferme.
+- **Onglet Changements** : les fichiers changés dans le dossier de l'agent, chacun avec sa lettre (A, N pour un fichier non suivi, M, D, R), ses lignes `+n −m` et son diff unifié, numéroté des deux côtés et coloré.
+- **Base de comparaison** : « Non commité » compare avec HEAD. « Depuis <base> » compare avec le commit où la branche a divergé de la base, committé ou non, fichiers non suivis compris. La base est la branche de la mission pour un agent de mission, sinon la branche par défaut du dépôt (`origin/HEAD`, sinon `main` ou `master`).
+- **Onglet Fichiers** : les fichiers du dépôt (suivis ou non, pas ceux ignorés), filtrables, et leur contenu en lecture seule avec numéros de ligne.
+- **Remarques** : un clic sur une ligne du diff ouvre un champ « Remarque ». Les remarques s'accumulent en bas du panneau, puis « Envoyer à <agent> » les tape en un seul message :
+
+  ```
+  Revue de code de tes changements :
+  - src/a.ts:12 — …
+  - src/a.ts (ligne 11 supprimée) — …
+  Corrige ce qui doit l'être, puis dis-moi ce que tu as changé.
+  ```
+
+  Comme une consigne, rien n'est envoyé à un agent arrêté ou qui attend une réponse ; un toast le dit.
+
+**Décisions**
+
+- Un panneau plutôt qu'un nœud sur le canvas : la revue a besoin de place, et elle ne doit pas s'enregistrer dans l'espace de travail.
+- Lecture seule : l'agent corrige, l'utilisateur relit. Un fichier ne peut pas être lu hors de la racine du dépôt (chemins absolus et `..` refusés, chemin canonique vérifié). Une base qui commence par `-` est refusée : elle serait lue comme une option de git.
+- Un diff ou un fichier de plus de 1 Mo est coupé ; l'affichage s'arrête à 4 000 lignes. L'onglet Fichiers liste 400 fichiers au plus, le filtre trouve les autres.
+- git est lancé avec `--no-optional-locks` (les agents commitent dans ces dépôts) et `core.quotePath=false` (accents dans les chemins).

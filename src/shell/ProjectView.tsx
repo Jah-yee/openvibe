@@ -5,6 +5,7 @@ import { useAgentsPanel } from "@/fleet/agentsPanelState";
 import { agentsStore } from "@/fleet/agentsStore";
 import { LinkMode } from "@/fleet/LinkMode";
 import { RadialMenu } from "@/radial/RadialMenu";
+import { ReviewPanel } from "@/review/ReviewPanel";
 import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
 import { ActivityRail } from "./ActivityRail";
@@ -55,6 +56,7 @@ export function ProjectView() {
           <PlacementGhost />
           <LinkMode />
           <RadialMenu />
+          <ReviewPanel />
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">

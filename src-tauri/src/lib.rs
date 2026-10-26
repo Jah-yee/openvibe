@@ -6,6 +6,7 @@ mod git;
 mod mission;
 mod process;
 mod pty;
+mod review;
 
 use std::time::Duration;
 
@@ -84,6 +85,11 @@ pub fn run() {
             commands::project::delete_project,
             commands::workspace::set_workspace_pantheon,
             commands::git::git_status,
+            commands::review::review_changes,
+            commands::review::review_file_diff,
+            commands::review::review_files,
+            commands::review::review_read_file,
+            commands::review::review_default_base,
             commands::mission::mission_prepare,
             commands::mission::mission_add_agent,
             commands::mission::mission_merge,
