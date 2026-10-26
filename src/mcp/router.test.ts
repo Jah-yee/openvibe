@@ -4,6 +4,7 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { answer } from "./router";
 import { pauseAgents } from "@/fleet/broadcast";
+import { setRemoteControl } from "@/fleet/remoteControl";
 import { ptySendText } from "@/ipc/pty";
 import { terminalText } from "@/nodes/terminal/registry";
 import { notify } from "@/mission/events";
@@ -22,6 +23,7 @@ vi.mock("@/mission/launch", () => ({
 }));
 vi.mock("@/mission/events", () => ({ notify: vi.fn() }));
 vi.mock("@/fleet/broadcast", () => ({ pauseAgents: vi.fn(() => Promise.resolve(1)) }));
+vi.mock("@/fleet/remoteControl", () => ({ setRemoteControl: vi.fn() }));
 vi.mock("@/mission/store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/mission/store")>()),
   linkedClaudeAgents: vi.fn(() => [{ nodeId: "isis", name: "Isis" }]),
@@ -90,7 +92,7 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
 
   it("lists them for the orchestrator only, and each side refuses the other's", async () => {
     const list = (await answer({ callId: 1, nodeId: "chef", method: "tools/list", params: {} })) as { tools: { name: string }[] };
-    expect(list.tools.map((t) => t.name)).toEqual(["mission", "proposer_plan", "equipe", "lire_sortie", "ecrire", "prolonger", "interrompre", "reattribuer", "fusionner", "terminer"]);
+    expect(list.tools.map((t) => t.name)).toEqual(["mission", "proposer_plan", "equipe", "lire_sortie", "ecrire", "prolonger", "interrompre", "reattribuer", "fusionner", "terminer", "remote_control"]);
     expect(textOf(await call("isis", "proposer_plan", plan))).toBe("Outil réservé à l'orchestrateur.");
     expect(textOf(await call("chef", "rendre_compte", { resume: "x", statut: "termine" }))).toBe("Outil réservé aux agents.");
   });
@@ -109,6 +111,25 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       plan: [{ titre: "Login", agent: "Isis" }, { titre: "API", agent: "nouveau" }],
       agents_relies: [{ prenom: "Isis" }],
     });
+  });
+
+  it("turns Remote Control on or off for its agents or itself, and gives the links (spec maj §2)", async () => {
+    vi.mocked(setRemoteControl).mockImplementation(async (id, on) => (on ? { on: true, url: `https://claude.ai/code/session_${id}` } : { on: false }));
+    terminalStatusStore.getState().set("isis", { state: "running" });
+    terminalStatusStore.getState().set("chef", { state: "running" });
+    expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["tous", "moi"] }))).toBe(
+      "Isis : actif — https://claude.ai/code/session_isis\nToi : actif — https://claude.ai/code/session_chef",
+    );
+    expect(textOf(await call("chef", "remote_control", { actif: false, agents: ["isis"] }))).toBe("Isis : coupé");
+    vi.mocked(setRemoteControl).mockResolvedValueOnce({ error: "Remote Control requires a claude.ai subscription" });
+    expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["Isis"] }))).toBe("Isis : échec — Remote Control requires a claude.ai subscription");
+    terminalStatusStore.getState().set("isis", { state: "stopped" });
+    vi.mocked(setRemoteControl).mockResolvedValueOnce({ on: true });
+    expect(textOf(await call("chef", "remote_control", { actif: true, agents: ["Isis"] }))).toBe("Isis : actif à son prochain démarrage");
+    vi.mocked(setRemoteControl).mockClear();
+    expect(await call("chef", "remote_control", { actif: true, agents: ["Zeus"] })).toMatchObject({ isError: true });
+    expect(await call("chef", "remote_control", { agents: ["Isis"] })).toMatchObject({ isError: true });
+    expect(setRemoteControl).not.toHaveBeenCalled();
   });
 
   it("says so when its workspace is not on screen, instead of finding no linked agent (final review H2)", async () => {
