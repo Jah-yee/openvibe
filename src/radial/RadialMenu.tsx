@@ -40,7 +40,8 @@ export function RadialMenu() {
           <button
             key={slot}
             type="button"
-            data-slot={slot}
+            // Not data-slot: shadcn's components carry one of their own.
+            data-radial-slot={slot}
             aria-label={line.label}
             aria-disabled={!line.enabled}
             className={cn(

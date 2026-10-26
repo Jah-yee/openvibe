@@ -54,7 +54,7 @@ const open = () =>
       hovered: null,
     }),
   );
-const buttons = () => [...document.querySelectorAll<HTMLButtonElement>("[data-slot]")];
+const buttons = () => [...document.querySelectorAll<HTMLButtonElement>("[data-radial-slot]")];
 
 it("draws the ring around the click, clockwise from the top (spec menu radial §4.2, §5.1)", async () => {
   await open();
