@@ -1,0 +1,176 @@
+import { canvasStore } from "@/canvas/canvasStore";
+import { GROUP_GAP, groupGrid } from "@/fleet/groupLayout";
+import { closeGroup, launchGroup } from "@/fleet/groups";
+import { defaultLaunchOptions } from "@/fleet/launchAgent";
+import { nextName } from "@/fleet/names";
+import { namesInWorkspace, pantheonForNewGroup } from "@/fleet/naming";
+import { linkOrchestrator } from "@/fleet/orchestrators";
+import { missionAddAgent, missionCleanup, missionMerge, missionPrepare, type Cleanup } from "@/ipc/mission";
+import { ptySendText, ptyWrite } from "@/ipc/pty";
+import { newConversation } from "@/nodes/terminal/launch";
+import { quietFor, relaunchTerminal, terminalText } from "@/nodes/terminal/registry";
+import { nodesStore, sessionOf, terminalOf } from "@/store/nodes";
+import { isRunning } from "@/store/terminalStatus";
+import { notify } from "./events";
+import { NEW_AGENT, NEW_MISSION, oneLine, sameName, type Member, type Mission, type SubTask } from "./mission";
+import { whenReady } from "./ready";
+import { linkedClaudeAgents, missionOf, setMission, updateMember } from "./store";
+
+const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+/** What an agent of the mission reads first (spec orchestrateur §7.3, §7.4). */
+export function subTaskText(mission: string, task: SubTask, branch: string): string {
+  const brief = oneLine(task.brief);
+  return (
+    `[OpenVibe · mission ${mission}] ${task.title} — ${brief}${/[.!?]$/.test(brief) ? "" : "."} ` +
+    `Budget : ${task.budgetMin} min. Branche : ${branch}. ` +
+    "Ce worktree est neuf : les dépendances (node_modules…) n'y sont pas installées. " +
+    "Déclare tes étapes, délègue à tes sous-agents, commit sur ta branche, puis rends compte avec rendre_compte."
+  );
+}
+
+/** A linked agent moves to `cwd` in a new conversation: a Claude session does not resume from another folder (spec §7.3). */
+function restartIn(nodeId: string, cwd: string) {
+  const payload = terminalOf(nodesStore.getState().nodes[nodeId]);
+  if (!payload) return;
+  const patch = { cwd, ...newConversation() };
+  nodesStore.getState().update(nodeId, patch);
+  relaunchTerminal(nodeId, { ...payload, ...patch }, "new");
+}
+
+/** Right of the orchestrator, tops aligned; `launchGroup` moves it down past what it would cover. */
+function besideOrchestrator(orchestratorId: string, count: number) {
+  const element = canvasStore.getState().api?.getSceneElements().find((e) => e.id === orchestratorId);
+  if (!element) return undefined;
+  const grid = groupGrid(count);
+  return { x: element.x + element.width + GROUP_GAP + grid.width / 2, y: element.y + grid.height / 2 };
+}
+
+function newNames(workspaceId: string, pantheon: string, count: number): string[] {
+  const names: string[] = [];
+  const taken = namesInWorkspace(workspaceId);
+  for (let i = 0; i < count; i++) names.push(nextName(pantheon, [...taken, ...names]));
+  return names;
+}
+
+type Team = Required<Pick<Mission, "project" | "slug" | "branch" | "worktree">> & Pick<Mission, "frameId" | "members">;
+
+/** OpenVibe — not the AI — forms the team: every worktree first, then the agents (spec §7.3). */
+async function formTeam(orchestratorId: string, workspaceId: string, project: string, mission: Mission): Promise<Team> {
+  const plan = mission.plan ?? [];
+  const linked = linkedClaudeAgents(orchestratorId);
+  const agents = plan.map((task) => (task.agent === NEW_AGENT ? null : (linked.find((a) => sameName(a.name, task.agent)) ?? null)));
+  const lost = plan.find((task, i) => task.agent !== NEW_AGENT && !agents[i]);
+  if (lost) throw new Error(`${lost.agent} n'est plus relié à l'orchestrateur.`);
+  const pantheon = pantheonForNewGroup(workspaceId);
+  const fresh = newNames(workspaceId, pantheon, agents.filter((a) => a === null).length);
+  const root = await missionPrepare(project, mission.name ?? "mission");
+  const members: Member[] = [];
+  let next = 0;
+  for (const [i, task] of plan.entries()) {
+    const agent = agents[i];
+    const name = agent?.name ?? fresh[next++];
+    const tree = await missionAddAgent(project, root.slug, name);
+    members.push({ nodeId: agent?.nodeId ?? "", name, task: task.title, budgetMin: task.budgetMin, linked: agent !== null, branch: tree.branch, worktree: tree.path });
+  }
+  for (const member of members) if (member.linked) restartIn(member.nodeId, member.worktree);
+  const created = members.filter((m) => !m.linked);
+  let frameId: string | undefined;
+  if (created.length > 0) {
+    const group = await launchGroup(
+      { name: `Mission ${mission.name}`, role: "general", agents: created.map(() => "claude" as const) },
+      defaultLaunchOptions(),
+      besideOrchestrator(orchestratorId, created.length),
+      { pantheon, names: created.map((m) => m.name), cwds: created.map((m) => m.worktree) },
+    );
+    if (!group) throw new Error("Le groupe des nouveaux agents n'a pas pu être créé.");
+    created.forEach((member, i) => (member.nodeId = group.nodeIds[i]));
+    frameId = group.frameId;
+    linkOrchestrator(orchestratorId, group.frameId);
+  }
+  return { project, slug: root.slug, branch: root.branch, worktree: root.path, frameId, members };
+}
+
+/** Types its sub-task in a member's terminal once it is ready (spec §7.3). */
+async function assign(orchestratorId: string, member: Member, mission: string, task: SubTask) {
+  const id = member.nodeId;
+  await whenReady({ running: () => isRunning(id), quietMs: () => quietFor(id), screen: () => terminalText(id, 50), press: (keys) => ptyWrite(id, keys) });
+  if (missionOf(nodesStore.getState().nodes[orchestratorId])?.state !== "en_cours") return;
+  if (!isRunning(id)) {
+    notify(orchestratorId, `${member.name} n'a pas démarré : sa sous-tâche n'est pas envoyée.`);
+    return;
+  }
+  await ptySendText(id, subTaskText(mission, task, member.branch));
+  updateMember(orchestratorId, id, { sentAt: Date.now() });
+}
+
+/** « Lancer la mission » (spec §7.3): the plan's go-ahead. A second click while it launches does nothing. */
+export async function launchMission(orchestratorId: string): Promise<void> {
+  const record = nodesStore.getState().nodes[orchestratorId];
+  const mission = missionOf(record);
+  const session = sessionOf(record);
+  if (!record || !mission || !session || mission.state !== "plan" || !mission.plan?.length) return;
+  setMission(orchestratorId, { state: "lancement", error: undefined });
+  let team: Team;
+  try {
+    team = await formTeam(orchestratorId, record.workspaceId, session.cwd, mission);
+  } catch (error) {
+    setMission(orchestratorId, { state: "plan", error: errorText(error) });
+    notify(orchestratorId, `La mission n'a pas pu démarrer : ${errorText(error)}`);
+    return;
+  }
+  setMission(orchestratorId, { state: "en_cours", ...team });
+  const names = team.members.map((m) => `${m.name} (${m.task})`).join(", ");
+  notify(orchestratorId, `Feu vert : l'équipe est formée — ${names}. Branche de la mission : ${team.branch}. Chacun reçoit sa sous-tâche dès que son terminal est prêt.`);
+  const plan = mission.plan;
+  team.members.forEach((member, i) => void assign(orchestratorId, member, mission.name ?? "", plan[i]));
+}
+
+/** `terminer` (spec §7.7): created agents close, linked ones go back to the project. */
+export function endMission(orchestratorId: string, summary: string) {
+  const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
+  if (mission?.state !== "en_cours") return;
+  // Ended first: the agents stopping now are no events.
+  setMission(orchestratorId, { state: "terminee", summary });
+  for (const member of mission.members) if (member.linked && mission.project) restartIn(member.nodeId, mission.project);
+  if (mission.frameId) closeGroup(mission.frameId);
+}
+
+/** `fusionner` (spec §7.6): the branches of the agents done since the last merge. */
+export async function mergeMission(orchestratorId: string): Promise<string> {
+  const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
+  if (!mission?.worktree) return "La mission n'a pas de branche.";
+  const ready = mission.members.filter((m) => m.report?.status === "termine" && !m.merged);
+  if (ready.length === 0) return "Rien à fusionner : aucun agent n'a rendu compte « termine » depuis la dernière fusion.";
+  const lines: string[] = [];
+  for (const member of ready) {
+    try {
+      const { merge, uncommitted } = await missionMerge(mission.worktree, member.worktree, member.branch);
+      const note = uncommitted ? " (des changements non commités de son worktree ne sont pas fusionnés)" : "";
+      if (merge.kind === "conflict") {
+        lines.push(`${member.name} : conflit, fusion annulée — ${merge.files.join(", ")}${note}`);
+        continue;
+      }
+      updateMember(orchestratorId, member.nodeId, { merged: true });
+      lines.push(`${member.name} : ${merge.kind === "merged" ? "fusionné" : "rien à fusionner (aucun commit)"}${note}`);
+    } catch (error) {
+      lines.push(`${member.name} : échec — ${errorText(error)}`);
+    }
+  }
+  return `Branche ${mission.branch} :\n${lines.join("\n")}`;
+}
+
+/** « Nettoyer la mission » (spec §7.7): merged worktrees go, the branches stay; the orchestrator is free again. */
+export async function cleanMission(orchestratorId: string): Promise<Cleanup | string> {
+  const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
+  if (mission?.state !== "terminee") return "La mission n'est pas terminée.";
+  try {
+    const result = mission.project && mission.slug ? await missionCleanup(mission.project, mission.slug, mission.members.map((m) => m.name)) : { removed: [], kept: [] };
+    const next: Mission = { ...NEW_MISSION, maxAgents: mission.maxAgents };
+    if (mission.budgetMin !== undefined) next.budgetMin = mission.budgetMin;
+    nodesStore.getState().update(orchestratorId, { mission: next });
+    return result;
+  } catch (error) {
+    return errorText(error);
+  }
+}

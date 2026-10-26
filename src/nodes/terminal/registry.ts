@@ -12,6 +12,7 @@ import { createAutostart } from "./autostart";
 import { TERMINAL_THEME } from "./terminalTheme";
 import { watchDevicePixelRatio } from "./dprWatch";
 import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, renderZoom, type FontMeasure } from "./crisp";
+import { bufferText } from "./bufferText";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
 import { newConversation, type LaunchMode } from "./launch";
 import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
@@ -29,6 +30,8 @@ interface Entry {
   zoom: number;
   opened: boolean;
   session: SessionState;
+  /** When output was last written: a quiet agent is ready (spec orchestrateur §7.3). */
+  lastOutput?: number;
 }
 
 const FONT_FAMILY = "'Cascadia Code', Consolas, monospace";
@@ -67,6 +70,9 @@ function create(nodeId: string): Entry {
   const screen = document.createElement("div");
   screen.style.cssText = "position:absolute;left:0;top:0;overflow:hidden;transform-origin:0 0";
   const entry: Entry = { term, screen, zoom: 1, opened: false, session: { replaying: false } };
+  term.onWriteParsed(() => {
+    entry.lastOutput = Date.now();
+  });
 
   term.attachCustomKeyEventHandler((event) => {
     const action = keyAction(event, term.hasSelection());
@@ -192,6 +198,18 @@ async function startFresh(nodeId: string, entry: Entry) {
   }
 }
 
+/** How long the terminal has written nothing; 0 before its first output. */
+export function quietFor(nodeId: string): number {
+  const last = entries.get(nodeId)?.lastOutput;
+  return last === undefined ? 0 : Date.now() - last;
+}
+
+/** The last `lines` lines of the terminal, as plain text (spec orchestrateur §7.2 `lire_sortie`). */
+export function terminalText(nodeId: string, lines: number): string {
+  const term = entries.get(nodeId)?.term;
+  return term ? bufferText(term.buffer.active, lines) : "";
+}
+
 /** True while a process started before a webview reload awaits re-attachment. */
 export function isLiveInRust(nodeId: string): boolean {
   return livePtys.has(nodeId);
@@ -212,9 +230,10 @@ export function resumeTerminal(nodeId: string) {
 }
 
 export function relaunchTerminal(nodeId: string, payload: TerminalPayload, mode: LaunchMode) {
-  const entry = entries.get(nodeId);
+  // A terminal not shown since the app started has no xterm yet: a mission still starts it.
+  const entry = entries.get(nodeId) ?? create(nodeId);
   autostart.cancel(nodeId);
-  if (entry) void relaunchSession(nodeId, entry.term, payload, mode);
+  void relaunchSession(nodeId, entry.term, payload, mode);
 }
 
 export function stopTerminal(nodeId: string) {

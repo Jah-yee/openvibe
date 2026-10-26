@@ -25,6 +25,13 @@ export interface GroupPlan {
   agents: AgentId[];
 }
 
+/** Who staffs a mission's group: its pantheon, its agents' names and folders (spec orchestrateur §7.3). */
+export interface GroupStaffing {
+  pantheon: string;
+  names: readonly string[];
+  cwds: readonly string[];
+}
+
 /** Time between two agents of a new group starting (spec habillage §20). */
 export const LAUNCH_STAGGER_MS = 300;
 
@@ -33,11 +40,16 @@ export const LAUNCH_STAGGER_MS = 300;
  * scene update, so one undo removes it — then shows it whole and starts its
  * agents one by one (spec habillage §11.3).
  */
-export async function launchGroup(plan: GroupPlan, options: LaunchOptions = defaultLaunchOptions(), at?: Point) {
+export async function launchGroup(
+  plan: GroupPlan,
+  options: LaunchOptions = defaultLaunchOptions(),
+  at?: Point,
+  staffing?: GroupStaffing,
+): Promise<{ frameId: string; nodeIds: string[] } | null> {
   const { api, view } = canvasStore.getState();
   const workspaceId = workspacesStore.getState().activeId;
-  if (!api || !workspaceId || plan.agents.length === 0) return;
-  const pantheon = pantheonForNewGroup(workspaceId);
+  if (!api || !workspaceId || plan.agents.length === 0) return null;
+  const pantheon = staffing?.pantheon ?? pantheonForNewGroup(workspaceId);
   const grid = groupGrid(plan.agents.length);
   const center = at ?? viewportCenter(view);
   const obstacles = api.getSceneElements().map(({ x, y, width, height }) => ({ x, y, width, height }));
@@ -49,24 +61,27 @@ export async function launchGroup(plan: GroupPlan, options: LaunchOptions = defa
   const frame = createGroupFrame({ ...origin, width: grid.width, height: grid.height }, name, { role: plan.role, pantheon });
   const taken = namesInWorkspace(workspaceId);
   const terminals: ExcalidrawElement[] = [];
+  const nodeIds: string[] = [];
   for (const [i, agent] of plan.agents.entries()) {
     const cell = grid.cells[i];
     const node = createNodeElement("terminal", { x: origin.x + cell.x + cell.width / 2, y: origin.y + cell.y + cell.height / 2 });
-    const agentName = nextName(pantheon, taken);
+    const agentName = staffing?.names[i] ?? nextName(pantheon, taken);
     taken.push(agentName);
     await nodesStore.getState().create(node.id, {
       workspaceId,
       kind: "terminal",
-      payload: newTerminalPayload({ ...options, agent }, agentName),
+      payload: newTerminalPayload({ ...options, cwd: staffing?.cwds[i] ?? options.cwd, agent }, agentName),
     });
     markForAutostart(node.id, i * LAUNCH_STAGGER_MS);
     terminals.push({ ...node, frameId: frame.id });
+    nodeIds.push(node.id);
   }
   api.updateScene({
     elements: [...api.getSceneElementsIncludingDeleted(), ...terminals, frame],
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
   api.scrollToContent(frame, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true, duration: 300, maxZoom: 1 });
+  return { frameId: frame.id, nodeIds };
 }
 
 /** "Ajouter un agent" of the group menu: the group's first free cell (spec §11.4). */
