@@ -161,6 +161,7 @@ L'anneau construit le contexte de sa cible : `terminalId` est le terminal visé,
 
 - **Dupliquer, Premier plan, Arrière-plan, Verrouiller, Supprimer** : les raccourcis d'Excalidraw (Ctrl+D, Ctrl+Maj+], Ctrl+Maj+[, Ctrl+Maj+L, Suppr), envoyés à son conteneur comme « Annuler » (plan F2).
 - **Copier / Coller (dessins)** : les évènements `copy` et `paste` d'Excalidraw, le presse-papiers du système lu et écrit par l'application ; le collage se fait au point du clic.
+- **Lecture du presse-papiers** : sans Ctrl+V, WebView2 la soumet à son invite (« tauri.localhost souhaite voir le texte et les images copiés… »). Choix de Mathieu à la vérification : la fenêtre principale est créée par l'application avec l'accès au presse-papiers de Tauri (`enable_clipboard_access`), sans invite et sans dépendance ajoutée.
 - **Texte** : un double-clic synthétique au point du clic.
 - **Plus…** : la cible sélectionnée, un `contextmenu` synthétique au point du clic, marqué pour que l'écouteur de l'anneau le laisse passer.
 - **Terminal** : Copier reprend la sélection d'xterm (comme ses raccourcis) ; Coller lit le presse-papiers et le colle dans xterm.
