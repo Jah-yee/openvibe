@@ -1,7 +1,10 @@
 import type { Step, StepState } from "@/nodes/steps";
 
-/** Between the terminal's bottom edge and its frieze. */
-export const TIMELINE_GAP = 8;
+/**
+ * Between the terminal's bottom edge and its frieze, in scene units: the frieze
+ * is drawn at the scene's scale and fits in the 24 between two rows of a group.
+ */
+export const TIMELINE_GAP = 3;
 
 /** Done, running, to come, failed (spec orchestrateur §5.1; tokens of spec identité). */
 export const STEP_COLOR: Record<StepState, string> = {

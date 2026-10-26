@@ -13,7 +13,7 @@ import { TERMINAL_THEME } from "./terminalTheme";
 import { watchDevicePixelRatio } from "./dprWatch";
 import { BASE_FONT_SIZE, canvasMeasure, fontFor, gridFor, renderZoom, type FontMeasure } from "./crisp";
 import { keyAction, NEWLINE_SEQUENCE } from "./keys";
-import type { LaunchMode } from "./launch";
+import { newConversation, type LaunchMode } from "./launch";
 import { isTypingKey, startsNewConversation, startsOnKeystroke } from "./pill";
 import { acceptsInput, attachSession, relaunchSession, restoreSession, startSession, type SessionState } from "./session";
 
@@ -177,9 +177,9 @@ async function startFresh(nodeId: string, entry: Entry) {
   let payload = terminalOf(nodesStore.getState().nodes[nodeId]);
   if (!payload) return;
   if (payload.agent === "claude" && startsNewConversation(statusOf(nodeId))) {
-    const claudeSessionId = crypto.randomUUID();
-    nodesStore.getState().update(nodeId, { claudeSessionId });
-    payload = { ...payload, claudeSessionId };
+    const fresh = newConversation();
+    nodesStore.getState().update(nodeId, fresh);
+    payload = { ...payload, ...fresh };
   }
   autostart.cancel(nodeId);
   // Set before the first await: xterm sends the triggering key to onData right

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSpawnSpec, defaultTitle, newTerminalPayload } from "./launch";
+import { buildSpawnSpec, defaultTitle, newConversation, newTerminalPayload, switchedAgent } from "./launch";
 
 const base = { title: "", cwd: "C:\\code\\openvibe", agent: "shell" as const, command: "", shell: "default" as const };
 
@@ -55,5 +55,22 @@ describe("buildSpawnSpec", () => {
     const spec = buildSpawnSpec(newTerminalPayload(base), "new");
     expect(spec.claude).toBeUndefined();
     expect(spec.ollama).toBeUndefined();
+  });
+});
+
+describe("a new conversation (final review H1)", () => {
+  it("gets its own id and drops the steps of the previous one", () => {
+    const patch = newConversation();
+    expect(patch.claudeSessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect("steps" in patch && patch.steps === undefined).toBe(true);
+  });
+
+  it("drops the steps when the terminal switches agent, a conversation id given to Claude if it has none", () => {
+    const base = { title: "", name: "Isis", agent: "codex" as const, cwd: "C:/code", shell: "default" as const, command: "", steps: [{ title: "Plan", state: "fait" as const }] };
+    expect(switchedAgent(base, "shell")).toEqual({ agent: "shell", steps: undefined });
+    const claude = switchedAgent(base, "claude");
+    expect(claude).toMatchObject({ agent: "claude", steps: undefined });
+    expect(claude.claudeSessionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(switchedAgent({ ...base, claudeSessionId: "s1" }, "claude")).toEqual({ agent: "claude", steps: undefined });
   });
 });

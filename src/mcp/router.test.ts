@@ -41,6 +41,8 @@ describe("the agent's tools (spec orchestrateur §4.4)", () => {
     const wrong = (await call("isis", "etape", { titre: "Plan", etat: "fini" })) as { isError?: boolean };
     expect(wrong.isError).toBe(true);
     expect((await call("isis", "declarer_etapes", {})) as { isError?: boolean }).toMatchObject({ isError: true });
+    // Final review H1: a long title is refused before anything changes, not after.
+    expect((await call("isis", "etape", { titre: "Implémentation du middleware d'authentification", etat: "fait" })) as { isError?: boolean }).toMatchObject({ isError: true });
     expect(textOf(await call("isis", "voler", {}))).toBe("Outil inconnu : voler");
     expect(textOf(await call("gone", "etape", { titre: "Plan", etat: "fait" }))).toBe("Ce terminal n'est plus sur le canvas.");
     expect(textOf(await call("chef", "etape", { titre: "Plan", etat: "fait" }))).toBe("Ce terminal n'est plus sur le canvas.");

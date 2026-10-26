@@ -8,7 +8,8 @@ describe("an agent's steps (spec orchestrateur §4.4, §5)", () => {
       { title: "Plan", state: "a_venir" },
       { title: "Recherche", state: "a_venir" },
     ]);
-    expect(declaredSteps(["x".repeat(50)])).toEqual([{ title: "x".repeat(40), state: "a_venir" }]);
+    expect(declaredSteps(["x".repeat(40)])).toEqual([{ title: "x".repeat(40), state: "a_venir" }]);
+    expect(declaredSteps(["x".repeat(41)])).toBe("Chaque étape est un titre court (40 caractères au plus).");
     expect(declaredSteps([])).toBe("Donne entre 1 et 12 étapes.");
     expect(declaredSteps(Array.from({ length: 13 }, (_, i) => `É${i}`))).toBe("Donne entre 1 et 12 étapes.");
     expect(declaredSteps(["Plan", 3])).toBe("Chaque étape est un titre court.");
@@ -26,6 +27,7 @@ describe("an agent's steps (spec orchestrateur §4.4, §5)", () => {
     expect(markedSteps(steps, "Plan", "fini")).toBe("État inconnu : fini (en_cours, fait ou echec).");
     expect(markedSteps([], "Plan", "fait")).toEqual([{ title: "Plan", state: "fait" }]);
     expect(markedSteps(steps, "", "fait")).toBe("Chaque étape est un titre court.");
+    expect(markedSteps(steps, "x".repeat(41), "fait")).toBe("Chaque étape est un titre court (40 caractères au plus).");
   });
 
   it("keeps the steps a terminal saved, drops what it cannot read", () => {

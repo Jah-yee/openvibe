@@ -191,3 +191,15 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `readClipboardText` dit « Presse-papiers vide » quand le presse-papiers ne contient qu'une image : le texte est inexact (le comportement est juste).
 - `lib.rs` prend la fenêtre de la configuration par son index (`windows[0]`) : la chercher par son label `main`.
 
+## Constats du plan H1 (pont MCP et frise, relecture finale)
+
+- Titres d'étapes en double (`["Tests","Tests"]`, `["Plan","plan"]`) acceptés : clés React en double et la seconde étape ne se marque jamais. Refuser les doublons (sans casse), clés par indice.
+- Le « ×N » des sous-agents est dans le titre tronqué : il disparaît avec beaucoup d'étapes ou à faible zoom. Le sortir du titre.
+- Une étape « en cours » pulse encore sous un terminal arrêté (interruption, plantage, redémarrage). Ne pulser que si le terminal tourne.
+- Un second `pty_spawn` refusé (« tourne déjà ») révoque le jeton de la session vivante : `ended` ne devrait révoquer que le jeton de ce lancement, ou refuser avant `hooks_for`.
+- MCP : un lot JSON-RPC reçoit 202 sans corps, un JSON invalide 400 vide (au lieu de `-32700`), `params: null` passe par l'exception (au lieu de `-32602`), la version demandée est renvoyée telle quelle.
+- Le compte des sous-agents se perd au rechargement de la page (pas d'instantané depuis Rust).
+- Conversations commencées avant H1 et reprises : `--system-prompt-snapshot` (Claude Code 2.1.304) peut garder l'ancien prompt système, sans la consigne de rôle.
+- Tests : un hook servi pendant qu'un appel MCP attend ; `ended()` puis 401 côté Rust ; chemins avec espaces ou apostrophes pour cmd et Git Bash.
+- `std::thread::spawn` par requête `/mcp` : passer par `thread::Builder` et répondre 503 si le fil ne se crée pas.
+

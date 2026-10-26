@@ -43,6 +43,17 @@ export function newTerminalPayload(input: LaunchInput, name = ""): TerminalPaylo
   return payload;
 }
 
+/** A fresh Claude conversation: its own id, none of the previous one's steps (spec orchestrateur §5). */
+export function newConversation(): Partial<TerminalPayload> {
+  return { claudeSessionId: crypto.randomUUID(), steps: undefined };
+}
+
+/** Another agent in the same terminal: the steps go with the old one; Claude gets a conversation if it has none. */
+export function switchedAgent(payload: TerminalPayload, agent: AgentId): Partial<TerminalPayload> {
+  const needsSession = agent === "claude" && !payload.claudeSessionId;
+  return needsSession ? { agent, claudeSessionId: crypto.randomUUID(), steps: undefined } : { agent, steps: undefined };
+}
+
 export function buildSpawnSpec(payload: TerminalPayload, mode: LaunchMode): SpawnSpec {
   const spec: SpawnSpec = { cwd: payload.cwd, shell: payload.shell, agent: payload.agent, command: payload.command };
   if (payload.agent === "claude") {

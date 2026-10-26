@@ -18,7 +18,7 @@ import type { TerminalPayload } from "@/nodes/types";
 import type { AgentActivity } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
 import type { TerminalStatus } from "@/store/terminalStatus";
-import type { LaunchMode } from "./launch";
+import { newConversation, switchedAgent, type LaunchMode } from "./launch";
 import { relaunchTerminal, stopTerminal } from "./registry";
 import { StatusPill } from "./StatusPill";
 import { TerminalOptionsDialog } from "./TerminalOptionsDialog";
@@ -39,17 +39,16 @@ export function HeaderButton(props: { label: string; onClick: () => void; childr
 }
 
 function switchAgent(nodeId: string, payload: TerminalPayload, agent: AgentId) {
-  const needsSession = agent === "claude" && !payload.claudeSessionId;
-  nodesStore.getState().update(nodeId, needsSession ? { agent, claudeSessionId: crypto.randomUUID() } : { agent });
+  nodesStore.getState().update(nodeId, switchedAgent(payload, agent));
 }
 
 function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running: boolean }) {
   const { nodeId, payload, running } = props;
   const relaunch = (mode: LaunchMode) => relaunchTerminal(nodeId, payload, mode);
   const newSession = () => {
-    const claudeSessionId = crypto.randomUUID();
-    nodesStore.getState().update(nodeId, { claudeSessionId });
-    relaunchTerminal(nodeId, { ...payload, claudeSessionId }, "new");
+    const fresh = newConversation();
+    nodesStore.getState().update(nodeId, fresh);
+    relaunchTerminal(nodeId, { ...payload, ...fresh }, "new");
   };
   return (
     <DropdownMenu>
