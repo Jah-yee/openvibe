@@ -45,3 +45,16 @@ it("shows Remote Control on a Claude session only, as OpenVibe knows it (spec ma
   host.remove();
 });
 
+it("shows the model a mission's router gave the agent, which outlives the mission otherwise unseen (final review maj §3)", async () => {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const claude = { title: "Isis", name: "Isis", agent: "claude", cwd: "C:/code", shell: "default", command: "" } as const;
+  await act(async () => root.render(<TerminalHeader nodeId="isis" payload={claude} status={{ state: "running" }} />));
+  expect(host.querySelector("[data-model]")).toBeNull();
+  await act(async () => root.render(<TerminalHeader nodeId="isis" payload={{ ...claude, model: "claude-haiku-5-5" }} status={{ state: "running" }} />));
+  expect(host.querySelector("[data-model]")?.textContent).toBe("Haiku 5.5");
+  await act(async () => root.unmount());
+  host.remove();
+});
+

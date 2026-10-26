@@ -159,6 +159,13 @@ export async function launchMission(orchestratorId: string): Promise<void> {
   const mission = missionOf(record);
   const session = sessionOf(record);
   if (!record || !mission || !session || mission.state !== "plan" || !mission.plan?.length) return;
+  // The router was turned on after the plan: without levels, every agent would get Claude's default model (final review maj §3).
+  if (mission.router && mission.plan.some((task) => !task.level)) {
+    const error = "Le routeur de modèles est activé mais le plan n'a pas de niveau pour chaque sous-tâche.";
+    setMission(orchestratorId, { error });
+    notify(orchestratorId, `${error} Repropose le plan avec un niveau (faible, moyen, eleve, extreme) par sous-tâche.`);
+    return;
+  }
   setMission(orchestratorId, { state: "lancement", error: undefined });
   const restarts: Restarts = new Map();
   let team: Team;

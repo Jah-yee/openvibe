@@ -93,6 +93,14 @@ describe("the model router (spec maj §3)", () => {
     expect(relaunchTerminal).toHaveBeenLastCalledWith("isis", expect.objectContaining({ cwd: "C:/code/proj", model: undefined }), "new");
   });
 
+  it("does not launch with the router on and a sub-task without a level: it would run on the default model (final review maj §3)", async () => {
+    await setup({ router: true });
+    await launchMission("chef");
+    expect(missionPrepare).not.toHaveBeenCalled();
+    expect(missionNow()).toMatchObject({ state: "plan", error: expect.stringContaining("niveau") });
+    expect(notify).toHaveBeenCalledWith("chef", expect.stringContaining("niveau"));
+  });
+
   it("leaves the models alone without the router", async () => {
     await setup({ plan: [{ ...plan[0], level: "eleve" }, { ...plan[1], level: "faible" }] });
     await launchMission("chef");
