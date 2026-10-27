@@ -7,6 +7,7 @@ mod mission;
 mod process;
 mod pty;
 mod review;
+mod sync;
 
 use std::time::Duration;
 

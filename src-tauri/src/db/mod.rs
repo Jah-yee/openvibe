@@ -13,6 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{Connection, Transaction};
 
 use crate::error::AppResult;
+use crate::sync::lock;
 
 /// One schema upgrade. Rust steps do what SQL alone cannot (read JSON payloads,
 /// know the user's home folder).
@@ -56,7 +57,7 @@ impl Db {
 
     /// Runs `f` with exclusive access to the connection.
     pub fn with<T>(&self, f: impl FnOnce(&mut Connection) -> AppResult<T>) -> AppResult<T> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = lock(&self.conn);
         f(&mut conn)
     }
 }
@@ -155,6 +156,20 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn the_base_survives_a_panic_inside_with() {
+        let db = std::sync::Arc::new(Db::open_in_memory().unwrap());
+        let inner = db.clone();
+        let _ = std::thread::spawn(move || {
+            let _ = inner.with(|_| -> AppResult<()> { panic!("inside with") });
+        })
+        .join();
+        let version: i64 = db
+            .with(|conn| Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?))
+            .unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
     }
 
     #[test]

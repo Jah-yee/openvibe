@@ -8,6 +8,7 @@ use super::paste::PasteMode;
 use super::scrollback::{SCROLLBACK_CAPACITY, Scrollback};
 use super::shell::SpawnPlan;
 use crate::error::{AppError, AppResult};
+use crate::sync::lock;
 
 /// Receives raw PTY output. Implemented by the Tauri channel in production and by
 /// an in-memory buffer in tests.
@@ -94,7 +95,7 @@ impl Session {
     }
 
     pub fn write(&self, data: &[u8]) -> AppResult<()> {
-        let mut writer = self.writer.lock().unwrap();
+        let mut writer = lock(&self.writer);
         writer.write_all(data)?;
         writer.flush()?;
         Ok(())
@@ -102,7 +103,7 @@ impl Session {
 
     /// The program asked for bracketed paste (`ESC[?2004h`) and did not take it back.
     pub fn pastes_bracketed(&self) -> bool {
-        self.paste.lock().unwrap().is_on()
+        lock(&self.paste).is_on()
     }
 
     /// Writes the agent's interrupt key; `None` for a plain shell.
@@ -114,7 +115,7 @@ impl Session {
     }
 
     pub fn resize(&self, size: PtySize) -> AppResult<()> {
-        if let Some(master) = self.master.lock().unwrap().as_ref() {
+        if let Some(master) = lock(&self.master).as_ref() {
             master.resize(size).map_err(pty_err)?;
         }
         Ok(())
@@ -122,30 +123,30 @@ impl Session {
 
     /// Best effort: the process may already be gone.
     pub fn kill(&self) {
-        let _ = self.killer.lock().unwrap().kill();
+        let _ = lock(&self.killer).kill();
     }
 
     /// Closing the pseudo console is what lets the reader reach EOF on Windows.
     pub fn close(&self) {
-        self.master.lock().unwrap().take();
+        lock(&self.master).take();
     }
 
     /// The replay is always sent, even when empty, so the first message on a new
     /// sink is the replay: the frontend relies on that to ignore the answers xterm
     /// gives to terminal queries replayed from the past.
     pub fn attach(&self, sink: Box<dyn OutputSink>) {
-        let mut output = self.output.lock().unwrap();
+        let mut output = lock(&self.output);
         sink.send(&output.scrollback.snapshot());
         output.sink = Some(sink);
     }
 
     pub fn scrollback(&self) -> Vec<u8> {
-        self.output.lock().unwrap().scrollback.snapshot()
+        lock(&self.output).scrollback.snapshot()
     }
 
     /// The scrollback if it changed since the last call, for the periodic flusher.
     pub fn take_dirty_scrollback(&self) -> Option<Vec<u8>> {
-        let mut output = self.output.lock().unwrap();
+        let mut output = lock(&self.output);
         output
             .scrollback
             .take_dirty()
@@ -166,9 +167,9 @@ fn spawn_reader(
                 Ok(n) => {
                     let chunk = &buf[..n];
                     // Before the front sees it: a visible chunk's mode is known.
-                    session.paste.lock().unwrap().feed(chunk);
+                    lock(&session.paste).feed(chunk);
                     {
-                        let mut output = session.output.lock().unwrap();
+                        let mut output = lock(&session.output);
                         output.scrollback.push(chunk);
                         if output.sink.as_ref().is_some_and(|sink| !sink.send(chunk)) {
                             output.sink = None;

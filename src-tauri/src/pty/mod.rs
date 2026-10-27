@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 pub use portable_pty::PtySize;
 
 use crate::error::{AppError, AppResult};
+use crate::sync::lock;
 use paste::{ENTER_DELAY, paste_payload};
 use session::{OnOutput, OutputSink, Session, Started};
 use shell::SpawnPlan;
@@ -44,7 +45,7 @@ impl PtyManager {
         on_output: OnOutput,
         on_exit: impl FnOnce(ExitInfo) + Send + 'static,
     ) -> AppResult<Option<u32>> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = lock(&self.sessions);
         if sessions.contains_key(node_id) {
             return Err(AppError::InvalidInput(format!(
                 "le terminal {node_id} tourne déjà"
@@ -66,7 +67,7 @@ impl PtyManager {
             session.close();
             // Join so every byte reaches the sink before the exit is reported.
             let _ = reader.join();
-            sessions.lock().unwrap().remove(&node_id);
+            lock(&sessions).remove(&node_id);
             on_exit(ExitInfo {
                 code,
                 scrollback: session.scrollback(),
@@ -124,17 +125,17 @@ impl PtyManager {
     }
 
     pub fn kill_all(&self) {
-        for session in self.sessions.lock().unwrap().values() {
+        for session in lock(&self.sessions).values() {
             session.kill();
         }
     }
 
     pub fn is_running(&self, node_id: &str) -> bool {
-        self.sessions.lock().unwrap().contains_key(node_id)
+        lock(&self.sessions).contains_key(node_id)
     }
 
     pub fn list(&self) -> Vec<String> {
-        self.sessions.lock().unwrap().keys().cloned().collect()
+        lock(&self.sessions).keys().cloned().collect()
     }
 
     pub fn scrollback(&self, node_id: &str) -> Option<Vec<u8>> {
@@ -159,7 +160,7 @@ impl PtyManager {
 
     /// Copies the session list so no output lock is taken while holding the map lock.
     fn snapshot_sessions(&self) -> Vec<(String, Arc<Session>)> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = lock(&self.sessions);
         sessions
             .iter()
             .map(|(id, s)| (id.clone(), s.clone()))
@@ -167,7 +168,7 @@ impl PtyManager {
     }
 
     fn get(&self, node_id: &str) -> Option<Arc<Session>> {
-        self.sessions.lock().unwrap().get(node_id).cloned()
+        lock(&self.sessions).get(node_id).cloned()
     }
 
     fn require(&self, node_id: &str) -> AppResult<Arc<Session>> {

@@ -38,7 +38,7 @@ tiny_http = "0.12"
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
+panic = "unwind"
 strip = true
 
 [dev-dependencies]

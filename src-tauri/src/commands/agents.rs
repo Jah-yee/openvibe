@@ -16,6 +16,7 @@ use crate::agents::subagents::SubagentCounts;
 use crate::agents::{claude_settings, mcp_files, prompts};
 use crate::error::AppResult;
 use crate::pty::shell::{Agent, AgentHooks, Role};
+use crate::sync::lock;
 
 /// Quiet terminals are checked this often (the 1.5 s rule).
 const TICK: Duration = Duration::from_millis(250);
@@ -124,12 +125,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(TICK);
-            let changes = ticker
-                .state::<AgentState>()
-                .tracker
-                .lock()
-                .unwrap()
-                .tick(Instant::now());
+            let changes = lock(&ticker.state::<AgentState>().tracker).tick(Instant::now());
             for change in &changes {
                 emit(&ticker, change);
             }
@@ -150,7 +146,7 @@ impl HookSink for AppSink {
         let Some(state) = self.0.try_state::<AgentState>() else {
             return;
         };
-        let running = state.subagents.lock().unwrap().change(node_id, started);
+        let running = lock(&state.subagents).change(node_id, started);
         let _ = self.0.emit(
             "agent-subagents",
             SubagentsEvent {
@@ -195,7 +191,7 @@ impl HookSink for AppSink {
 
 /// A session or its process ended: its subagents went with it.
 fn clear_subagents(app: &AppHandle, state: &AgentState, node_id: &str) {
-    if state.subagents.lock().unwrap().clear(node_id) {
+    if lock(&state.subagents).clear(node_id) {
         let _ = app.emit(
             "agent-subagents",
             SubagentsEvent {
@@ -210,7 +206,7 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
     let Some(state) = app.try_state::<AgentState>() else {
         return;
     };
-    let mut tracker = state.tracker.lock().unwrap();
+    let mut tracker = lock(&state.tracker);
     let change = if hit.session_ended {
         tracker.session_end(&hit.node_id, Instant::now())
     } else {
@@ -288,23 +284,13 @@ pub fn hooks_for(
 
 /// A process is about to start: idle until it shows otherwise.
 pub fn started(app: &AppHandle, node_id: &str) {
-    let change = app
-        .state::<AgentState>()
-        .tracker
-        .lock()
-        .unwrap()
-        .start(node_id, Instant::now());
+    let change = lock(&app.state::<AgentState>().tracker).start(node_id, Instant::now());
     emit(app, &change);
 }
 
 /// Each chunk of output; emits only when the activity changes.
 pub fn output(app: &AppHandle, node_id: &str) {
-    let change = app
-        .state::<AgentState>()
-        .tracker
-        .lock()
-        .unwrap()
-        .output(node_id, Instant::now());
+    let change = lock(&app.state::<AgentState>().tracker).output(node_id, Instant::now());
     if let Some(change) = change {
         emit(app, &change);
     }
@@ -312,12 +298,7 @@ pub fn output(app: &AppHandle, node_id: &str) {
 
 /// What the user typed: an answer hands a hooked agent back to its output.
 pub fn input(app: &AppHandle, node_id: &str, data: &[u8]) {
-    let change =
-        app.state::<AgentState>()
-            .tracker
-            .lock()
-            .unwrap()
-            .input(node_id, data, Instant::now());
+    let change = lock(&app.state::<AgentState>().tracker).input(node_id, data, Instant::now());
     if let Some(change) = change {
         emit(app, &change);
     }
@@ -326,7 +307,7 @@ pub fn input(app: &AppHandle, node_id: &str, data: &[u8]) {
 /// The process ended (or failed to start): forget it and its settings file.
 pub fn ended(app: &AppHandle, node_id: &str) {
     let state = app.state::<AgentState>();
-    state.tracker.lock().unwrap().remove(node_id);
+    lock(&state.tracker).remove(node_id);
     claude_settings::remove(&state.hooks_dir, node_id);
     state.mcp_tokens.revoke(node_id);
     mcp_files::remove(&state.mcp_dir, node_id);
@@ -342,14 +323,7 @@ pub async fn mcp_reply(state: State<'_, AgentState>, call_id: u64, result: Value
 
 #[tauri::command]
 pub async fn agent_activity_snapshot(state: State<'_, AgentState>) -> AppResult<ActivitySnapshot> {
-    let activities = state
-        .tracker
-        .lock()
-        .unwrap()
-        .snapshot()
-        .iter()
-        .map(event)
-        .collect();
+    let activities = lock(&state.tracker).snapshot().iter().map(event).collect();
     Ok(ActivitySnapshot {
         hooks_available: state.hooks.is_some(),
         activities,
