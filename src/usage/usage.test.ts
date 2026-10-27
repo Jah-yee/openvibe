@@ -123,3 +123,7 @@ describe("mergeLimits (final review maj §6)", () => {
   });
 });
 
+it("writes costs the English way in English", () => {
+  expect(formatUsd(0.00738, "en")).toBe("$0.0074");
+  expect(formatUsd(12.5, "en")).toBe("$12.50");
+});

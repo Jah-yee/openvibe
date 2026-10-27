@@ -1,3 +1,5 @@
+import { langStore, type Lang } from "@/i18n";
+import { formatDecimal } from "@/i18n/format";
 import type { BudgetTone } from "@/mission/mission";
 
 /**
@@ -183,9 +185,10 @@ export function totals(sessions: readonly SessionUsage[]) {
   };
 }
 
-/** « 0,0074 $ », « 12,50 $ ». */
-export function formatUsd(usd: number): string {
-  return `${usd.toFixed(usd < 0.1 ? 4 : 2).replace(".", ",")} $`;
+/** « 0,0074 $ », « 12,50 $ »; "$0.0074", "$12.50" in English. */
+export function formatUsd(usd: number, lang: Lang = langStore.getState().lang): string {
+  const amount = formatDecimal(usd, usd < 0.1 ? 4 : 2, lang);
+  return lang === "fr" ? `${amount} $` : `$${amount}`;
 }
 
 /** A limit's colour: like a budget, orange from 70 %, red from 90 %. */

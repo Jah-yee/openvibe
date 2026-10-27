@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { BUDGET_COLOR } from "@/canvas/overlay/timeline";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AGENTS } from "@/fleet/catalog";
+import { formatClock, formatDecimal } from "@/i18n/format";
 import { formatDuration } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { sessionOf, useNodes } from "@/store/nodes";
@@ -10,16 +11,9 @@ import { useUsage } from "@/usage/usageStore";
 
 /** « 67,8 k », « 1,2 M » tokens. */
 function formatTokens(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1).replace(".", ",")} M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1).replace(".", ",")} k`;
+  if (count >= 1_000_000) return `${formatDecimal(count / 1_000_000, 1)} M`;
+  if (count >= 1_000) return `${formatDecimal(count / 1_000, 1)} k`;
   return String(count);
-}
-
-/** « 03:50 » today, « lun. 08:00 » another day. */
-function formatWhen(ms: number, now: number): string {
-  const date = new Date(ms);
-  const time = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  return date.toDateString() === new Date(now).toDateString() ? time : `${date.toLocaleDateString("fr-FR", { weekday: "short" })} ${time}`;
 }
 
 function Bar({ limit, wide = false }: { limit: Limit; wide?: boolean }) {
@@ -111,7 +105,7 @@ function LimitRow({ label, limit, now }: { label: string; limit: Limit; now: num
   return (
     <div className="flex flex-col gap-1">
       <Row label={label}>
-        {Math.round(limit.usedPercent)} %{limit.resetsAt ? ` · repart à ${formatWhen(limit.resetsAt, now)}` : ""}
+        {Math.round(limit.usedPercent)} %{limit.resetsAt ? ` · repart à ${formatClock(limit.resetsAt, now)}` : ""}
       </Row>
       <Bar limit={limit} wide />
     </div>
@@ -158,7 +152,7 @@ function UsageDetail() {
           <span style={{ color: "var(--ov-ok)" }}>+{sum.linesAdded}</span> <span style={{ color: "var(--ov-danger)" }}>−{sum.linesRemoved}</span>
         </Row>
         <Row label={<span title="Estimation : facteurs de claude-carbon (Jegham et al. 2025), ordre de grandeur">CO₂ (estimation)</span>}>
-          {sum.co2Grams < 10 ? sum.co2Grams.toFixed(1).replace(".", ",") : Math.round(sum.co2Grams)} g
+          {sum.co2Grams < 10 ? formatDecimal(sum.co2Grams, 1) : Math.round(sum.co2Grams)} g
         </Row>
       </Section>
       {sum.byModel.length > 0 && (
@@ -177,7 +171,7 @@ function UsageDetail() {
             .map((s) => (
               <Row key={s.sessionId} label={`${nameOf(s.nodeId)} · ${s.model?.name ?? ""}`}>
                 {s.cache!.warm && (s.cache!.expiresAt === null || s.cache!.expiresAt > now)
-                  ? `chaud${s.cache!.hitRatio !== null ? ` · ${Math.round(s.cache!.hitRatio * 100)} %` : ""}${s.cache!.expiresAt ? ` · jusqu'à ${formatWhen(s.cache!.expiresAt, now)}` : ""}`
+                  ? `chaud${s.cache!.hitRatio !== null ? ` · ${Math.round(s.cache!.hitRatio * 100)} %` : ""}${s.cache!.expiresAt ? ` · jusqu'à ${formatClock(s.cache!.expiresAt, now)}` : ""}`
                   : "froid"}
               </Row>
             ))}

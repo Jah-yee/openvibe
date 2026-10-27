@@ -1,3 +1,4 @@
+import { keyLabel } from "@/i18n/format";
 import { labelOf, sectionOf, type Command, type CommandContext } from "./command";
 import { rank, rankSections, startsWords } from "./search";
 
@@ -35,7 +36,7 @@ export function functionSections(
         command,
         label: labelOf(command, ctx),
         section: sectionOf(command, ctx),
-        hint: command.shortcut ?? command.keys ?? null,
+        hint: command.shortcut ?? command.keys ? keyLabel(command.shortcut ?? command.keys ?? "") : null,
         disabled: command.disabled?.(ctx) ?? null,
       }),
     );
