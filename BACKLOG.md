@@ -305,3 +305,7 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Le dialogue de mise à jour montre les notes en Markdown brut (`### Fixed`) : les mettre en forme.
 - Le redémarrage d'OpenVibe après l'installation repose sur l'installeur NSIS en mode mise à jour : à vérifier sur la première mise à jour réelle (bêta 1 → bêta 2).
 - Le build de release n'a pas encore tourné en CI : le lancer à la main (Actions → Release) une fois les secrets de signature posés, et vérifier qu'une version à suffixe (`1.0.0-beta.1`) passe dans l'installeur.
+- La vérification automatique (toutes les 6 h) ferme le dialogue de mise à jour s'il est ouvert ; aucun délai d'attente sur la requête (une connexion bloquée laisse « Rechercher les mises à jour » sans réponse) ; l'`Update` précédent n'est pas fermé (une ressource de plus à chaque vérification).
+- `installUpdate` appelle `flushAll` et non `saveBeforeClose` : un titre en cours d'édition au moment d'installer est perdu.
+- `release.yml` ne lance que les tests de l'interface (la CI sur `main` couvre le reste du même commit) ; actions épinglées par version majeure, pas par SHA ; pas de règle de protection des tags `v*`.
+- `SECURITY.md` : le tableau des versions suivies dit encore `main (0.1.x)` ; le CHANGELOG doit présenter OpenVibe (fonctions principales) avant la première bêta.
