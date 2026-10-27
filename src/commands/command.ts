@@ -1,5 +1,7 @@
 import { toast } from "sonner";
+import { messages } from "@/i18n";
 import type { Point } from "@/fleet/terminals";
+import { commandsMessages } from "./messages";
 import type { Shortcut } from "./shortcuts";
 
 /** What a command knows of the moment it runs in (spec fenêtre §7.3). */
@@ -55,7 +57,7 @@ export function commandFor(commands: readonly Command[], shortcut: Shortcut, ctx
 
 /** Runs a command; a failure says so, like the menus (spec fenêtre §9). */
 export function runCommand(command: Command, ctx: CommandContext) {
-  const fail = (error: unknown) => toast.error(`${labelOf(command, ctx)} impossible : ${String(error)}`);
+  const fail = (error: unknown) => toast.error(messages(commandsMessages).failed(labelOf(command, ctx), String(error)));
   try {
     void Promise.resolve(command.run(ctx)).catch(fail);
   } catch (error) {

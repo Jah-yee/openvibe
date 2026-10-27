@@ -5,7 +5,8 @@ import { createNodeElement } from "@/canvas/nodeElement";
 import { allowRemoval } from "@/canvas/removalGuard";
 import { orchestratorSession } from "@/nodes/terminal/launch";
 import { markForAutostart } from "@/nodes/terminal/registry";
-import { ORCHESTRATOR_NAME } from "@/nodes/types";
+import { messages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 import { nodesStore } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
@@ -17,8 +18,10 @@ import { withWire } from "./wires";
 
 /** A new orchestrator with its Claude session, which starts when it is shown (spec orchestrateur §6). */
 async function createOrchestrator(id: string, workspaceId: string) {
-  const session = orchestratorSession(ORCHESTRATOR_NAME, defaultLaunchOptions());
-  await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME, session } });
+  // A new orchestrator is named in the interface's language (spec première version §7.1).
+  const name = messages(nodesMessages).orchestrator.defaultName;
+  const session = orchestratorSession(name, defaultLaunchOptions());
+  await nodesStore.getState().create(id, { workspaceId, kind: "orchestrator", payload: { name, session } });
   markForAutostart(id);
 }
 
@@ -90,5 +93,5 @@ export function requestCloseOrchestrator(orchestratorId: string) {
 }
 
 export function renameOrchestrator(orchestratorId: string, name: string) {
-  nodesStore.getState().update(orchestratorId, { name: name.trim() || ORCHESTRATOR_NAME });
+  nodesStore.getState().update(orchestratorId, { name: name.trim() || messages(nodesMessages).orchestrator.defaultName });
 }

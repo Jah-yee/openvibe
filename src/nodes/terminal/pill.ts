@@ -1,6 +1,8 @@
 import type { Activity } from "@/ipc/activity";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalStatus } from "@/store/terminalStatus";
+import { messages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 export type PillTone = "live" | "ready" | "working" | "workingIndigo" | "waiting" | "stopped" | "done" | "failed";
 
@@ -9,23 +11,24 @@ export type PillTone = "live" | "ready" | "working" | "workingIndigo" | "waiting
  * state, and for a running process its activity.
  */
 export function pillOf(status: TerminalStatus, activity?: Activity, indigo = false): { label: string; tone: PillTone } {
+  const t = messages(nodesMessages).pill;
   switch (status.state) {
     case "starting":
-      return { label: "DÉMARRAGE", tone: "stopped" };
+      return { label: t.starting, tone: "stopped" };
     case "running":
-      if (activity === "working") return { label: "EN COURS", tone: indigo ? "workingIndigo" : "working" };
-      if (activity === "waiting") return { label: "ATTEND", tone: "waiting" };
-      if (activity === "idle") return { label: "PRÊT", tone: "ready" };
-      return { label: "ACTIF", tone: "live" };
+      if (activity === "working") return { label: t.working, tone: indigo ? "workingIndigo" : "working" };
+      if (activity === "waiting") return { label: t.waiting, tone: "waiting" };
+      if (activity === "idle") return { label: t.ready, tone: "ready" };
+      return { label: t.active, tone: "live" };
     case "stopped":
-      return { label: "ARRÊTÉ", tone: "stopped" };
+      return { label: t.stopped, tone: "stopped" };
     case "exited":
       return {
-        label: status.code === null ? "TERMINÉ" : `TERMINÉ · ${status.code}`,
+        label: status.code === null ? t.exited : t.exitedWith(status.code),
         tone: status.code === null || status.code === 0 ? "done" : "failed",
       };
     case "error":
-      return { label: "ERREUR", tone: "failed" };
+      return { label: t.error, tone: "failed" };
   }
 }
 

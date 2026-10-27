@@ -1,4 +1,7 @@
+import { messages } from "@/i18n";
+import { keyLabel } from "@/i18n/format";
 import { labelOf, sectionOf, type Command, type CommandContext } from "./command";
+import { commandsMessages } from "./messages";
 import { rank, rankSections, startsWords } from "./search";
 
 /** A line of the functions mode, as listed at this moment. */
@@ -12,7 +15,8 @@ export interface FunctionLine {
   disabled: string | null;
 }
 
-export const RECENT_SECTION = "Récentes";
+/** The heading of the recent functions, in the interface's language. */
+export const recentSection = () => messages(commandsMessages).palette.recent;
 
 /**
  * The functions mode (spec fenêtre §7.3): the commands available at that
@@ -35,7 +39,7 @@ export function functionSections(
         command,
         label: labelOf(command, ctx),
         section: sectionOf(command, ctx),
-        hint: command.shortcut ?? command.keys ?? null,
+        hint: command.shortcut ?? command.keys ? keyLabel(command.shortcut ?? command.keys ?? "") : null,
         disabled: command.disabled?.(ctx) ?? null,
       }),
     );
@@ -51,5 +55,5 @@ export function functionSections(
     .map((label) => ({ label, items: rank(others.filter((l) => l.section === label), query, textOf) }))
     .filter((section) => section.items.length > 0);
   const ranked = rankSections(sections, query, textOf);
-  return recentLines.length > 0 ? [{ label: RECENT_SECTION, items: recentLines }, ...ranked] : ranked;
+  return recentLines.length > 0 ? [{ label: recentSection(), items: recentLines }, ...ranked] : ranked;
 }

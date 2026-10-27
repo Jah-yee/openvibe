@@ -1,3 +1,6 @@
+import { langStore, messages, type Lang } from "@/i18n";
+import { usageMessages } from "./messages";
+import { formatDecimal } from "@/i18n/format";
 import type { BudgetTone } from "@/mission/mission";
 
 /**
@@ -160,7 +163,7 @@ export interface ModelTotal {
 export function totals(sessions: readonly SessionUsage[]) {
   const byModel = new Map<string, ModelTotal>();
   for (const s of sessions) {
-    const name = s.model?.name ?? "Modèle inconnu";
+    const name = s.model?.name ?? messages(usageMessages).unknownModel;
     const row = byModel.get(name) ?? { name, costUsd: 0, inputTokens: 0, outputTokens: 0, sessions: 0, co2Grams: 0 };
     row.costUsd += s.costUsd;
     row.inputTokens += s.inputTokens;
@@ -183,9 +186,10 @@ export function totals(sessions: readonly SessionUsage[]) {
   };
 }
 
-/** « 0,0074 $ », « 12,50 $ ». */
-export function formatUsd(usd: number): string {
-  return `${usd.toFixed(usd < 0.1 ? 4 : 2).replace(".", ",")} $`;
+/** « 0,0074 $ », « 12,50 $ »; "$0.0074", "$12.50" in English. */
+export function formatUsd(usd: number, lang: Lang = langStore.getState().lang): string {
+  const amount = formatDecimal(usd, usd < 0.1 ? 4 : 2, lang);
+  return lang === "fr" ? `${amount} $` : `$${amount}`;
 }
 
 /** A limit's colour: like a budget, orange from 70 %, red from 90 %. */

@@ -23,10 +23,12 @@ const UPDATE_STOP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 /// Opens the folder of the log file, to send it with a bug report (spec première version §3.6).
 #[tauri::command]
 pub fn open_log_dir(app: AppHandle) -> AppResult<()> {
-    let dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|err| AppError::NotFound(format!("dossier des journaux introuvable : {err}")))?;
+    let dir = app.path().app_log_dir().map_err(|err| {
+        AppError::NotFound(crate::tr!(
+            "Dossier des journaux introuvable : {err}",
+            "Logs folder not found: {err}"
+        ))
+    })?;
     std::fs::create_dir_all(&dir)?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)

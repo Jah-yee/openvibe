@@ -7,9 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useMessages } from "@/i18n";
 import { removeNodes } from "@/fleet/terminals";
 import { useNodes } from "@/store/nodes";
 import { uiStore, useUi } from "@/store/ui";
+import { shellMessages } from "./messages";
 
 /**
  * "Fermer Isis ?" before closing a running agent (spec habillage §7.5), or
@@ -18,33 +20,28 @@ import { uiStore, useUi } from "@/store/ui";
  * première version §5.4).
  */
 export function CloseAgentDialog() {
+  const t = useMessages(shellMessages).closeAgent;
   const closing = useUi((s) => s.closing);
   const nodes = useNodes((s) => s.nodes);
   const names = (closing?.agents ?? []).map((id) => nodes[id]?.payload.name || "Agent");
   const close = () => uiStore.getState().setClosing(null);
   const one = names.length <= 1;
-  const name = names[0] ?? "cet agent";
+  const name = names[0] ?? t.fallbackName;
   const first = closing?.agents[0] ? nodes[closing.agents[0]] : undefined;
   const orchestrator = one && first?.kind === "orchestrator";
   const inMission = orchestrator && first.payload.mission?.state === "en_cours";
-  const description = !one
-    ? `Ces agents tournent encore ; les fermer met fin à leur session : ${names.join(", ")}.`
-    : inMission
-      ? `${name} mène une mission en cours. Le fermer arrête sa session ; ses agents continuent, mais personne ne lira leurs comptes rendus.`
-      : orchestrator
-        ? `${name} tourne encore. Le fermer met fin à sa session.`
-        : `${name} tourne encore. La fermer met fin à sa session.`;
+  const description = !one ? t.several(names) : inMission ? t.inMission(name) : orchestrator ? t.orchestrator(name) : t.agent(name);
 
   return (
     <Dialog open={closing !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{one ? `Fermer ${name} ?` : `Fermer ${names.length} agents ?`}</DialogTitle>
+          <DialogTitle>{one ? t.titleOne(name) : t.titleMany(names.length)}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={close}>
-            Annuler
+            {t.cancel}
           </Button>
           <Button
             className="bg-ov-danger text-white hover:bg-ov-danger/90"
@@ -53,7 +50,7 @@ export function CloseAgentDialog() {
               close();
             }}
           >
-            {orchestrator ? "Fermer l'orchestrateur" : one ? "Fermer l'agent" : "Fermer les agents"}
+            {orchestrator ? t.confirmOrchestrator : one ? t.confirmOne : t.confirmMany}
           </Button>
         </DialogFooter>
       </DialogContent>

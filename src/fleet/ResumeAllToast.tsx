@@ -7,7 +7,8 @@ import { useStore } from "zustand";
 import { isLiveInRust, resumeTerminal } from "@/nodes/terminal/registry";
 import { nodesStore, useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
-import { plural } from "@/lib/format";
+import { useMessages } from "@/i18n";
+import { fleetMessages } from "./messages";
 import { resumableTerminals } from "./resumable";
 
 /** Workspaces whose offer was answered: it does not come back before the next launch. */
@@ -25,6 +26,7 @@ function sceneSet(): Set<string> {
 }
 
 function ResumeAllToast({ workspaceId }: { workspaceId: string }) {
+  const t = useMessages(fleetMessages).resumeAll;
   const nodes = useNodes((s) => s.nodes);
   const statuses = useStore(terminalStatusStore, (s) => s.statuses);
   const ids = resumableTerminals(nodes, statuses, workspaceId, liveSet(Object.keys(nodes)), sceneSet());
@@ -46,20 +48,20 @@ function ResumeAllToast({ workspaceId }: { workspaceId: string }) {
     <div className="ov-glass-strong flex w-[360px] items-start gap-3 rounded-[14px] p-3 text-ov-text">
       <History className="mt-0.5 size-4 shrink-0 text-ov-accent" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">Reprendre toutes les conversations ?</p>
+        <p className="text-sm font-medium">{t.title}</p>
         <p className="text-xs text-ov-text-2">
-          {plural(ids.length, "console peut reprendre sa", "consoles peuvent reprendre leur")} dernière discussion
+          {t.body(ids.length)}
         </p>
         <div className="mt-2 flex gap-2">
           <button type="button" className="h-7 rounded-[8px] bg-ov-accent px-3 text-xs font-semibold text-ov-on-accent" onClick={resumeAll}>
-            Oui
+            {t.yes}
           </button>
           <button type="button" className="h-7 rounded-[8px] bg-ov-field px-3 text-xs text-ov-text" onClick={answer}>
-            Non
+            {t.no}
           </button>
         </div>
       </div>
-      <button type="button" aria-label="Fermer" className="text-ov-text-2 hover:text-ov-text" onClick={answer}>
+      <button type="button" aria-label={t.close} className="text-ov-text-2 hover:text-ov-text" onClick={answer}>
         <X className="size-3.5" />
       </button>
     </div>

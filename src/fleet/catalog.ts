@@ -11,7 +11,9 @@ import {
   Terminal,
   type LucideIcon,
 } from "lucide-react";
+import { messages } from "@/i18n";
 import { AGENT_IDS, type AgentId, type AgentInfo } from "@/ipc/pty";
+import { fleetMessages } from "./messages";
 
 export interface AgentMeta {
   label: string;
@@ -32,6 +34,7 @@ export function agentInk(tint: string): string {
   return `color-mix(in srgb, ${tint} 65%, var(--ov-text))`;
 }
 
+/** `label` and `vendor` of the three agents with words of their own are read when used, so they follow the language. */
 export const AGENTS: Record<AgentId, AgentMeta> = {
   claude: { label: "Claude", vendor: "Anthropic", tint: "#e8603a", binary: "claude", Icon: Asterisk },
   codex: { label: "Codex", vendor: "OpenAI", tint: "#707de3", binary: "codex", Icon: SquareTerminal },
@@ -40,9 +43,35 @@ export const AGENTS: Record<AgentId, AgentMeta> = {
   cursor: { label: "Cursor", vendor: "cursor-agent", tint: "#d4d4cc", binary: "cursor-agent", Icon: MousePointer2 },
   opencode: { label: "OpenCode", vendor: "sst", tint: "#77b7c0", binary: "opencode", Icon: Code },
   aider: { label: "Aider", vendor: "aider", tint: "#86a174", binary: "aider", Icon: Bot },
-  ollama: { label: "Ollama", vendor: "modèle local", tint: "#ede8df", binary: "ollama", Icon: Cpu },
-  shell: { label: "Shell", vendor: "par défaut", tint: "#8a8a80", binary: "", Icon: Terminal },
-  custom: { label: "Personnalisé", vendor: "commande", tint: "#8a8a80", binary: "", Icon: SquareCode },
+  ollama: {
+    label: "Ollama",
+    get vendor() {
+      return messages(fleetMessages).catalog.ollamaVendor;
+    },
+    tint: "#ede8df",
+    binary: "ollama",
+    Icon: Cpu,
+  },
+  shell: {
+    label: "Shell",
+    get vendor() {
+      return messages(fleetMessages).catalog.shellVendor;
+    },
+    tint: "#8a8a80",
+    binary: "",
+    Icon: Terminal,
+  },
+  custom: {
+    get label() {
+      return messages(fleetMessages).catalog.customLabel;
+    },
+    get vendor() {
+      return messages(fleetMessages).catalog.customVendor;
+    },
+    tint: "#8a8a80",
+    binary: "",
+    Icon: SquareCode,
+  },
 };
 
 export const AGENT_ORDER: AgentId[] = [...AGENT_IDS];

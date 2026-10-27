@@ -1,15 +1,22 @@
 import type { AgentId, OllamaLaunch, ShellKind, SpawnSpec } from "@/ipc/pty";
 import { AGENTS } from "@/fleet/catalog";
 import type { TerminalPayload } from "@/nodes/types";
+import { messages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 /** How "Relancer" starts a Claude terminal (spec V1 §5.3); other agents ignore it. */
 export type LaunchMode = "new" | "resume" | "continue";
 
 export const SHELL_LABELS: Record<ShellKind, string> = {
-  default: "Par défaut",
+  // Read when used, so they follow the language.
+  get default() {
+    return messages(nodesMessages).shells.default;
+  },
   powershell: "PowerShell",
   pwsh: "PowerShell 7",
-  cmd: "Invite de commandes",
+  get cmd() {
+    return messages(nodesMessages).shells.cmd;
+  },
   gitbash: "Git Bash",
 };
 

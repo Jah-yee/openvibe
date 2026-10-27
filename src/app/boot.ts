@@ -1,3 +1,5 @@
+import { messages } from "@/i18n";
+import { appMessages } from "./messages";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { toast } from "sonner";
 import { loadAgentsPanel } from "@/fleet/agentsPanelState";
@@ -15,6 +17,7 @@ import { installUsage } from "@/usage/usageStore";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
+import { loadLanguage } from "@/i18n/settings";
 import { loadThemeSettings } from "./theme";
 import { loadUpdateSettings, startUpdateChecks } from "./updates";
 import { syncWindowTitle } from "./windowTitle";
@@ -28,6 +31,7 @@ let booting: Promise<void> | undefined;
  */
 export function boot(): Promise<void> {
   booting ??= (async () => {
+    await loadLanguage();
     await loadThemeSettings();
     await loadUpdateSettings();
     await loadAgentsPanel();
@@ -39,7 +43,7 @@ export function boot(): Promise<void> {
     await onAgentActivity((event) => agentActivityStore.getState().apply(event));
     const activity = await agentActivitySnapshot();
     agentActivityStore.getState().load(activity.activities);
-    if (!activity.hooksAvailable) toast.warning("États des agents approximatifs : serveur local indisponible");
+    if (!activity.hooksAvailable) toast.warning(messages(appMessages).hooksDown);
     await onAgentSubagents(({ nodeId, running }) => subagentsStore.getState().set(nodeId, running));
     await installMcp();
     await installUsage();

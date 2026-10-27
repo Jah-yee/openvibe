@@ -1,9 +1,11 @@
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
 import { toast } from "sonner";
 import { createStore, useStore } from "zustand";
+import { messages } from "@/i18n";
 import { getSetting, setSetting } from "@/ipc/db";
 import { call } from "@/ipc/invoke";
 import { flushAll } from "@/lib/flush";
+import { appMessages } from "./messages";
 
 /** The first look, once the app has settled; then a look every 6 h (spec première version §6.4). */
 export const FIRST_CHECK_MS = 10_000;
@@ -38,7 +40,7 @@ export async function loadUpdateSettings() {
 
 export async function setAutoUpdates(auto: boolean) {
   updatesStore.setState({ auto });
-  await setSetting(AUTO_KEY, auto).catch((error: unknown) => toast.error(`Réglage non enregistré : ${message(error)}`));
+  await setSetting(AUTO_KEY, auto).catch((error: unknown) => toast.error(messages(appMessages).settingNotSaved(message(error))));
 }
 
 /** Asks GitHub for the latest release. An automatic check that fails only writes to the log. */
@@ -46,13 +48,13 @@ export async function checkForUpdate({ manual = false } = {}) {
   try {
     const update = await check();
     if (!update) {
-      if (manual) toast("OpenVibe est à jour.");
+      if (manual) toast(messages(appMessages).upToDate);
       return;
     }
     found = update;
     updatesStore.setState({ available: { version: update.version, notes: update.body ?? "" }, dialogOpen: manual });
   } catch (error) {
-    if (manual) toast.error("Impossible de vérifier les mises à jour", { description: message(error) });
+    if (manual) toast.error(messages(appMessages).updateCheckFailed, { description: message(error) });
     else console.warn(`update check failed: ${message(error)}`);
   }
 }

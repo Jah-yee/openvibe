@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
@@ -18,4 +19,6 @@ export default defineConfig(() => ({
     hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
   },
+  // Agents' worktrees live under .claude/: their copies of the tests are not ours.
+  test: { setupFiles: ["src/test/setup.ts"], exclude: [...configDefaults.exclude, ".claude/**"] },
 }));

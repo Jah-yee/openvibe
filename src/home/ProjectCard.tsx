@@ -9,31 +9,34 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { formatAgo, plural } from "@/lib/format";
+import { messages, useMessages } from "@/i18n";
+import { formatAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { projectsStore, type Project } from "@/store/projects";
+import { homeMessages } from "./messages";
 
-const fail = (what: string) => (error: unknown) => toast.error(`${what} : ${String(error)}`);
+type Failure = "openFailed" | "renameFailed" | "changeFailed" | "removeFailed";
+
+const fail = (what: Failure) => (error: unknown) => toast.error(messages(homeMessages).card[what](String(error)));
 
 async function relocate(project: Project) {
-  const picked = await open({ directory: true, defaultPath: project.path, title: "Nouveau dossier du projet" });
+  const picked = await open({ directory: true, defaultPath: project.path, title: messages(homeMessages).card.newFolder });
   if (typeof picked === "string") await projectsStore.getState().relocate(project.id, picked);
 }
 
 async function remove(project: Project) {
-  const confirmed = await ask(
-    `Retirer « ${project.name} » de la liste ? Ses workspaces seront supprimés et ses agents arrêtés. Le dossier n'est pas touché.`,
-    { title: "Retirer le projet", kind: "warning", okLabel: "Retirer", cancelLabel: "Annuler" },
-  );
+  const t = messages(homeMessages).card;
+  const confirmed = await ask(t.removeConfirm(project.name), { title: t.removeTitle, kind: "warning", okLabel: t.removeOk, cancelLabel: t.cancel });
   if (confirmed) await projectsStore.getState().remove(project.id);
 }
 
 /** A project of the home screen (spec habillage §5.1). */
 export function ProjectCard({ project }: { project: Project }) {
+  const t = useMessages(homeMessages).card;
   const [editing, setEditing] = useState(false);
   const openable = !project.missing && !editing;
   const openProject = () => {
-    if (openable) void projectsStore.getState().open(project.id).catch(fail("Ouverture impossible"));
+    if (openable) void projectsStore.getState().open(project.id).catch(fail("openFailed"));
   };
 
   return (
@@ -59,7 +62,7 @@ export function ProjectCard({ project }: { project: Project }) {
               className="h-7"
               onClick={(e) => e.stopPropagation()}
               onBlur={(e) => {
-                void projectsStore.getState().rename(project.id, e.currentTarget.value).catch(fail("Renommage impossible"));
+                void projectsStore.getState().rename(project.id, e.currentTarget.value).catch(fail("renameFailed"));
                 setEditing(false);
               }}
               onKeyDown={(e) => {
@@ -79,7 +82,7 @@ export function ProjectCard({ project }: { project: Project }) {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Actions du projet"
+              aria-label={t.actions}
               onClick={(e) => e.stopPropagation()}
               className="grid size-7 place-items-center rounded-full text-ov-text-2 opacity-0 group-hover:opacity-100 hover:bg-ov-card hover:text-ov-text data-[state=open]:opacity-100"
             >
@@ -87,25 +90,25 @@ export function ProjectCard({ project }: { project: Project }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onSelect={() => setEditing(true)}>Renommer</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void relocate(project).catch(fail("Changement impossible"))}>
-              Changer de dossier
+            <DropdownMenuItem onSelect={() => setEditing(true)}>{t.rename}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void relocate(project).catch(fail("changeFailed"))}>
+              {t.changeFolder}
             </DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" onSelect={() => void remove(project).catch(fail("Retrait impossible"))}>
-              Retirer de la liste
+            <DropdownMenuItem variant="destructive" onSelect={() => void remove(project).catch(fail("removeFailed"))}>
+              {t.removeFromList}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
       {project.missing ? (
-        <p className="text-xs text-ov-danger">Dossier introuvable</p>
+        <p className="text-xs text-ov-danger">{t.missing}</p>
       ) : (
         <div className="flex items-center gap-3 font-mono text-[11px] text-ov-text-2">
-          <span>{plural(project.workspaceCount, "workspace", "workspaces")}</span>
+          <span>{t.workspaces(project.workspaceCount)}</span>
           {project.liveAgents > 0 && (
             <span className="flex items-center gap-1 text-ov-live">
               <span className="size-1.5 rounded-full bg-ov-live" />
-              {plural(project.liveAgents, "agent actif", "agents actifs")}
+              {t.liveAgents(project.liveAgents)}
             </span>
           )}
           <span className="ml-auto">{formatAgo(project.lastOpenedAt)}</span>

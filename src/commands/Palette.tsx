@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Command } from "cmdk";
+import { useMessages } from "@/i18n";
 import { TITLE_BAR_HEIGHT } from "@/shell/layout";
 import { runCommand } from "./command";
-import { functionSections, RECENT_SECTION } from "./functions";
+import { functionSections, recentSection } from "./functions";
 import { goToSections } from "./goTo";
 import { GoToRow } from "./GoToRow";
 import { goTo } from "./goToRun";
+import { commandsMessages } from "./messages";
 import { closePalette, modeOf, setPaletteQuery, stripPrefix, usePalette } from "./paletteState";
 import { rememberFunction, useRecentFunctions } from "./recent";
 import { COMMANDS } from "./registry";
@@ -25,6 +27,7 @@ export function Palette() {
 }
 
 function PaletteBody() {
+  const t = useMessages(commandsMessages).palette;
   const query = usePalette((s) => s.query);
   const context = usePalette((s) => s.context);
   const mode = modeOf(query);
@@ -49,7 +52,7 @@ function PaletteBody() {
         style={{ top: TITLE_BAR_HEIGHT + 6, width: "min(560px, calc(100vw - 32px))", boxShadow: "var(--ov-glass-hi), var(--ov-glass-edge), var(--ov-shadow)" }}
       >
         <Command
-          label="Palette"
+          label={t.label}
           shouldFilter={false}
           loop
           value={value}
@@ -67,7 +70,7 @@ function PaletteBody() {
             autoFocus
             value={query}
             onValueChange={setPaletteQuery}
-            placeholder={mode === "goTo" ? "Aller à un terminal, un groupe, un workspace… (> pour les fonctions)" : "Rechercher une fonction…"}
+            placeholder={mode === "goTo" ? t.placeholderGoTo : t.placeholderFunctions}
             className="h-11 w-full border-b border-ov-line bg-transparent px-3.5 text-[13.5px] text-ov-text outline-none placeholder:text-ov-text-3"
           />
           <Command.List className={`max-h-[420px] overflow-y-auto p-1.5 ${HEADING}`}>
@@ -107,7 +110,7 @@ function PaletteBody() {
                     >
                       <span className="truncate text-ov-text">{line.label}</span>
                       {/* A recent line tells where it comes from: « Renommer » of which terminal. */}
-                      {section.label === RECENT_SECTION && <span className="shrink-0 text-[11.5px] text-ov-text-3">{line.section}</span>}
+                      {section.label === recentSection() && <span className="shrink-0 text-[11.5px] text-ov-text-3">{line.section}</span>}
                       {line.disabled !== null ? (
                         <span className="ml-auto shrink-0 text-[11px] text-ov-text-3">{line.disabled}</span>
                       ) : (
@@ -117,10 +120,10 @@ function PaletteBody() {
                   ))}
                 </Command.Group>
               ))}
-            {mode === "goTo" && goToData.loading && <div className="px-2.5 py-1.5 text-[11.5px] text-ov-text-3">Chargement…</div>}
-            <Command.Empty className="px-2.5 py-3 text-[12.5px] text-ov-text-3">Aucun résultat</Command.Empty>
+            {mode === "goTo" && goToData.loading && <div className="px-2.5 py-1.5 text-[11.5px] text-ov-text-3">{t.loading}</div>}
+            <Command.Empty className="px-2.5 py-3 text-[12.5px] text-ov-text-3">{t.empty}</Command.Empty>
           </Command.List>
-          <footer className="border-t border-ov-line px-3.5 py-1.5 text-[11px] text-ov-text-2">↑↓ naviguer · Entrée ouvrir · Échap fermer</footer>
+          <footer className="border-t border-ov-line px-3.5 py-1.5 text-[11px] text-ov-text-2">{t.footer}</footer>
         </Command>
       </div>
     </div>

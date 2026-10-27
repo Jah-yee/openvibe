@@ -31,13 +31,16 @@ import { StepTimelines } from "./overlay/StepTimelines";
 import { loadScene, rememberScene, type LoadedScene } from "./sceneCache";
 import { EXCALIDRAW_UI_OPTIONS, withSceneDefaults } from "./sceneDefaults";
 import { createSceneSync, liveNodeIds, liveNodeRects } from "./sceneSync";
+import { messages, useLang, useMessages } from "@/i18n";
+import { canvasMessages, EXCALIDRAW_LANG } from "./messages";
 
-const reportSaveError = (error: unknown) => toast.error(`Sauvegarde impossible : ${String(error)}`);
+const reportSaveError = (error: unknown) => toast.error(messages(canvasMessages).saveFailed(String(error)));
 
 /** One Excalidraw instance per workspace; remounted (via `key`) when switching. */
 export function Canvas({ workspaceId }: { workspaceId: string }) {
   const [scene, setScene] = useState<LoadedScene | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const t = useMessages(canvasMessages);
 
   useEffect(() => {
     let alive = true;
@@ -50,8 +53,8 @@ export function Canvas({ workspaceId }: { workspaceId: string }) {
     };
   }, [workspaceId]);
 
-  if (error) return <Centered>Impossible de charger ce workspace : {error}</Centered>;
-  if (!scene) return <Centered>Chargement…</Centered>;
+  if (error) return <Centered>{t.loadFailed(error)}</Centered>;
+  if (!scene) return <Centered>{t.loading}</Centered>;
   return <LoadedCanvas workspaceId={workspaceId} scene={scene} />;
 }
 
@@ -62,6 +65,7 @@ function Centered({ children }: { children: ReactNode }) {
 function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: LoadedScene }) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const theme = useTheme();
+  const lang = useLang();
   const initialData = useMemo(() => withSceneDefaults(scene.initialData), [scene]);
   // A running agent never leaves unasked (retours J8b); sceneSync tells which nodes left.
   const guardRemovals = useMemo(() => createRemovalGuard(isRunning, scene.initialData.elements ?? []), [scene]);
@@ -173,7 +177,7 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
       <div className="absolute inset-0">
         <Excalidraw
           theme={theme}
-          langCode="fr-FR"
+          langCode={EXCALIDRAW_LANG[lang]}
           excalidrawAPI={setApi}
           initialData={initialData}
           onChange={onChange}

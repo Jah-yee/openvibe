@@ -1,7 +1,9 @@
 import { toast } from "sonner";
+import { messages } from "@/i18n";
 import { projectsStore } from "@/store/projects";
 import { workspacesStore } from "@/store/workspaces";
 import type { GoToItem } from "./goTo";
+import { commandsMessages } from "./messages";
 import { requestArrival } from "./pendingArrival";
 import { reach } from "./reach";
 
@@ -17,7 +19,7 @@ export function goTo(item: GoToItem) {
         void projectsStore
           .getState()
           .open(item.projectId)
-          .catch((error: unknown) => toast.error(`Ouverture impossible : ${String(error)}`));
+          .catch((error: unknown) => toast.error(messages(commandsMessages).goTo.openFailed(String(error))));
       }
       return;
     default: {
@@ -28,7 +30,7 @@ export function goTo(item: GoToItem) {
         workspaces.select(item.workspaceId);
         return;
       }
-      if (!reach(target.kind, target.id)) toast.error(`${target.label} n'existe plus`);
+      if (!reach(target.kind, target.id)) toast.error(messages(commandsMessages).goTo.gone(target.label));
     }
   }
 }

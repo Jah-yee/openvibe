@@ -6,12 +6,15 @@ import { AGENTS } from "@/fleet/catalog";
 import { CommandInput } from "@/fleet/CommandInput";
 import { HINT_KEY, historyStore } from "@/fleet/history";
 import { selectionTargets, targetAgents } from "@/fleet/targets";
+import { useMessages } from "@/i18n";
 import { getSetting, setSetting } from "@/ipc/db";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { useWorkspaces } from "@/store/workspaces";
+import { shellMessages } from "./messages";
 
 /** The bar under the chips (spec habillage §5.6, §12): a command for the workspace's agents. */
 export function CommandBar() {
+  const t = useMessages(shellMessages).commandBar;
   const nodeIds = useCanvas((s) => s.nodeIds);
   const frames = useCanvas((s) => s.frames);
   const selectedIds = useCanvas((s) => s.view.selectedIds);
@@ -49,8 +52,8 @@ export function CommandBar() {
         agents={agents}
         groups={groups}
         fallback={fallback}
-        placeholder="Consigne aux agents · @ pour cibler · / commande · ↑ historique"
-        emptyHint="Sélectionne des agents ou tape @"
+        placeholder={t.placeholder}
+        emptyHint={t.emptyHint}
       />
     </div>
   );
@@ -58,6 +61,7 @@ export function CommandBar() {
 
 /** "Essaie « @tous lance les tests »", above the chips until dismissed (spec §12). */
 export function CommandHint() {
+  const t = useMessages(shellMessages).commandBar;
   const [shown, setShown] = useState(false);
 
   useEffect(() => {
@@ -74,10 +78,10 @@ export function CommandHint() {
   if (!shown) return null;
   return (
     <div className="ov-glass-strong pointer-events-auto flex items-center gap-2 rounded-[10px] py-1 pl-3 pr-1 text-xs text-ov-text-2">
-      Essaie « @tous lance les tests »
+      {t.hint}
       <button
         type="button"
-        aria-label="Masquer l'indice"
+        aria-label={t.hideHint}
         onClick={() => {
           setShown(false);
           void setSetting(HINT_KEY, true).catch(() => undefined);

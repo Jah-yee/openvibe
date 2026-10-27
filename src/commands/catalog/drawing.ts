@@ -5,24 +5,29 @@ import type { Point } from "@/fleet/terminals";
 import { CANVAS_KEYS, copyCanvasSelection, openNativeMenuAt, pasteOnCanvasAt, pressCanvasKey, startTextAt } from "@/radial/bridges";
 import { exportCurrentPng, exportCurrentScene, importIntoScene } from "@/shell/sceneActions";
 import type { Command, CommandContext } from "../command";
+import { command, derived, sectionNamed } from "./define";
+import { catalog } from "./messages";
 import { inProject } from "./navigation";
+
+const drawing = sectionNamed((s) => s.drawing);
+const scene = sectionNamed((s) => s.scene);
 
 type Tool = "selection" | "hand" | "rectangle" | "ellipse" | "diamond" | "line" | "arrow" | "frame" | "text" | "freedraw" | "eraser" | "image";
 
 /** The tools of the rail and the shapes menu, with the one-letter key Excalidraw gives them. */
-const TOOLS: readonly { label: string; type: Tool; keys?: string }[] = [
-  { label: "Sélection", type: "selection", keys: "V" },
-  { label: "Main", type: "hand", keys: "H" },
-  { label: "Rectangle", type: "rectangle", keys: "R" },
-  { label: "Ellipse", type: "ellipse", keys: "O" },
-  { label: "Losange", type: "diamond", keys: "D" },
-  { label: "Ligne", type: "line", keys: "L" },
-  { label: "Flèche", type: "arrow", keys: "A" },
-  { label: "Cadre", type: "frame", keys: "F" },
-  { label: "Texte", type: "text", keys: "T" },
-  { label: "Stylo", type: "freedraw", keys: "P" },
-  { label: "Gomme", type: "eraser", keys: "E" },
-  { label: "Image", type: "image" },
+const TOOLS: readonly { type: Tool; keys?: string }[] = [
+  { type: "selection", keys: "V" },
+  { type: "hand", keys: "H" },
+  { type: "rectangle", keys: "R" },
+  { type: "ellipse", keys: "O" },
+  { type: "diamond", keys: "D" },
+  { type: "line", keys: "L" },
+  { type: "arrow", keys: "A" },
+  { type: "frame", keys: "F" },
+  { type: "text", keys: "T" },
+  { type: "freedraw", keys: "P" },
+  { type: "eraser", keys: "E" },
+  { type: "image" },
 ];
 
 /** A drawing tool, then the keyboard to the canvas (spec fenêtre §7.3). */
@@ -65,40 +70,41 @@ function pointOf(ctx: CommandContext): Point {
 
 export const DRAWING: readonly Command[] = [
   ...TOOLS.map(
-    ({ label, type, keys }): Command => ({
-      id: `tool.${type}`,
-      label,
-      section: "Dessin",
-      keywords: ["outil", "dessin", label],
-      keys,
-      available: inProject,
-      run: (ctx) => (type === "text" && ctx.at ? startTextAt(pointOf(ctx)) : pickTool(type)),
-    }),
+    ({ type, keys }): Command =>
+      derived(
+        {
+          id: `tool.${type}`,
+          section: drawing,
+          keys,
+          available: inProject,
+          run: (ctx) => (type === "text" && ctx.at ? startTextAt(pointOf(ctx)) : pickTool(type)),
+        },
+        () => catalog().tools[type],
+        () => [...catalog().toolKeywords, catalog().tools[type]],
+      ),
   ),
-  { id: "edit.undo", label: "Annuler", section: "Dessin", keywords: ["annuler", "défaire"], keys: "Ctrl+Z", available: inProject, run: () => pressUndoKey("z") },
-  { id: "edit.redo", label: "Rétablir", section: "Dessin", keywords: ["rétablir", "refaire"], keys: "Ctrl+Y", available: inProject, run: () => pressUndoKey("y") },
-  { id: "drawing.copy", label: "Copier", section: "Dessin", keywords: ["copier", "presse-papiers"], keys: "Ctrl+C", available: withSelection, run: () => copyCanvasSelection() },
-  { id: "drawing.paste", label: "Coller", section: "Dessin", keywords: ["coller", "presse-papiers"], keys: "Ctrl+V", available: inProject, run: (ctx) => pasteOnCanvasAt(pointOf(ctx)) },
-  { id: "drawing.duplicate", label: "Dupliquer", section: "Dessin", keywords: ["dupliquer", "copie"], keys: "Ctrl+D", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.duplicate) },
-  { id: "drawing.front", label: "Premier plan", section: "Dessin", keywords: ["devant", "ordre", "plan"], keys: "Ctrl+Maj+]", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.front) },
-  { id: "drawing.back", label: "Arrière-plan", section: "Dessin", keywords: ["derrière", "ordre", "plan"], keys: "Ctrl+Maj+[", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.back) },
-  {
-    id: "drawing.lock",
-    label: () => (selectionLocked() ? "Déverrouiller" : "Verrouiller"),
-    section: "Dessin",
-    keywords: ["verrouiller", "déverrouiller", "figer"],
+  command("edit.undo", { section: drawing, keys: "Ctrl+Z", available: inProject, run: () => pressUndoKey("z") }),
+  command("edit.redo", { section: drawing, keys: "Ctrl+Y", available: inProject, run: () => pressUndoKey("y") }),
+  command("drawing.copy", { section: drawing, keys: "Ctrl+C", available: withSelection, run: () => copyCanvasSelection() }),
+  command("drawing.paste", { section: drawing, keys: "Ctrl+V", available: inProject, run: (ctx) => pasteOnCanvasAt(pointOf(ctx)) }),
+  command("drawing.duplicate", { section: drawing, keys: "Ctrl+D", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.duplicate) }),
+  command("drawing.front", { section: drawing, keys: "Ctrl+Maj+]", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.front) }),
+  command("drawing.back", { section: drawing, keys: "Ctrl+Maj+[", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.back) }),
+  command("drawing.lock", {
+    label: () => (selectionLocked() ? catalog().unlock : catalog().lock),
+    section: drawing,
     keys: "Ctrl+Maj+L",
     available: withSelection,
     run: () => pressCanvasKey(CANVAS_KEYS.lock),
-  },
+  }),
   // Agents in the selection go through the closing guard (spec habillage §7.5).
-  { id: "drawing.delete", label: "Supprimer", section: "Dessin", keywords: ["supprimer", "effacer"], keys: "Suppr", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.delete) },
+  command("drawing.delete", { section: drawing, keys: "Suppr", available: withSelection, run: () => pressCanvasKey(CANVAS_KEYS.delete) }),
   // The radial menu's only: Excalidraw's full menu at its point (spec menu radial §4.5).
-  { id: "drawing.more", label: "Plus…", section: "Dessin", keywords: ["menu", "plus"], available: (ctx) => withSelection(ctx) && ctx.at !== undefined, run: (ctx) => openNativeMenuAt(pointOf(ctx)) },
+  command("drawing.more", { section: drawing, available: (ctx) => withSelection(ctx) && ctx.at !== undefined, run: (ctx) => openNativeMenuAt(pointOf(ctx)) }),
 ];
 
 export const SCENE: readonly Command[] = [
-  { id: "scene.export", label: "Exporter la scène…", section: "Scène", keywords: ["exporter", "fichier", "scène"], available: inProject, run: () => exportCurrentScene() },
-  { id: "scene.import", label: "Importer une scène…", section: "Scène", keywords: ["importer", "fichier", "scène"], available: inProject, run: () => importIntoScene() },
-  { id: "scene.png", label: "Exporter en PNG…", section: "Scène", keywords: ["image", "png", "exporter"], available: inProject, run: () => exportCurrentPng() },
+  command("scene.export", { section: scene, available: inProject, run: () => exportCurrentScene() }),
+  command("scene.import", { section: scene, available: inProject, run: () => importIntoScene() }),
+  command("scene.png", { section: scene, available: inProject, run: () => exportCurrentPng() }),
 ];

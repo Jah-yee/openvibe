@@ -1,8 +1,19 @@
 import type { SceneFrame } from "@/canvas/groups";
+import { messages } from "@/i18n";
 import { agentsText } from "./groupSummary";
+import { fleetMessages } from "./messages";
 
 /** Who a command goes to (spec habillage §12). */
 export type Target = { kind: "all" } | { kind: "group"; id: string } | { kind: "agent"; id: string };
+
+/** Both languages' words for everyone: `@tous` and `@all` work whatever the interface's language. */
+const ALL_NAMES: readonly string[] = ["tous", "all"];
+
+/** The options a typed name designates: the one of that name, and the "all" option for either of its words. */
+function optionsNamed(options: readonly TargetOption[], word: string): TargetOption[] {
+  const name = slug(word);
+  return options.filter((o) => o.label === `@${name}` || (o.target.kind === "all" && ALL_NAMES.includes(name)));
+}
 
 /** One line of the `@` list. */
 export interface TargetOption {
@@ -59,22 +70,23 @@ export function targetAgents(
 
 /** @tous, then the groups, then the agents; two agents of the same name both show, with their group (spec §12). */
 export function targetOptions(agents: readonly TargetAgent[], groups: readonly SceneFrame[]): TargetOption[] {
-  const all: TargetOption = { target: { kind: "all" }, label: "@tous", detail: agentsText(agents.length) };
+  const all: TargetOption = { target: { kind: "all" }, label: messages(fleetMessages).targets.all, detail: agentsText(agents.length) };
   const groupOptions = groups
     .filter((g) => g.group !== null && slug(g.name))
     .map((g): TargetOption => ({ target: { kind: "group", id: g.id }, label: `@${slug(g.name)}`, detail: agentsText(g.memberIds.length) }));
   const agentOptions = agents
     .filter((a) => slug(a.name))
-    .map((a): TargetOption => ({ target: { kind: "agent", id: a.id }, label: `@${slug(a.name)}`, detail: a.groupName ?? "Hors groupe" }));
+    .map((a): TargetOption => ({ target: { kind: "agent", id: a.id }, label: `@${slug(a.name)}`, detail: a.groupName ?? messages(fleetMessages).outsideGroup }));
   return [all, ...groupOptions, ...agentOptions];
 }
 
 /** The options whose name starts with the query, then those containing it; case and accents ignored. */
 export function matchOptions(options: readonly TargetOption[], query: string): TargetOption[] {
   const wanted = slug(query);
-  const name = (option: TargetOption) => option.label.slice(1);
-  const starts = options.filter((o) => name(o).startsWith(wanted));
-  const contains = options.filter((o) => !name(o).startsWith(wanted) && name(o).includes(wanted));
+  // The "all" option answers to either language's word.
+  const names = (option: TargetOption) => (option.target.kind === "all" ? ALL_NAMES : [option.label.slice(1)]);
+  const starts = options.filter((o) => names(o).some((n) => n.startsWith(wanted)));
+  const contains = options.filter((o) => !names(o).some((n) => n.startsWith(wanted)) && names(o).some((n) => n.includes(wanted)));
   return [...starts, ...contains];
 }
 
@@ -94,7 +106,7 @@ export function mentionParts(query: string): { typed: string[]; query: string } 
 /** The typed names that match exactly one option, as targets. */
 export function partTargets(names: readonly string[], options: readonly TargetOption[]): Target[] {
   return names.flatMap((name) => {
-    const found = options.filter((o) => o.label === `@${slug(name)}`);
+    const found = optionsNamed(options, name);
     return found.length === 1 ? [found[0].target] : [];
   });
 }
@@ -123,7 +135,7 @@ export function extractMentions(text: string, options: readonly TargetOption[]):
   const targets: Target[] = [];
   const mention = /(^|\s)@([^\s@,;:.!?…]+)[,;:.!?…]*(?=\s|$) ?/g;
   const rest = text.replace(mention, (whole: string, before: string, word: string) => {
-    const found = options.filter((o) => o.label === `@${slug(word)}`);
+    const found = optionsNamed(options, word);
     if (found.length === 1) {
       targets.push(found[0].target);
       return before;

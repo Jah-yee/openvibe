@@ -31,3 +31,6 @@ public/fonts/
 
 # Working notes of the development process (plans in progress, review packages)
 .superpowers/
+
+# Worktrees of parallel agents
+.claude/worktrees/

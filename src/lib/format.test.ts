@@ -28,3 +28,13 @@ describe("formatDuration", () => {
     expect(formatDuration(-3)).toBe("0 s");
   });
 });
+
+describe("in English (spec première version §7.1)", () => {
+  it("says how long ago", () => {
+    const now = Date.now();
+    expect(formatAgo(now - 20_000, now, "en")).toBe("just now");
+    expect(formatAgo(now - 5 * 60_000, now, "en")).toBe("5 min ago");
+    expect(formatAgo(now - 2 * 3_600_000, now, "en")).toBe("2 h ago");
+    expect(formatAgo(now - 3 * 86_400_000, now, "en")).toBe("3 d ago");
+  });
+});

@@ -309,3 +309,9 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `installUpdate` appelle `flushAll` et non `saveBeforeClose` : un titre en cours d'édition au moment d'installer est perdu.
 - `release.yml` ne lance que les tests de l'interface (la CI sur `main` couvre le reste du même commit) ; actions épinglées par version majeure, pas par SHA ; pas de règle de protection des tags `v*`.
 - `SECURITY.md` : le tableau des versions suivies dit encore `main (0.1.x)` ; le CHANGELOG doit présenter OpenVibe (fonctions principales) avant la première bêta.
+
+## Constats du jalon R5a (langues)
+
+- Une erreur de consentement Remote Control est enregistrée en texte (`remoteStore`) : elle garde la langue du moment où elle est survenue.
+- Les entrées « Aller à » sont calculées à l'ouverture de la palette : un changement de langue palette ouverte ne les traduit qu'à la réouverture (les commandes de langue ferment la palette).
+- Le dialogue « Composer un groupe » garde le nom proposé dans l'ancienne langue si la langue change pendant qu'il est ouvert.

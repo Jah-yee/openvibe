@@ -5,8 +5,10 @@ import { ICON_CATEGORIES, loadCategory, matchIcons, type IconItem } from "@/canv
 import { insertIcon } from "@/canvas/icons/place";
 import { iconThumbnail } from "@/canvas/icons/thumbnail";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ToolButton } from "./buttons";
+import { shellMessages } from "./messages";
 
 /** A search shows this many icons at most: drawing each one costs. */
 const MAX_FOUND = 120;
@@ -15,11 +17,12 @@ const CREDITS = ICON_CATEGORIES.flatMap((category) => category.libraries.map((li
 
 /** The ICÔNES menu of the rail (spec maj §4): system design, AWS, Azure and GCP icons, put on the canvas. */
 export function IconsMenu() {
+  const t = useMessages(shellMessages).icons;
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <ToolButton label="Icônes" active={open}>
+        <ToolButton label={t.title} active={open}>
           <Boxes />
         </ToolButton>
       </PopoverTrigger>
@@ -39,6 +42,7 @@ export function IconsMenu() {
 }
 
 export function IconsPanel({ onPick }: { onPick: (item: IconItem) => void }) {
+  const t = useMessages(shellMessages).icons;
   const dark = useTheme() === "dark";
   const [category, setCategory] = useState(ICON_CATEGORIES[0].id);
   const [query, setQuery] = useState("");
@@ -63,11 +67,11 @@ export function IconsPanel({ onPick }: { onPick: (item: IconItem) => void }) {
   const shown = searching ? matchIcons(ICON_CATEGORIES.flatMap((c) => items[c.id] ?? []), query).slice(0, MAX_FOUND) : items[category];
   return (
     <div className="flex flex-col gap-2">
-      <p className="ov-label">Icônes</p>
+      <p className="ov-label">{t.title}</p>
       <input
         type="search"
-        aria-label="Chercher une icône"
-        placeholder="Chercher une icône…"
+        aria-label={t.search}
+        placeholder={t.searchPlaceholder}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="h-8 rounded-[8px] bg-ov-field px-2.5 text-[13px] text-ov-text outline-none placeholder:text-ov-text-3"
@@ -94,17 +98,17 @@ export function IconsPanel({ onPick }: { onPick: (item: IconItem) => void }) {
       </div>
       <div className="grid max-h-[420px] grid-cols-4 gap-1.5 overflow-y-auto pr-1">
         {failed && !shown?.length ? (
-          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">Icônes introuvables dans l'application.</p>
+          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">{t.notFound}</p>
         ) : shown === undefined ? (
-          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">Chargement…</p>
+          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">{t.loading}</p>
         ) : shown.length === 0 ? (
-          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">Aucune icône</p>
+          <p className="col-span-4 py-6 text-center text-xs text-ov-text-2">{t.none}</p>
         ) : (
           shown.map((item) => <IconTile key={item.id} item={item} dark={dark} onPick={onPick} />)
         )}
       </div>
       <p className="text-[10.5px] text-ov-text-3" title={CREDITS}>
-        Bibliothèques de la communauté Excalidraw · licence MIT
+        {t.credits}
       </p>
     </div>
   );

@@ -8,12 +8,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUiRequest } from "@/commands/uiRequests";
+import { messages, useMessages } from "@/i18n";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { cn } from "@/lib/utils";
 import { agentsStore, useAgents } from "./agentsStore";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, defaultAgent } from "./catalog";
 import { agentsOf, DEFAULT_GROUP_SIZE, MAX_GROUP_SIZE, nameAfterRoleChange, resizeSlots, type Slot } from "./composer";
+import { fleetMessages } from "./messages";
 import { launchGroup } from "./groups";
 import { ROLE_ORDER, ROLES, type RoleId } from "./roles";
 
@@ -67,6 +69,7 @@ export function ComposeGroup({
   /** The agents panel's copy answers the palette's « Composer un groupe… ». */
   answersRequests?: boolean;
 }) {
+  const t = useMessages(fleetMessages).compose;
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<RoleId>("general");
   const [name, setName] = useState(ROLES.general.label);
@@ -100,7 +103,7 @@ export function ComposeGroup({
   const launch = () => {
     setOpen(false);
     void launchGroup({ name, role, agents: agentsOf(slots, fallback) }).catch((error: unknown) =>
-      toast.error(`Lancement impossible : ${String(error)}`),
+      toast.error(messages(fleetMessages).launchFailed(String(error))),
     );
   };
 
@@ -108,7 +111,7 @@ export function ComposeGroup({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side={side} sideOffset={10} className="flex w-[360px] flex-col gap-3 p-3">
-        <p className="ov-label">Composer un groupe</p>
+        <p className="ov-label">{t.title}</p>
         <label className="flex h-9 items-center gap-2 rounded-lg border border-ov-line bg-ov-card px-2.5">
           <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
           <input
@@ -116,7 +119,7 @@ export function ComposeGroup({
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             onFocus={(e) => e.currentTarget.select()}
-            aria-label="Nom du groupe"
+            aria-label={t.groupName}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-ov-text outline-none"
           />
         </label>
@@ -155,13 +158,13 @@ export function ComposeGroup({
         </div>
         {choices.length > 0 && (
           <div className="flex items-center gap-1.5 text-[11px] text-ov-text-2">
-            <span className="mr-1">Tout remplir avec</span>
+            <span className="mr-1">{t.fillWith}</span>
             {choices.map((id) => (
               <button
                 key={id}
                 type="button"
                 title={AGENTS[id].label}
-                aria-label={`Tout remplir avec ${AGENTS[id].label}`}
+                aria-label={t.fillAllWith(AGENTS[id].label)}
                 onClick={() => setSlots((current) => current.map(() => id))}
                 className="rounded-md hover:brightness-125"
               >
@@ -174,7 +177,7 @@ export function ComposeGroup({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="Un agent de moins"
+              aria-label={t.fewer}
               disabled={slots.length <= 1}
               onClick={() => setSlots((current) => resizeSlots(current, current.length - 1))}
               className="grid size-7 place-items-center rounded-full text-ov-text-2 hover:bg-ov-card hover:text-ov-text disabled:opacity-40"
@@ -184,7 +187,7 @@ export function ComposeGroup({
             <span className="w-6 text-center font-mono text-[13px] text-ov-text">{slots.length}</span>
             <button
               type="button"
-              aria-label="Un agent de plus"
+              aria-label={t.more}
               disabled={slots.length >= MAX_GROUP_SIZE}
               onClick={() => setSlots((current) => resizeSlots(current, current.length + 1))}
               className="grid size-7 place-items-center rounded-full text-ov-text-2 hover:bg-ov-card hover:text-ov-text disabled:opacity-40"
@@ -198,7 +201,7 @@ export function ComposeGroup({
             className="h-8 rounded-full px-4 text-[13px] font-semibold text-ov-on-role hover:brightness-110"
             style={{ backgroundColor: color }}
           >
-            Lancer {slots.length}
+            {t.launch(slots.length)}
           </button>
         </div>
       </PopoverContent>

@@ -15,6 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { langStore, readLanguageChoice, useMessages } from "@/i18n";
+import { setLanguage } from "@/i18n/settings";
+import { useStore } from "zustand";
+import { shellMessages } from "./messages";
 import { exportCurrentPng, exportCurrentScene, importIntoScene } from "./sceneActions";
 
 /** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2), opened from `trigger`. */
@@ -27,45 +31,54 @@ export function SettingsMenu({
   side?: "bottom" | "left";
   align?: "start" | "end";
 }) {
+  const t = useMessages(shellMessages).settings;
   const { choice, transparency } = useThemeSettings();
+  const languageChoice = useStore(langStore, (s) => s.choice);
   const autoUpdates = useUpdates((s) => s.auto);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent side={side} align={align} className="w-56">
-        <DropdownMenuLabel className="ov-label">Thème</DropdownMenuLabel>
+        <DropdownMenuLabel className="ov-label">{t.theme}</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={choice} onValueChange={(value) => void setThemeChoice(readThemeChoice(value))}>
-          <DropdownMenuRadioItem value="system">Système</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="light">Clair (Ivoire)</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">Sombre (Argile)</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="system">{t.system}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">{t.light}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">{t.dark}</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
         <DropdownMenuCheckboxItem checked={transparency} onCheckedChange={(on) => void setTransparency(on === true)}>
-          Effets de transparence
+          {t.transparency}
         </DropdownMenuCheckboxItem>
         <DropdownMenuSeparator />
+        <DropdownMenuLabel className="ov-label">{t.language}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={languageChoice} onValueChange={(value) => void setLanguage(readLanguageChoice(value))}>
+          <DropdownMenuRadioItem value="system">{t.languageSystem}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="fr">Français</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={exportCurrentScene}>
-          <Download /> Exporter la scène…
+          <Download /> {t.exportScene}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={importIntoScene}>
-          <Upload /> Importer une scène…
+          <Upload /> {t.importScene}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={exportCurrentPng}>
-          <ImageDown /> Exporter en PNG…
+          <ImageDown /> {t.exportPng}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuCheckboxItem checked={autoUpdates} onCheckedChange={(on) => void setAutoUpdates(on === true)}>
-          Rechercher les mises à jour automatiquement
+          {t.autoUpdates}
         </DropdownMenuCheckboxItem>
         <DropdownMenuItem onSelect={() => void checkForUpdate({ manual: true })}>
-          <ArrowDownCircle /> Rechercher les mises à jour
+          <ArrowDownCircle /> {t.checkUpdates}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => void showAbout()}
         >
-          <Info /> À propos d'OpenVibe
+          <Info /> {t.about}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void openLogDir()}>
-          <FileText /> Ouvrir le dossier des journaux
+          <FileText /> {t.openLogs}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -12,6 +12,8 @@ import { frameStyle, WAITING_GLOW } from "./frame";
 import { ResumeCard } from "./ResumeCard";
 import { HeaderButton, TerminalHeader } from "./TerminalHeader";
 import { useTerminalHost } from "./useTerminalHost";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 export function TerminalNode({ nodeId }: { nodeId: string }) {
   const payload = useNodes((s) => terminalOf(s.nodes[nodeId]));
@@ -21,13 +23,14 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
   const selected = useCanvas((s) => s.view.selectedIds.includes(nodeId));
   const hostRef = useRef<HTMLDivElement>(null);
   const hasPayload = payload !== undefined;
+  const t = useMessages(nodesMessages).terminal;
 
   useTerminalHost(nodeId, hostRef, hasPayload);
 
   if (!payload) {
     return (
       <div className="grid h-full place-items-center rounded-xl border border-ov-line bg-ov-surface text-sm text-ov-text-2">
-        Terminal introuvable
+        {t.notFound}
       </div>
     );
   }
@@ -47,17 +50,17 @@ export function TerminalNode({ nodeId }: { nodeId: string }) {
         actions={
           <>
             <HeaderButton
-              label="Dupliquer"
+              label={t.duplicate}
               onClick={() =>
                 workspaceId &&
                 void duplicateTerminal(workspaceId, nodeId).catch((error: unknown) =>
-                  toast.error(`Duplication impossible : ${String(error)}`),
+                  toast.error(t.duplicateFailed(String(error))),
                 )
               }
             >
               <Copy />
             </HeaderButton>
-            <HeaderButton label="Fermer" onClick={() => requestClose(nodeId)}>
+            <HeaderButton label={t.close} onClick={() => requestClose(nodeId)}>
               <X />
             </HeaderButton>
           </>
