@@ -41,18 +41,39 @@ pub fn settings_json(url: &str, role: Role) -> Value {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatusLine {
     pub script: PathBuf,
+    /// OpenVibe's URL, without the token.
     pub url: String,
+    /// The curl config file that carries the token (`write_curl_config`).
+    pub config: PathBuf,
     /// The user's `statusLine` setting, when it runs a command.
     pub user: Option<Value>,
 }
 
 /// Run by Claude through bash, Git Bash on Windows: `$1` is OpenVibe's URL,
-/// `$2` the user's own status line command, given the same JSON.
+/// `$2` the curl config that carries the token, `$3` the user's own status
+/// line command, given the same JSON.
 pub const STATUS_SCRIPT: &str = "#!/usr/bin/env bash\n\
 # OpenVibe : la ligne d'état de Claude transmet l'usage de la session, puis affiche celle de l'utilisateur.\n\
 input=$(cat)\n\
-printf '%s' \"$input\" | curl -s -m 1 -X POST -H 'Content-Type: application/json' --data-binary @- \"$1\" >/dev/null 2>&1\n\
-if [ -n \"${2:-}\" ]; then printf '%s' \"$input\" | bash -c \"$2\"; fi\n";
+printf '%s' \"$input\" | curl -s -m 1 -K \"$2\" -X POST -H 'Content-Type: application/json' --data-binary @- \"$1\" >/dev/null 2>&1\n\
+if [ -n \"${3:-}\" ]; then printf '%s' \"$input\" | bash -c \"$3\"; fi\n";
+
+/// The curl config that gives the local server's token to curl as a header
+/// (spec première version §4.3): on a command line, any program of the
+/// account could read it. Rewritten at each start, next to the settings
+/// files that already hold the token.
+pub fn write_curl_config(dir: &Path, token: &str) -> io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("curl.cfg");
+    std::fs::write(
+        &path,
+        format!(
+            "header = \"{}: {token}\"\n",
+            super::hooks_server::TOKEN_HEADER
+        ),
+    )?;
+    Ok(path)
+}
 
 /// A word for bash: single quotes, a quote inside closed and reopened.
 fn bash_quote(text: &str) -> String {
@@ -62,7 +83,13 @@ fn bash_quote(text: &str) -> String {
 pub fn status_line_json(status: &StatusLine) -> Value {
     // bash reads Windows paths with forward slashes.
     let script = status.script.to_string_lossy().replace('\\', "/");
-    let mut command = format!("bash {} {}", bash_quote(&script), bash_quote(&status.url));
+    let config = status.config.to_string_lossy().replace('\\', "/");
+    let mut command = format!(
+        "bash {} {} {}",
+        bash_quote(&script),
+        bash_quote(&status.url),
+        bash_quote(&config)
+    );
     let user = status.user.as_ref();
     if let Some(own) = user.and_then(|u| u["command"].as_str()) {
         command.push(' ');
@@ -250,32 +277,47 @@ mod tests {
         clear(&dir.path().join("missing"));
     }
 
-    const STATUS_URL: &str = "http://127.0.0.1:4242/status/n1?t=tok";
+    const STATUS_URL: &str = "http://127.0.0.1:4242/status/n1";
 
     fn status(user: Option<serde_json::Value>) -> StatusLine {
         StatusLine {
             script: PathBuf::from(r"C:\data\hooks\statusline.sh"),
             url: STATUS_URL.into(),
+            config: PathBuf::from(r"C:\data\Jean O'Brien\hooks\curl.cfg"),
             user,
         }
     }
 
     #[test]
     fn its_status_line_tells_openvibe_then_shows_the_user_s_own() {
+        let config = "'C:/data/Jean O'\\''Brien/hooks/curl.cfg'";
         assert_eq!(
             status_line_json(&status(None)),
-            json!({ "type": "command", "command": format!("bash 'C:/data/hooks/statusline.sh' '{STATUS_URL}'") })
+            json!({ "type": "command", "command": format!("bash 'C:/data/hooks/statusline.sh' '{STATUS_URL}' {config}") })
         );
         let user = json!({ "type": "command", "command": "~/bin/it's.sh --x", "padding": 0, "refreshInterval": 5 });
         assert_eq!(
             status_line_json(&status(Some(user))),
             json!({
                 "type": "command",
-                "command": format!("bash 'C:/data/hooks/statusline.sh' '{STATUS_URL}' '~/bin/it'\\''s.sh --x'"),
+                "command": format!("bash 'C:/data/hooks/statusline.sh' '{STATUS_URL}' {config} '~/bin/it'\\''s.sh --x'"),
                 "padding": 0,
                 "refreshInterval": 5
             })
         );
+    }
+
+    #[test]
+    fn the_token_travels_in_a_curl_config_file_not_on_a_command_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_curl_config(&dir.path().join("hooks"), "tok-1").unwrap();
+        assert_eq!(path, dir.path().join("hooks").join("curl.cfg"));
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "header = \"X-OpenVibe-Token: tok-1\"\n"
+        );
+        let line = status_line_json(&status(None));
+        assert!(!line["command"].as_str().unwrap().contains("t="));
     }
 
     #[test]
@@ -350,6 +392,7 @@ mod tests {
         let line = StatusLine {
             script: dir.path().join("missing").join("statusline.sh"),
             url: STATUS_URL.into(),
+            config: dir.path().join("curl.cfg"),
             user: None,
         };
         let path = write(dir.path(), "n1", URL, Role::Agent, Some(&line)).unwrap();
@@ -365,6 +408,7 @@ mod tests {
         let line = StatusLine {
             script: dir.path().join("statusline.sh"),
             url: STATUS_URL.into(),
+            config: dir.path().join("curl.cfg"),
             user: None,
         };
         let path = write(dir.path(), "n1", URL, Role::Agent, Some(&line)).unwrap();
@@ -373,9 +417,9 @@ mod tests {
         assert_eq!(read["statusLine"], status_line_json(&line));
         let script = std::fs::read_to_string(dir.path().join("statusline.sh")).unwrap();
         assert!(
-            script.contains("curl")
+            script.contains("curl -s -m 1 -K \"$2\"")
                 && script.contains("\"$1\"")
-                && script.contains("bash -c \"$2\""),
+                && script.contains("bash -c \"$3\""),
             "{script}"
         );
         assert!(!script.contains('\r'), "bash needs LF line ends");

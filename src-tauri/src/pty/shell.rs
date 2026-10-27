@@ -132,8 +132,10 @@ pub struct SpawnPlan {
 pub struct AgentHooks {
     /// Claude: `claude --settings <file>`.
     pub claude_settings: Option<PathBuf>,
-    /// Codex: the URL its `notify` posts to.
+    /// Codex: the URL its `notify` posts to, without the token.
     pub codex_notify: Option<String>,
+    /// The curl config that carries the local server's token (spec première version §4.3).
+    pub curl_config: Option<PathBuf>,
     /// Claude: `--mcp-config <file>`, OpenVibe's tools (spec orchestrateur §4.2).
     pub mcp_config: Option<PathBuf>,
     /// Claude: `--append-system-prompt-file <file>`, its role.
@@ -304,7 +306,11 @@ pub fn agent_command(
             Some(command.to_string())
         }
         Agent::Claude => Some(claude_command(spec.claude.as_ref(), syntax, hooks)?),
-        Agent::Codex => Some(codex_command(syntax, hooks.codex_notify.as_deref())),
+        Agent::Codex => Some(codex_command(
+            syntax,
+            hooks.codex_notify.as_deref(),
+            hooks.curl_config.as_deref(),
+        )),
         Agent::Ollama => Some(ollama_command(spec.ollama.as_ref(), syntax)?),
         other => Some(binary(other).into()),
     })
@@ -411,14 +417,26 @@ fn remote_flag(launch: &ClaudeLaunch, syntax: ShellSyntax) -> String {
 }
 
 /// `notify` is given as TOML literal strings: PowerShell 5.1 drops the
-/// double quotes nested in an argument passed to a native program.
-fn codex_command(syntax: ShellSyntax, notify_url: Option<&str>) -> String {
-    let Some(url) = notify_url else {
+/// double quotes nested in an argument passed to a native program. The token
+/// comes from the curl config, never from the command line.
+fn codex_command(syntax: ShellSyntax, notify_url: Option<&str>, config: Option<&Path>) -> String {
+    let (Some(url), Some(config)) = (notify_url, config) else {
         return "codex".into();
     };
     let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
-    let notify = format!("notify=['{curl}','-s','-X','POST','{url}','-d']");
+    let config = toml_literal(&config.to_string_lossy());
+    let notify = format!("notify=['{curl}','-s','-K',{config},'-X','POST','{url}','-d']");
     format!("codex -c {}", quote(syntax, &notify))
+}
+
+/// A TOML literal string; a path with an apostrophe (`O'Brien`) takes the
+/// multi-line form, which may hold one.
+fn toml_literal(text: &str) -> String {
+    if text.contains('\'') {
+        format!("'''{text}'''")
+    } else {
+        format!("'{text}'")
+    }
 }
 
 /// Titles are typed into an interactive shell: control characters would submit or
@@ -841,17 +859,34 @@ mod tests {
     }
 
     #[test]
+    fn a_curl_config_under_a_name_with_an_apostrophe_stays_one_toml_string() {
+        let hooks = AgentHooks {
+            codex_notify: Some("http://127.0.0.1:1/hook/codex/n1".into()),
+            curl_config: Some(PathBuf::from(r"C:\Users\O'Brien\curl.cfg")),
+            ..Default::default()
+        };
+        let cmd = agent_command(&spec(Agent::Codex, None), ShellSyntax::Cmd, &hooks)
+            .unwrap()
+            .unwrap();
+        assert!(
+            cmd.contains(r"'-K','''C:\Users\O'Brien\curl.cfg''','-X'"),
+            "{cmd}"
+        );
+    }
+
+    #[test]
     fn codex_notifies_the_end_of_its_turns() {
         let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
         let hooks = AgentHooks {
-            codex_notify: Some("http://127.0.0.1:4242/hook/codex/n1?t=tok".into()),
+            codex_notify: Some("http://127.0.0.1:4242/hook/codex/n1".into()),
+            curl_config: Some(PathBuf::from(r"C:\Users\Jean Dupont\hooks\curl.cfg")),
             ..Default::default()
         };
         let cmd = agent_command(&spec(Agent::Codex, None), ShellSyntax::Cmd, &hooks).unwrap();
         assert_eq!(
             cmd.unwrap(),
             format!(
-                r#"codex -c "notify=['{curl}','-s','-X','POST','http://127.0.0.1:4242/hook/codex/n1?t=tok','-d']""#
+                r#"codex -c "notify=['{curl}','-s','-K','C:\Users\Jean Dupont\hooks\curl.cfg','-X','POST','http://127.0.0.1:4242/hook/codex/n1','-d']""#
             )
         );
         let plain = agent_command(

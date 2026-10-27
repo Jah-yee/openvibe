@@ -26,6 +26,8 @@ const MCP_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct AgentState {
     tracker: Mutex<Tracker>,
     hooks: Option<HookServer>,
+    /// The curl config that carries the server's token (spec première version §4.3).
+    curl_config: Option<PathBuf>,
     hooks_dir: PathBuf,
     mcp_dir: PathBuf,
     /// One token per Claude launch, naming its node (spec orchestrateur §4.1).
@@ -115,9 +117,15 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
             None
         }
     };
+    let curl_config = hooks.as_ref().and_then(|server| {
+        claude_settings::write_curl_config(&hooks_dir, &server.token)
+            .inspect_err(|err| log::error!("curl config not written: {err}"))
+            .ok()
+    });
     app.manage(AgentState {
         tracker: Mutex::new(Tracker::default()),
         hooks,
+        curl_config,
         hooks_dir,
         mcp_dir,
         mcp_tokens: Tokens::default(),
@@ -245,20 +253,25 @@ pub fn hooks_for(
     match agent {
         Agent::Claude => {
             // The user's own status line goes on showing, after OpenVibe has read the usage (spec maj §6).
-            let status = claude_settings::StatusLine {
-                script: state.hooks_dir.join("statusline.sh"),
-                url: server.status_url(node_id),
-                user: claude_settings::status_line_for(
-                    cwd,
-                    claude_settings::user_settings_file().as_deref(),
-                ),
-            };
+            // Without the curl config, no status line: its token would go on a command line.
+            let status = state
+                .curl_config
+                .clone()
+                .map(|config| claude_settings::StatusLine {
+                    script: state.hooks_dir.join("statusline.sh"),
+                    url: server.bare_status_url(node_id),
+                    config,
+                    user: claude_settings::status_line_for(
+                        cwd,
+                        claude_settings::user_settings_file().as_deref(),
+                    ),
+                });
             let settings = claude_settings::write(
                 &state.hooks_dir,
                 node_id,
                 &server.url(HookSource::Claude, node_id),
                 role,
-                Some(&status),
+                status.as_ref(),
             );
             let Ok(settings) =
                 settings.inspect_err(|err| log::error!("hooks of {node_id} not written: {err}"))
@@ -283,7 +296,8 @@ pub fn hooks_for(
             }
         }
         Agent::Codex => AgentHooks {
-            codex_notify: Some(server.url(HookSource::Codex, node_id)),
+            codex_notify: Some(server.bare_url(HookSource::Codex, node_id)),
+            curl_config: state.curl_config.clone(),
             ..Default::default()
         },
         _ => AgentHooks::default(),

@@ -40,30 +40,40 @@ pub trait HookSink: Send + Sync + 'static {
     fn status(&self, _node_id: &str, _status: Value) {}
 }
 
+/// The header that carries the token for callers given it through a curl
+/// config file, so it never shows on a command line (spec première version §4.3).
+pub const TOKEN_HEADER: &str = "X-OpenVibe-Token";
+
 pub struct HookServer {
     pub port: u16,
     pub token: String,
 }
 
 impl HookServer {
-    /// The URL a terminal's hooks post to.
+    /// The URL a terminal's hooks post to, with the token: for Claude's
+    /// settings file, never for a command line.
     pub fn url(&self, source: HookSource, node_id: &str) -> String {
+        format!("{}?t={}", self.bare_url(source, node_id), self.token)
+    }
+
+    /// The same URL without the token, which then travels in `TOKEN_HEADER`.
+    pub fn bare_url(&self, source: HookSource, node_id: &str) -> String {
         let kind = match source {
             HookSource::Claude => "claude",
             HookSource::Codex => "codex",
         };
-        format!(
-            "http://127.0.0.1:{}/hook/{kind}/{node_id}?t={}",
-            self.port, self.token
-        )
+        format!("http://127.0.0.1:{}/hook/{kind}/{node_id}", self.port)
     }
 
-    /// The URL a Claude session's status line posts its JSON to (spec maj §6).
+    /// The URL a Claude session's status line posts its JSON to (spec maj §6), with the token.
+    #[cfg(test)]
     pub fn status_url(&self, node_id: &str) -> String {
-        format!(
-            "http://127.0.0.1:{}/status/{node_id}?t={}",
-            self.port, self.token
-        )
+        format!("{}?t={}", self.bare_status_url(node_id), self.token)
+    }
+
+    /// The status line's URL without the token, which then travels in `TOKEN_HEADER`.
+    pub fn bare_status_url(&self, node_id: &str) -> String {
+        format!("http://127.0.0.1:{}/status/{node_id}", self.port)
     }
 
     /// The URL of OpenVibe's MCP server (spec orchestrateur §4.1).
@@ -112,14 +122,33 @@ pub fn valid_node_id(id: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
-/// `/hook/<claude|codex>/<nodeId>?t=<token>`. The token is checked first (403),
-/// so nothing about the routes is told to a caller without it; then 404.
-pub fn parse_route(url: &str, token: &str) -> Result<(HookSource, String), u16> {
+/// The token, from `TOKEN_HEADER` or from `?t=`.
+fn authorized(query: &str, token: &str, header: Option<&str>) -> bool {
+    header == Some(token)
+        || query
+            .split('&')
+            .any(|pair| pair.strip_prefix("t=") == Some(token))
+}
+
+/// The value of `TOKEN_HEADER`, if the request has one.
+fn token_header(request: &Request) -> Option<String> {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv(TOKEN_HEADER))
+        .map(|header| header.value.as_str().to_string())
+}
+
+/// `/hook/<claude|codex>/<nodeId>`, the token in `?t=` or in `TOKEN_HEADER`.
+/// The token is checked first (403), so nothing about the routes is told to a
+/// caller without it; then 404.
+pub fn parse_route(
+    url: &str,
+    token: &str,
+    header: Option<&str>,
+) -> Result<(HookSource, String), u16> {
     let (path, query) = url.split_once('?').unwrap_or((url, ""));
-    if !query
-        .split('&')
-        .any(|pair| pair.strip_prefix("t=") == Some(token))
-    {
+    if !authorized(query, token, header) {
         return Err(403);
     }
     let parts: Vec<&str> = path.trim_start_matches('/').split('/').collect();
@@ -134,13 +163,10 @@ pub fn parse_route(url: &str, token: &str) -> Result<(HookSource, String), u16> 
     }
 }
 
-/// `/status/<nodeId>?t=<token>`, the token checked first as for hooks.
-pub fn parse_status_route(url: &str, token: &str) -> Result<String, u16> {
+/// `/status/<nodeId>`, the token checked first as for hooks.
+pub fn parse_status_route(url: &str, token: &str, header: Option<&str>) -> Result<String, u16> {
     let (path, query) = url.split_once('?').unwrap_or((url, ""));
-    if !query
-        .split('&')
-        .any(|pair| pair.strip_prefix("t=") == Some(token))
-    {
+    if !authorized(query, token, header) {
         return Err(403);
     }
     match path
@@ -172,7 +198,8 @@ fn json_body(request: &mut Request) -> Result<Value, u16> {
 }
 
 fn status_line_of(request: &mut Request, token: &str, sink: &dyn HookSink) -> u16 {
-    let node_id = match parse_status_route(request.url(), token) {
+    let header = token_header(request);
+    let node_id = match parse_status_route(request.url(), token, header.as_deref()) {
         Ok(node_id) => node_id,
         Err(status) => return status,
     };
@@ -189,7 +216,8 @@ fn status_line_of(request: &mut Request, token: &str, sink: &dyn HookSink) -> u1
 }
 
 fn status_of(request: &mut Request, token: &str, sink: &dyn HookSink) -> u16 {
-    let (source, node_id) = match parse_route(request.url(), token) {
+    let header = token_header(request);
+    let (source, node_id) = match parse_route(request.url(), token, header.as_deref()) {
         Ok(route) => route,
         Err(status) => return status,
     };
@@ -313,37 +341,61 @@ mod tests {
     #[test]
     fn routes_a_hook_to_its_terminal() {
         assert_eq!(
-            parse_route(&format!("/hook/claude/node-1?t={TOKEN}"), TOKEN),
+            parse_route(&format!("/hook/claude/node-1?t={TOKEN}"), TOKEN, None),
             Ok((HookSource::Claude, "node-1".to_string()))
         );
         assert_eq!(
-            parse_route(&format!("/hook/codex/abc_2?x=1&t={TOKEN}"), TOKEN),
+            parse_route(&format!("/hook/codex/abc_2?x=1&t={TOKEN}"), TOKEN, None),
             Ok((HookSource::Codex, "abc_2".to_string()))
+        );
+    }
+
+    #[test]
+    fn takes_the_token_from_its_header_too() {
+        assert_eq!(
+            parse_route("/hook/codex/n1", TOKEN, Some(TOKEN)),
+            Ok((HookSource::Codex, "n1".to_string()))
+        );
+        assert_eq!(parse_route("/hook/codex/n1", TOKEN, Some("bad")), Err(403));
+        assert_eq!(parse_route("/hook/codex/n1", TOKEN, None), Err(403));
+        assert_eq!(
+            parse_status_route("/status/n1", TOKEN, Some(TOKEN)),
+            Ok("n1".to_string())
+        );
+        assert_eq!(
+            parse_status_route("/status/n1", TOKEN, Some("bad")),
+            Err(403)
         );
     }
 
     #[test]
     fn routes_a_status_line_to_its_terminal() {
         assert_eq!(
-            parse_status_route(&format!("/status/n1?t={TOKEN}"), TOKEN),
+            parse_status_route(&format!("/status/n1?t={TOKEN}"), TOKEN, None),
             Ok("n1".into())
         );
-        assert_eq!(parse_status_route("/status/n1?t=nope", TOKEN), Err(403));
         assert_eq!(
-            parse_status_route(&format!("/status/..?t={TOKEN}"), TOKEN),
+            parse_status_route("/status/n1?t=nope", TOKEN, None),
+            Err(403)
+        );
+        assert_eq!(
+            parse_status_route(&format!("/status/..?t={TOKEN}"), TOKEN, None),
             Err(404)
         );
         assert_eq!(
-            parse_status_route(&format!("/status/a/b?t={TOKEN}"), TOKEN),
+            parse_status_route(&format!("/status/a/b?t={TOKEN}"), TOKEN, None),
             Err(404)
         );
     }
 
     #[test]
     fn refuses_a_missing_or_wrong_token_before_anything_else() {
-        assert_eq!(parse_route("/hook/claude/node-1", TOKEN), Err(403));
-        assert_eq!(parse_route("/hook/claude/node-1?t=nope", TOKEN), Err(403));
-        assert_eq!(parse_route("/nothing?t=nope", TOKEN), Err(403));
+        assert_eq!(parse_route("/hook/claude/node-1", TOKEN, None), Err(403));
+        assert_eq!(
+            parse_route("/hook/claude/node-1?t=nope", TOKEN, None),
+            Err(403)
+        );
+        assert_eq!(parse_route("/nothing?t=nope", TOKEN, None), Err(403));
     }
 
     #[test]
@@ -357,7 +409,7 @@ mod tests {
             "/other/claude/n",
         ] {
             assert_eq!(
-                parse_route(&format!("{path}?t={TOKEN}"), TOKEN),
+                parse_route(&format!("{path}?t={TOKEN}"), TOKEN, None),
                 Err(404),
                 "{path}"
             );
@@ -417,12 +469,17 @@ mod tests {
 
     /// One raw HTTP/1.1 request; returns the status code.
     fn send(port: u16, method: &str, path: &str, body: &[u8]) -> u16 {
+        send_headed(port, method, path, "", body)
+    }
+
+    /// `extra`: header lines, each ending with CRLF.
+    fn send_headed(port: u16, method: &str, path: &str, extra: &str, body: &[u8]) -> u16 {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .unwrap();
         let head = format!(
-            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         );
         stream.write_all(head.as_bytes()).unwrap();
@@ -522,6 +579,29 @@ mod tests {
                 "n1".to_string(),
                 serde_json::json!({ "session_id": "s1", "rate_limits": {} })
             )]
+        );
+    }
+
+    #[test]
+    fn a_status_line_posting_its_token_in_a_header_is_heard() {
+        let (tx, _rx) = mpsc::channel();
+        let sink = Arc::new(TestSink::new(tx));
+        let server = start(Arc::clone(&sink)).unwrap();
+        let bare = server.bare_status_url("n1");
+        assert_eq!(bare, format!("http://127.0.0.1:{}/status/n1", server.port));
+        assert_eq!(
+            server.bare_url(HookSource::Codex, "n1"),
+            format!("http://127.0.0.1:{}/hook/codex/n1", server.port)
+        );
+        let header = format!("{TOKEN_HEADER}: {}\r\n", server.token);
+        assert_eq!(
+            send_headed(server.port, "POST", "/status/n1", &header, b"{}"),
+            204
+        );
+        let wrong = format!("{TOKEN_HEADER}: nope\r\n");
+        assert_eq!(
+            send_headed(server.port, "POST", "/status/n1", &wrong, b"{}"),
+            403
         );
     }
 
