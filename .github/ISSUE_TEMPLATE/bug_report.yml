@@ -44,7 +44,14 @@ body:
       label: Agent CLI and version, if relevant
       placeholder: Claude Code 2.1.304, Codex 0.x, …
   - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: |
+        In OpenVibe, press Ctrl+Shift+P and choose "Ouvrir le dossier des journaux", or go to
+        `%LOCALAPPDATA%\dev.openvibe.app\logs`. Drag `openvibe.log` here. It holds no token and no terminal text.
+  - type: textarea
     id: extra
     attributes:
-      label: Screenshots, logs or anything else
+      label: Screenshots or anything else
       description: Please remove any secret, token or private path before you paste terminal output.

@@ -135,7 +135,7 @@ pub fn write(
         // Without its script, Claude goes without the status line, never without its hooks.
         match std::fs::write(&status.script, STATUS_SCRIPT) {
             Ok(()) => settings["statusLine"] = status_line_json(status),
-            Err(err) => eprintln!("status line of {node_id} not written: {err}"),
+            Err(err) => log::warn!("status line of {node_id} not written: {err}"),
         }
     }
     std::fs::write(&path, serde_json::to_vec_pretty(&settings)?)?;

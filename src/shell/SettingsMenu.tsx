@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
-import { Download, ImageDown, Info, Upload } from "lucide-react";
+import { Download, FileText, ImageDown, Info, Upload } from "lucide-react";
 import { showAbout } from "@/app/about";
+import { openLogDir } from "@/app/logs";
 import { readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
 import {
   DropdownMenu,
@@ -54,6 +55,9 @@ export function SettingsMenu({
           onSelect={() => void showAbout()}
         >
           <Info /> À propos d'OpenVibe
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void openLogDir()}>
+          <FileText /> Ouvrir le dossier des journaux
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

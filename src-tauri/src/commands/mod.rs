@@ -1,4 +1,5 @@
 pub mod agents;
+pub mod app;
 pub mod git;
 pub mod mission;
 pub mod project;

@@ -106,9 +106,12 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let mcp_dir = app.path().app_data_dir()?.join("mcp");
     mcp_files::clear(&mcp_dir);
     let hooks = match hooks_server::start(AppSink(app.clone())) {
-        Ok(server) => Some(server),
+        Ok(server) => {
+            log::info!("local server on port {}", server.port);
+            Some(server)
+        }
         Err(err) => {
-            eprintln!("hook server not started: {err}");
+            log::error!("local server not started: {err}");
             None
         }
     };
@@ -253,7 +256,7 @@ pub fn hooks_for(
                 Some(&status),
             );
             let Ok(settings) =
-                settings.inspect_err(|err| eprintln!("hooks of {node_id} not written: {err}"))
+                settings.inspect_err(|err| log::error!("hooks of {node_id} not written: {err}"))
             else {
                 return AgentHooks::default();
             };
@@ -265,7 +268,7 @@ pub fn hooks_for(
                 &token,
                 prompts::for_role(role),
             )
-            .inspect_err(|err| eprintln!("tools of {node_id} not written: {err}"))
+            .inspect_err(|err| log::error!("tools of {node_id} not written: {err}"))
             .ok();
             AgentHooks {
                 claude_settings: Some(settings),
