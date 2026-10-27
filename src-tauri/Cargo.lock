@@ -2640,6 +2640,7 @@ dependencies = [
  "tiny_http",
  "uuid",
  "which",
+ "winreg 0.56.0",
 ]
 
 [[package]]

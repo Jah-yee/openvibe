@@ -212,8 +212,17 @@ pub fn removed_env(inside_claude: bool) -> Vec<String> {
 /// Finds an executable on PATH. Injected so tests don't depend on the machine.
 pub type Locate<'a> = &'a dyn Fn(&str) -> Option<PathBuf>;
 
+/// Looks `name` up on a given PATH, the refreshed one of `env_path`.
+pub fn locate_in(name: &str, path: &std::ffi::OsStr) -> Option<PathBuf> {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::env::temp_dir());
+    which::which_in(name, Some(path), cwd).ok()
+}
+
 pub fn which_locate(name: &str) -> Option<PathBuf> {
-    which::which(name).ok()
+    match super::env_path::current() {
+        Some(path) => locate_in(name, &path),
+        None => which::which(name).ok(),
+    }
 }
 
 pub fn resolve_shell(kind: ShellKind, locate: Locate) -> AppResult<ShellProgram> {
@@ -499,6 +508,11 @@ fn clean_title(title: &str) -> String {
     kept.trim().trim_end_matches('\\').trim_end().to_string()
 }
 
+/// The registry's PATH for a new terminal, once refreshed.
+fn refreshed_path() -> Option<(String, String)> {
+    super::env_path::current().map(|path| ("PATH".into(), path.to_string_lossy().into_owned()))
+}
+
 pub fn build_plan(
     node_id: &str,
     spec: &SpawnSpec,
@@ -525,7 +539,10 @@ pub fn build_plan(
             ("COLORTERM".into(), "truecolor".into()),
             ("OPENVIBE".into(), "1".into()),
             ("OPENVIBE_NODE_ID".into(), node_id.into()),
-        ],
+        ]
+        .into_iter()
+        .chain(refreshed_path())
+        .collect(),
         env_remove: removed_env(std::env::var_os("CLAUDECODE").is_some()),
         initial_input,
         interrupt: interrupt_sequence(spec.agent),
@@ -1237,5 +1254,25 @@ mod tests {
         let s: SpawnSpec = serde_json::from_value(json).unwrap();
         assert_eq!(s.agent, Agent::Ollama);
         assert_eq!(s.ollama.unwrap().mode, OllamaMode::Code);
+    }
+
+    #[test]
+    fn locates_a_binary_in_a_given_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let name = if cfg!(windows) {
+            "fake-agent.exe"
+        } else {
+            "fake-agent"
+        };
+        let file = dir.path().join(name);
+        std::fs::write(&file, "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let path = std::env::join_paths([std::path::Path::new("nowhere"), dir.path()]).unwrap();
+        assert_eq!(locate_in("fake-agent", &path), Some(file));
+        assert_eq!(locate_in("other-agent", &path), None);
     }
 }
