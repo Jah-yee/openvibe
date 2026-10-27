@@ -63,6 +63,7 @@ pub fn run() {
                 }
             };
             app.manage(db);
+            pty::env_path::refresh();
             spawn_scrollback_flusher(app.handle().clone());
             commands::agents::setup(app.handle())?;
             Ok(())
@@ -81,6 +82,7 @@ pub fn run() {
             commands::pty::pty_kill,
             commands::pty::pty_list,
             commands::pty::get_scrollback,
+            commands::pty::refresh_path,
             commands::pty::list_agents,
             commands::pty::list_ollama_models,
             commands::pty::list_shells,
