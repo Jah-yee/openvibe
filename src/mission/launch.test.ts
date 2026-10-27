@@ -184,6 +184,15 @@ describe("launchMission (spec §7.3)", () => {
     expect(launchGroup).toHaveBeenCalledTimes(1);
   });
 
+  it("types no sub-task into the shell of an agent whose Claude never got ready (README mission)", async () => {
+    await setup();
+    // Its terminal still runs: the shell outlived a Claude that exited at its trust prompt.
+    vi.mocked(whenReady).mockResolvedValueOnce(false).mockResolvedValueOnce(false);
+    await launchMission("chef");
+    await vi.waitFor(() => expect(vi.mocked(notify).mock.calls.filter(([, text]) => text.includes("n'est pas prêt"))).toHaveLength(2));
+    expect(ptySendText).not.toHaveBeenCalled();
+  });
+
   it("tells the orchestrator when an agent did not start, instead of typing into nothing", async () => {
     await setup();
     terminalStatusStore.getState().set("n1", { state: "stopped" });
