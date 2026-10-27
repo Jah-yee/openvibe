@@ -291,3 +291,7 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 - Une relance remplace dans la base l'historique de la session précédente : la mémoire tampon Rust repart vide, et sa première sauvegarde écrase l'ancienne (xterm garde les deux à l'écran jusqu'au redémarrage).
 - Le texte des cibles du journal côté page est long (`webview::write@http://localhost:1420/src/app/log.ts:12:54`) : n'y garder que `webview`.
+- `text()` de `src/app/log.ts` peut lever dans le `console.error` détourné (objet sans prototype, `toString` qui lève) : l'entourer d'un `try`.
+- Une panique dans le traitement d'une requête arrête la boucle du serveur local : hooks et outils MCP ne répondent plus jusqu'au redémarrage. Entourer chaque requête de `catch_unwind` et répondre 500.
+- Une sauvegarde d'historique refusée (capture plus ancienne, horloge reculée) ne laisse aucune trace : la journaliser.
+- React journalise ses erreurs avec `console.error("%o…")` : la ligne du journal commence par un `%o` littéral.

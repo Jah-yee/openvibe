@@ -70,6 +70,8 @@ const NEWER_BASE: &str =
 /// A base from a newer OpenVibe is left untouched; an older one is copied
 /// before its first missing migration (spec première version §3.3). A copy
 /// already there is the one made before a first, failed attempt: it is kept.
+/// The copy is written aside and renamed once checked, so a copy cut short
+/// (full disk, crash) is never taken for the backup.
 fn prepare_upgrade(conn: &Connection, path: &Path) -> AppResult<()> {
     let applied: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     let applied = applied as usize;
@@ -83,17 +85,33 @@ fn prepare_upgrade(conn: &Connection, path: &Path) -> AppResult<()> {
     if backup.exists() {
         return Ok(());
     }
-    conn.execute("VACUUM INTO ?1", [backup.to_string_lossy()])
-        .map_err(|err| {
-            AppError::InvalidInput(format!(
-                "Copie de la base impossible avant sa mise à jour : {err}"
-            ))
-        })?;
+    copy_checked(conn, &backup, applied).map_err(|err| {
+        AppError::InvalidInput(format!(
+            "Copie de la base impossible avant sa mise à jour : {err}"
+        ))
+    })?;
     // The file name only: the log is meant to be sent, without the user's folders.
     log::info!(
         "base v{applied} copied to {}",
         backup.file_name().unwrap_or_default().to_string_lossy()
     );
+    Ok(())
+}
+
+fn copy_checked(conn: &Connection, backup: &Path, version: usize) -> AppResult<()> {
+    let partial = backup.with_extension("db.tmp");
+    if partial.exists() {
+        std::fs::remove_file(&partial)?;
+    }
+    conn.execute("VACUUM INTO ?1", [partial.to_string_lossy()])?;
+    let copied: i64 =
+        Connection::open(&partial)?.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if copied as usize != version {
+        return Err(AppError::InvalidInput(format!(
+            "la copie est en version {copied} au lieu de {version}"
+        )));
+    }
+    std::fs::rename(&partial, backup)?;
     Ok(())
 }
 
@@ -239,6 +257,23 @@ mod tests {
         std::fs::write(backup_path(&path, 1), b"first copy").unwrap();
         Db::open(&path).unwrap();
         assert_eq!(std::fs::read(backup_path(&path, 1)).unwrap(), b"first copy");
+    }
+
+    #[test]
+    fn a_copy_cut_short_is_never_taken_for_the_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("openvibe.db");
+        base_at_version(&path, 1);
+        // What a VACUUM INTO stopped by a full disk or a crash leaves behind.
+        let partial = backup_path(&path, 1).with_extension("db.tmp");
+        std::fs::write(&partial, b"truncated").unwrap();
+        Db::open(&path).unwrap();
+        let copy = Connection::open(backup_path(&path, 1)).unwrap();
+        let version: i64 = copy
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 1);
+        assert!(!partial.exists());
     }
 
     #[test]

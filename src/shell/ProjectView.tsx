@@ -11,11 +11,10 @@ import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
 import { ActivityRail } from "./ActivityRail";
 import { AgentCounts } from "./AgentCounts";
-import { CloseAgentDialog } from "./CloseAgentDialog";
-import { CloseGroupDialog } from "./CloseGroupDialog";
 import { CommandBar, CommandHint } from "./CommandBar";
 import { CrashNotice } from "./CrashNotice";
 import { GitChip } from "./GitChip";
+import { ProjectDialogs } from "./ProjectDialogs";
 import { ProjectPicker } from "./ProjectPicker";
 import { SearchField } from "./SearchField";
 import { TitleBar } from "./TitleBar";
@@ -106,8 +105,7 @@ export function ProjectView() {
         />
         <WorkspaceTabs />
       </div>
-      <CloseAgentDialog />
-      <CloseGroupDialog />
+      <ProjectDialogs />
     </div>
   );
 }
