@@ -6,9 +6,11 @@ import { AGENTS } from "@/fleet/catalog";
 import { reviewChanges, reviewDefaultBase, reviewFileDiff, reviewFiles, reviewReadFile, type ChangedFile, type FileText } from "@/ipc/review";
 import { cn } from "@/lib/utils";
 import { BOTTOM_BAR_HEIGHT, TOP_ROW_HEIGHT } from "@/shell/layout";
+import { messages, useMessages } from "@/i18n";
 import { AccentButton, IconButton } from "@/shell/buttons";
 import { sessionOf, useNodes } from "@/store/nodes";
 import { missionBranchFor, parseDiff, reviewMessage, type DiffLine, type Remark } from "./review";
+import { reviewMessages } from "./messages";
 import { reviewStore, useReview } from "./reviewStore";
 
 /** A diff or a file longer than this shows its start only. */
@@ -16,12 +18,12 @@ const MAX_LINES = 4000;
 /** The files tab lists this many paths at most; the filter finds the others. */
 const MAX_FILES = 400;
 
-const STATUS: Record<ChangedFile["status"], { letter: string; color: string; label: string }> = {
-  added: { letter: "A", color: "var(--ov-ok)", label: "ajouté" },
-  untracked: { letter: "N", color: "var(--ov-ok)", label: "nouveau, non suivi" },
-  modified: { letter: "M", color: "var(--ov-accent)", label: "modifié" },
-  deleted: { letter: "D", color: "var(--ov-danger)", label: "supprimé" },
-  renamed: { letter: "R", color: "var(--ov-wait)", label: "renommé" },
+const STATUS: Record<ChangedFile["status"], { letter: string; color: string }> = {
+  added: { letter: "A", color: "var(--ov-ok)" },
+  untracked: { letter: "N", color: "var(--ov-ok)" },
+  modified: { letter: "M", color: "var(--ov-accent)" },
+  deleted: { letter: "D", color: "var(--ov-danger)" },
+  renamed: { letter: "R", color: "var(--ov-wait)" },
 };
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -33,6 +35,7 @@ export function ReviewPanel() {
 }
 
 function ReviewDrawer({ nodeId }: { nodeId: string }) {
+  const t = useMessages(reviewMessages);
   const session = useNodes((s) => sessionOf(s.nodes[nodeId]));
   const [tab, setTab] = useState<"changes" | "files">("changes");
   // undefined while it is looked for; null: none, the work is compared with HEAD only.
@@ -74,39 +77,39 @@ function ReviewDrawer({ nodeId }: { nodeId: string }) {
     >
       <header className="flex h-10 shrink-0 items-center gap-2 border-b border-ov-line px-3">
         <FileDiff className="size-4 shrink-0 text-ov-accent" />
-        <span className="shrink-0 text-[13px] font-semibold">Revue · {name}</span>
+        <span className="shrink-0 text-[13px] font-semibold">{t.title(name)}</span>
         <span className="min-w-0 truncate font-mono text-[11px] text-ov-text-3" title={cwd}>
           {cwd}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <IconButton label="Rafraîchir" onClick={() => setRefresh((n) => n + 1)}>
+          <IconButton label={t.refresh} onClick={() => setRefresh((n) => n + 1)}>
             <RotateCw />
           </IconButton>
-          <IconButton label="Fermer la revue" onClick={() => reviewStore.getState().close()}>
+          <IconButton label={t.close} onClick={() => reviewStore.getState().close()}>
             <X />
           </IconButton>
         </span>
       </header>
       <div className="flex h-9 shrink-0 items-center gap-1 border-b border-ov-line px-2">
         <Tab active={tab === "changes"} onClick={() => setTab("changes")}>
-          Changements
+          {t.tabChanges}
         </Tab>
         <Tab active={tab === "files"} onClick={() => setTab("files")}>
-          Fichiers
+          {t.tabFiles}
         </Tab>
         {tab === "changes" && base && (
           <span className="ml-auto flex items-center gap-1">
             <Tab active={!sinceBase} onClick={() => setSinceBase(false)}>
-              Non commité
+              {t.uncommitted}
             </Tab>
             <Tab active={sinceBase} onClick={() => setSinceBase(true)}>
-              Depuis {base}
+              {t.since(base)}
             </Tab>
           </span>
         )}
       </div>
       {base === undefined ? (
-        <Message>Lecture du dépôt…</Message>
+        <Message>{t.readingRepo}</Message>
       ) : tab === "changes" ? (
         <ChangesTab key={`${compared}:${refresh}`} cwd={cwd} base={compared} />
       ) : (
@@ -136,6 +139,7 @@ function Message({ children }: { children: ReactNode }) {
 }
 
 function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
+  const t = useMessages(reviewMessages);
   const [files, setFiles] = useState<ChangedFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ChangedFile | null>(null);
@@ -156,8 +160,8 @@ function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
   }, [cwd, base]);
 
   if (error) return <Message>{error}</Message>;
-  if (!files) return <Message>Lecture des changements…</Message>;
-  if (files.length === 0) return <Message>{base ? `Aucun changement depuis ${base}.` : "Aucun changement non commité."}</Message>;
+  if (!files) return <Message>{t.readingChanges}</Message>;
+  if (files.length === 0) return <Message>{base ? t.noChangesSince(base) : t.noChanges}</Message>;
   return (
     <div className="flex min-h-0 flex-1">
       <ul className="w-[260px] shrink-0 overflow-y-auto border-r border-ov-line py-1">
@@ -167,7 +171,7 @@ function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
             <li key={file.path}>
               <button
                 type="button"
-                title={`${file.oldPath ? `${file.oldPath} → ` : ""}${file.path} · ${status.label}`}
+                title={`${file.oldPath ? `${file.oldPath} → ` : ""}${file.path} · ${t.status[file.status]}`}
                 onClick={() => setSelected(file)}
                 className={cn(
                   "flex w-full items-center gap-2 px-3 py-1 text-left text-[12px] text-ov-text-2 hover:bg-ov-hover",
@@ -181,7 +185,7 @@ function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
                   {file.path}
                 </span>
                 {file.added === null ? (
-                  <span className="shrink-0 text-[11px] text-ov-text-3" title="Binaire, ou trop gros pour compter ses lignes">
+                  <span className="shrink-0 text-[11px] text-ov-text-3" title={t.binaryOrBig}>
                     —
                   </span>
                 ) : (
@@ -194,12 +198,13 @@ function ChangesTab({ cwd, base }: { cwd: string; base: string | null }) {
           );
         })}
       </ul>
-      {selected ? <FileDiffView key={selected.path} cwd={cwd} file={selected} base={base} /> : <Message>Choisis un fichier.</Message>}
+      {selected ? <FileDiffView key={selected.path} cwd={cwd} file={selected} base={base} /> : <Message>{t.pickFile}</Message>}
     </div>
   );
 }
 
 function FileDiffView({ cwd, file, base }: { cwd: string; file: ChangedFile; base: string | null }) {
+  const t = useMessages(reviewMessages);
   const [diff, setDiff] = useState<{ lines: DiffLine[]; binary: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [commenting, setCommenting] = useState<number | null>(null);
@@ -217,9 +222,9 @@ function FileDiffView({ cwd, file, base }: { cwd: string; file: ChangedFile; bas
   }, [cwd, file, base]);
 
   if (error) return <Message>{error}</Message>;
-  if (!diff) return <Message>Lecture du diff…</Message>;
-  if (diff.binary) return <Message>Fichier binaire : pas de diff à afficher.</Message>;
-  if (diff.lines.length === 0) return <Message>Pas de différence de contenu (mode ou renommage seul).</Message>;
+  if (!diff) return <Message>{t.readingDiff}</Message>;
+  if (diff.binary) return <Message>{t.binaryNoDiff}</Message>;
+  if (diff.lines.length === 0) return <Message>{t.noContentDiff}</Message>;
   const shown = diff.lines.slice(0, MAX_LINES);
   const remarkFor = (line: DiffLine) =>
     remarks.filter((r) => r.file === file.path && (line.kind === "del" ? r.side === "old" && r.line === line.old : r.side !== "old" && r.line === line.new));
@@ -246,7 +251,7 @@ function FileDiffView({ cwd, file, base }: { cwd: string; file: ChangedFile; bas
           )}
         </div>
       ))}
-      {diff.lines.length > MAX_LINES && <p className="px-3 py-2 font-sans text-xs text-ov-text-2">… {diff.lines.length - MAX_LINES} lignes de plus</p>}
+      {diff.lines.length > MAX_LINES && <p className="px-3 py-2 font-sans text-xs text-ov-text-2">{t.moreLines(diff.lines.length - MAX_LINES)}</p>}
     </div>
   );
 }
@@ -257,6 +262,7 @@ const ROW_COLOR: Partial<Record<DiffLine["kind"], string>> = {
 };
 
 function DiffRow({ line, onClick }: { line: DiffLine; onClick?: () => void }) {
+  const t = useMessages(reviewMessages);
   if (line.kind === "hunk" || line.kind === "meta") {
     return (
       <div data-diff-line={line.kind} className="bg-ov-field px-3 text-ov-text-3">
@@ -268,7 +274,7 @@ function DiffRow({ line, onClick }: { line: DiffLine; onClick?: () => void }) {
     <div
       data-diff-line={line.kind}
       onClick={onClick}
-      title="Clic : une remarque sur cette ligne"
+      title={t.rowTitle}
       className="flex cursor-pointer hover:brightness-125"
       style={{ backgroundColor: ROW_COLOR[line.kind] }}
     >
@@ -281,13 +287,14 @@ function DiffRow({ line, onClick }: { line: DiffLine; onClick?: () => void }) {
 }
 
 function RemarkField({ onDone }: { onDone: (text: string) => void }) {
+  const t = useMessages(reviewMessages);
   const [text, setText] = useState("");
   return (
     <div className="ml-[88px] flex items-center gap-2 py-1 pr-3 font-sans">
       <input
         autoFocus
-        aria-label="Remarque sur cette ligne"
-        placeholder="Remarque pour l'agent · Entrée pour garder, Échap pour annuler"
+        aria-label={t.remarkLabel}
+        placeholder={t.remarkPlaceholder}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -301,6 +308,7 @@ function RemarkField({ onDone }: { onDone: (text: string) => void }) {
 }
 
 function FilesTab({ cwd }: { cwd: string }) {
+  const t = useMessages(reviewMessages);
   const [files, setFiles] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
@@ -318,15 +326,15 @@ function FilesTab({ cwd }: { cwd: string }) {
   }, [cwd]);
 
   if (error) return <Message>{error}</Message>;
-  if (!files) return <Message>Lecture des fichiers…</Message>;
+  if (!files) return <Message>{t.readingFiles}</Message>;
   const wanted = filter.trim().toLowerCase();
   const found = (wanted ? files.filter((f) => f.toLowerCase().includes(wanted)) : files).slice(0, MAX_FILES);
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex w-[260px] shrink-0 flex-col border-r border-ov-line">
         <input
-          aria-label="Filtrer les fichiers"
-          placeholder={`Filtrer ${files.length} fichiers…`}
+          aria-label={t.filterLabel}
+          placeholder={t.filterPlaceholder(files.length)}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="m-2 h-7 rounded-[6px] bg-ov-field px-2 text-[12px] text-ov-text outline-none placeholder:text-ov-text-3"
@@ -350,12 +358,13 @@ function FilesTab({ cwd }: { cwd: string }) {
           ))}
         </ul>
       </div>
-      {selected ? <FileView key={selected} cwd={cwd} file={selected} /> : <Message>Choisis un fichier.</Message>}
+      {selected ? <FileView key={selected} cwd={cwd} file={selected} /> : <Message>{t.pickFile}</Message>}
     </div>
   );
 }
 
 function FileView({ cwd, file }: { cwd: string; file: string }) {
+  const t = useMessages(reviewMessages);
   const [content, setContent] = useState<FileText | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -371,8 +380,8 @@ function FileView({ cwd, file }: { cwd: string; file: string }) {
   }, [cwd, file]);
 
   if (error) return <Message>{error}</Message>;
-  if (!content) return <Message>Lecture du fichier…</Message>;
-  if (content.text === null) return <Message>Fichier binaire ({content.size} octets).</Message>;
+  if (!content) return <Message>{t.readingFile}</Message>;
+  if (content.text === null) return <Message>{t.binaryFile(content.size)}</Message>;
   const lines = content.text.split("\n");
   if (lines[lines.length - 1] === "") lines.pop();
   return (
@@ -383,22 +392,23 @@ function FileView({ cwd, file }: { cwd: string; file: string }) {
           <span className="whitespace-pre pr-3 text-ov-text">{line}</span>
         </div>
       ))}
-      {(content.truncated || lines.length > MAX_LINES) && <p className="px-3 py-2 font-sans text-xs text-ov-text-2">Fichier long : seul le début est affiché.</p>}
+      {(content.truncated || lines.length > MAX_LINES) && <p className="px-3 py-2 font-sans text-xs text-ov-text-2">{t.longFile}</p>}
     </div>
   );
 }
 
 /** The remarks waiting to be sent, under the panel. */
 function Remarks({ nodeId, name }: { nodeId: string; name: string }) {
+  const t = useMessages(reviewMessages);
   const remarks = useReview((s) => s.remarks);
   if (remarks.length === 0) return null;
   const send = async () => {
     const { sent, skipped, waiting } = await sendToAgents([nodeId], reviewMessage(remarks));
     if (sent > 0) {
       reviewStore.getState().clear();
-      toast(`Revue envoyée à ${name}`);
-    } else if (waiting.length > 0) toast.warning(`${name} attend une réponse : réponds-lui avant d'envoyer la revue.`);
-    else if (skipped.length > 0) toast.warning(`${name} est arrêté : relance-le pour lui envoyer la revue.`);
+      toast(messages(reviewMessages).sent(name));
+    } else if (waiting.length > 0) toast.warning(messages(reviewMessages).waiting(name));
+    else if (skipped.length > 0) toast.warning(messages(reviewMessages).stopped(name));
   };
   return (
     <footer className="flex max-h-[30%] shrink-0 flex-col gap-1.5 border-t border-ov-line px-3 py-2">
@@ -410,7 +420,7 @@ function Remarks({ nodeId, name }: { nodeId: string; name: string }) {
               {remark.line !== undefined ? `:${remark.line}` : ""}
             </span>
             <span className="min-w-0 flex-1 truncate text-ov-text">{remark.text}</span>
-            <IconButton label="Retirer la remarque" onClick={() => reviewStore.getState().remove(i)}>
+            <IconButton label={t.removeRemark} onClick={() => reviewStore.getState().remove(i)}>
               <X />
             </IconButton>
           </li>
@@ -418,12 +428,12 @@ function Remarks({ nodeId, name }: { nodeId: string; name: string }) {
       </ul>
       <div className="flex items-center gap-2">
         <span className="text-[12px] text-ov-text-2">
-          {remarks.length} remarque{remarks.length > 1 ? "s" : ""}
+          {t.remarkCount(remarks.length)}
         </span>
         <button type="button" onClick={() => reviewStore.getState().clear()} className="ml-auto text-[12px] text-ov-text-2 hover:text-ov-text">
-          Effacer
+          {t.clear}
         </button>
-        <AccentButton onClick={() => void send()}>Envoyer à {name}</AccentButton>
+        <AccentButton onClick={() => void send()}>{t.sendTo(name)}</AccentButton>
       </div>
     </footer>
   );

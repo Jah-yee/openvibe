@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { toast } from "sonner";
+import { langStore } from "@/i18n";
 import { nodesStore } from "@/store/nodes";
 import { cleanMission, launchMission } from "./launch";
 import { NEW_MISSION, type Mission } from "./mission";
@@ -23,6 +24,7 @@ let host: HTMLDivElement;
 let root: Root;
 beforeAll(() => mockIPC(() => undefined));
 afterEach(async () => {
+  langStore.setState({ lang: "fr" });
   await act(async () => root.unmount());
   host.remove();
 });
@@ -93,4 +95,29 @@ it("shows the team's reports and the summary, and cleans the mission (spec §7.7
   await act(async () => button("Nettoyer la mission").click());
   expect(cleanMission).toHaveBeenCalledWith("chef");
   expect(toast.success).toHaveBeenCalledWith("Worktrees retirés : auth-isis, auth");
+});
+
+it("shows the mission panel in English", async () => {
+  langStore.setState({ lang: "en" });
+  await show({ state: "plan", name: "Auth", router: true, budgetMin: 60, plan: [{ title: "Login", brief: "Do the login", agent: "Isis", budgetMin: 20, level: "faible" }] });
+  expect(host.textContent).toContain("Mission · Auth");
+  expect(host.textContent).toContain("plan proposed");
+  expect(host.textContent).toContain("Global budget");
+  expect(host.textContent).toContain("low · Haiku 5.5");
+  expect(host.textContent).toContain("0 Claude linked");
+  expect(button("Launch the mission")).toBeDefined();
+});
+
+it("shows the team and the cleanup in English", async () => {
+  langStore.setState({ lang: "en" });
+  await show({
+    state: "terminee",
+    name: "Auth",
+    summary: "All done.",
+    members: [{ nodeId: "isis", name: "Isis", task: "Login", budgetMin: 20, linked: true, branch: "b", worktree: "C:/w", sentAt: 0, report: { summary: "ok", status: "termine", at: 6 * 60_000 }, merged: true }],
+  });
+  expect(host.querySelector('[data-member="Isis"]')?.textContent).toContain("done · merged");
+  expect(host.querySelector('[data-member="Isis"]')?.textContent).toContain("6 / 20 min");
+  await act(async () => button("Clean up the mission").click());
+  expect(toast.success).toHaveBeenCalledWith("Worktrees removed: auth-isis, auth");
 });

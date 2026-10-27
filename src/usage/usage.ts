@@ -1,4 +1,5 @@
-import { langStore, type Lang } from "@/i18n";
+import { langStore, messages, type Lang } from "@/i18n";
+import { usageMessages } from "./messages";
 import { formatDecimal } from "@/i18n/format";
 import type { BudgetTone } from "@/mission/mission";
 
@@ -162,7 +163,7 @@ export interface ModelTotal {
 export function totals(sessions: readonly SessionUsage[]) {
   const byModel = new Map<string, ModelTotal>();
   for (const s of sessions) {
-    const name = s.model?.name ?? "Modèle inconnu";
+    const name = s.model?.name ?? messages(usageMessages).unknownModel;
     const row = byModel.get(name) ?? { name, costUsd: 0, inputTokens: 0, outputTokens: 0, sessions: 0, co2Grams: 0 };
     row.costUsd += s.costUsd;
     row.inputTokens += s.inputTokens;
