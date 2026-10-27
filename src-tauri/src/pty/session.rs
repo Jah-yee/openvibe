@@ -5,7 +5,7 @@ use std::thread::JoinHandle;
 use portable_pty::{Child, ChildKiller, CommandBuilder, MasterPty, PtySize, native_pty_system};
 
 use super::paste::PasteMode;
-use super::scrollback::{SCROLLBACK_CAPACITY, Scrollback};
+use super::scrollback::{Capture, SCROLLBACK_CAPACITY, Scrollback, capture_time};
 use super::shell::SpawnPlan;
 use crate::error::{AppError, AppResult};
 use crate::sync::lock;
@@ -144,13 +144,22 @@ impl Session {
         lock(&self.output).scrollback.snapshot()
     }
 
-    /// The scrollback if it changed since the last call, for the periodic flusher.
-    pub fn take_dirty_scrollback(&self) -> Option<Vec<u8>> {
+    /// The scrollback and its capture time, both under the output lock.
+    pub fn capture(&self) -> Capture {
+        let output = lock(&self.output);
+        Capture {
+            at: capture_time(),
+            data: output.scrollback.snapshot(),
+        }
+    }
+
+    /// The capture if the scrollback changed since the last call, for the periodic flusher.
+    pub fn take_dirty_capture(&self) -> Option<Capture> {
         let mut output = lock(&self.output);
-        output
-            .scrollback
-            .take_dirty()
-            .then(|| output.scrollback.snapshot())
+        output.scrollback.take_dirty().then(|| Capture {
+            at: capture_time(),
+            data: output.scrollback.snapshot(),
+        })
     }
 }
 

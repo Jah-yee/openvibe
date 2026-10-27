@@ -73,9 +73,9 @@ pub async fn pty_spawn(
         move |info| {
             agents::ended(&exit_app, &exited_id);
             // Saved before the event so a restore right after the exit finds it.
-            let saved = exit_app
-                .state::<Db>()
-                .with(|conn| scrollback::save(conn, &exited_id, &info.scrollback));
+            let saved = exit_app.state::<Db>().with(|conn| {
+                scrollback::save(conn, &exited_id, &info.scrollback.data, info.scrollback.at)
+            });
             if let Err(err) = saved {
                 log::error!("scrollback of {exited_id} not saved: {err}");
             }
@@ -212,8 +212,9 @@ pub fn flush_scrollbacks(app: &AppHandle, all: bool) {
         pty.dirty_scrollbacks()
     };
     let db = app.state::<Db>();
-    for (node_id, data) in batch {
-        if let Err(err) = db.with(|conn| scrollback::save(conn, &node_id, &data)) {
+    for (node_id, capture) in batch {
+        let saved = db.with(|conn| scrollback::save(conn, &node_id, &capture.data, capture.at));
+        if let Err(err) = saved {
             log::error!("scrollback of {node_id} not saved: {err}");
         }
     }

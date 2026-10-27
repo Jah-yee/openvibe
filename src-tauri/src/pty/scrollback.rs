@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 /// Per-terminal cap on retained output (spec §5.6).
 pub const SCROLLBACK_CAPACITY: usize = 512 * 1024;
@@ -6,6 +7,28 @@ pub const SCROLLBACK_CAPACITY: usize = 512 * 1024;
 /// SGR reset, prepended when replaying a truncated buffer so colors left open by
 /// dropped output don't bleed into the restored screen.
 const RESET_ATTRIBUTES: &[u8] = b"\x1b[0m";
+
+/// A scrollback and when it was taken: of two saves of a terminal, the later
+/// capture wins, whatever order they reach SQLite in (spec première version §3.2).
+pub struct Capture {
+    pub at: i64,
+    pub data: Vec<u8>,
+}
+
+static LAST_CAPTURE: AtomicI64 = AtomicI64::new(0);
+
+/// Capture times only grow, even within one millisecond.
+pub fn capture_time() -> i64 {
+    let now = crate::db::now_ms();
+    let mut last = LAST_CAPTURE.load(Ordering::Relaxed);
+    loop {
+        let next = now.max(last + 1);
+        match LAST_CAPTURE.compare_exchange_weak(last, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => return next,
+            Err(seen) => last = seen,
+        }
+    }
+}
 
 /// Ring buffer of the most recent raw PTY output, replayed when a terminal is
 /// re-attached or restored after a restart.
@@ -73,6 +96,12 @@ impl Scrollback {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capture_times_always_grow() {
+        let times: Vec<i64> = (0..1000).map(|_| capture_time()).collect();
+        assert!(times.windows(2).all(|pair| pair[0] < pair[1]));
+    }
 
     #[test]
     fn keeps_everything_below_capacity() {

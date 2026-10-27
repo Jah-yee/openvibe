@@ -17,7 +17,7 @@ use shell::SpawnPlan;
 /// Reported once a terminal's process has exited and its output is drained.
 pub struct ExitInfo {
     pub code: Option<u32>,
-    pub scrollback: Vec<u8>,
+    pub scrollback: scrollback::Capture,
 }
 
 /// Owns every running terminal, keyed by canvas node id.
@@ -70,7 +70,7 @@ impl PtyManager {
             lock(&sessions).remove(&node_id);
             on_exit(ExitInfo {
                 code,
-                scrollback: session.scrollback(),
+                scrollback: session.capture(),
             });
         });
         Ok(pid)
@@ -143,18 +143,18 @@ impl PtyManager {
     }
 
     /// Scrollbacks that changed since the previous call (spec §5.6, every 10 s).
-    pub fn dirty_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+    pub fn dirty_scrollbacks(&self) -> Vec<(String, scrollback::Capture)> {
         self.snapshot_sessions()
             .into_iter()
-            .filter_map(|(id, session)| session.take_dirty_scrollback().map(|data| (id, data)))
+            .filter_map(|(id, session)| session.take_dirty_capture().map(|capture| (id, capture)))
             .collect()
     }
 
     /// Every live scrollback, for the final flush when the app exits.
-    pub fn all_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+    pub fn all_scrollbacks(&self) -> Vec<(String, scrollback::Capture)> {
         self.snapshot_sessions()
             .into_iter()
-            .map(|(id, session)| (id, session.scrollback()))
+            .map(|(id, session)| (id, session.capture()))
             .collect()
     }
 
@@ -281,7 +281,7 @@ mod windows_tests {
             "output: {:?}",
             sink.text()
         );
-        assert!(String::from_utf8_lossy(&info.scrollback).contains("openvibe-hello"));
+        assert!(String::from_utf8_lossy(&info.scrollback.data).contains("openvibe-hello"));
         assert!(mgr.list().is_empty());
         assert!(mgr.scrollback("a").is_none());
     }
@@ -370,7 +370,7 @@ mod windows_tests {
         let dirty = mgr.dirty_scrollbacks();
         assert_eq!(dirty.len(), 1);
         assert_eq!(dirty[0].0, "f");
-        assert!(String::from_utf8_lossy(&dirty[0].1).contains("flushed"));
+        assert!(String::from_utf8_lossy(&dirty[0].1.data).contains("flushed"));
         assert!(mgr.dirty_scrollbacks().is_empty());
         assert_eq!(mgr.all_scrollbacks().len(), 1);
         mgr.kill_all();
