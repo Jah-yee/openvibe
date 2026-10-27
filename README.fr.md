@@ -150,6 +150,8 @@ Il vous faut aussi au moins une CLI d'agent, par exemple [Claude Code](https://d
 > [!IMPORTANT]
 > Les bêtas ne sont pas encore signées. Si Windows SmartScreen bloque l'installeur, choisissez **Informations complémentaires**, puis **Exécuter quand même**.
 
+Au premier lancement, l'accueil vous guide : installer un agent, ajouter un projet, lancer un agent. Un souci ? Consultez le [guide de dépannage](docs/troubleshooting.fr.md), ou ouvrez **Dépannage** depuis le menu des réglages.
+
 **Mises à jour.** OpenVibe cherche une nouvelle version sur GitHub 10 secondes après son démarrage, puis toutes les 6 heures, et propose de l'installer. Avant que l'installeur le relance, OpenVibe enregistre votre canvas et l'historique des terminaux ; les conversations Claude se reprennent ensuite. Les mises à jour sont signées : une signature qui ne correspond pas est refusée. Cette recherche est la seule requête qu'OpenVibe fait de lui-même. Pour la couper, ouvrez le menu des réglages (la roue dentée) et décochez **Rechercher les mises à jour automatiquement**.
 
 ### Compiler depuis les sources

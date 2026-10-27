@@ -150,6 +150,8 @@ You also need at least one agent CLI, for example [Claude Code](https://docs.cla
 > [!IMPORTANT]
 > Betas are not code-signed yet. If Windows SmartScreen stops the installer, choose **More info**, then **Run anyway**.
 
+On first launch, the home screen walks you through installing an agent, adding a project and launching an agent. Something wrong? See the [troubleshooting guide](docs/troubleshooting.md), or open **Troubleshooting** from the settings menu.
+
 **Updates.** OpenVibe looks for a new release on GitHub 10 seconds after it starts, then every 6 hours, and offers to install it. Before the installer restarts it, OpenVibe saves your canvas and the terminals' history; Claude conversations can be resumed afterwards. Updates are signed: one whose signature does not match is refused. This check is the only request OpenVibe makes on its own. To turn it off, open the settings menu (the gear) and untick **Rechercher les mises à jour automatiquement**.
 
 ### Build from source
