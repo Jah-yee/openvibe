@@ -1,3 +1,4 @@
+import type { AppErrorKind } from "@/ipc/invoke";
 import { createStore, useStore } from "zustand";
 
 export type TerminalStatus =
@@ -6,7 +7,7 @@ export type TerminalStatus =
   | { state: "running" }
   | { state: "stopped" }
   | { state: "exited"; code: number | null }
-  | { state: "error"; message: string };
+  | { state: "error"; message: string; kind?: AppErrorKind };
 
 interface TerminalStatusState {
   statuses: Record<string, TerminalStatus>;

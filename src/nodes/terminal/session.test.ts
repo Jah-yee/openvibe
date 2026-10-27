@@ -64,8 +64,19 @@ it("shows a failed launch in the terminal and as an error status", async () => {
   });
   const term = fakeTerm();
   await startSession("t", term, payload, "new");
-  expect(statusOf("t")).toEqual({ state: "error", message: "dossier introuvable : C:/gone" });
+  expect(statusOf("t")).toEqual({ state: "error", message: "dossier introuvable : C:/gone", kind: "notFound" });
   expect(term.written.join("")).toContain("dossier introuvable");
+});
+
+it("keeps the kind of a refused orchestrator, which its node shows instead of a red line", async () => {
+  const message = "Outils OpenVibe indisponibles : le serveur local d'OpenVibe n'a pas démarré.";
+  mockIPC(() => {
+    throw { kind: "toolsUnavailable", message };
+  });
+  const term = fakeTerm();
+  await startSession("t", term, payload, "new");
+  expect(statusOf("t")).toEqual({ state: "error", message, kind: "toolsUnavailable" });
+  expect(term.written.join("")).not.toContain("Outils OpenVibe");
 });
 
 it("ignores input until the replay sent on re-attach has been written", async () => {

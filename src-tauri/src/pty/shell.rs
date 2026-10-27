@@ -140,6 +140,23 @@ pub struct AgentHooks {
     pub system_prompt: Option<PathBuf>,
 }
 
+/// What keeps an orchestrator a manager (spec première version §4.1): its
+/// settings (`deny`), OpenVibe's tools and its role. Without one of them it
+/// would start as a plain Claude in the user's folder, so it does not start.
+pub fn orchestrator_tools(hooks: &AgentHooks, server_running: bool) -> Result<(), String> {
+    if !server_running {
+        return Err("le serveur local d'OpenVibe n'a pas démarré".into());
+    }
+    let complete = hooks.claude_settings.is_some()
+        && hooks.mcp_config.is_some()
+        && hooks.system_prompt.is_some();
+    if complete {
+        Ok(())
+    } else {
+        Err("ses réglages n'ont pas pu être écrits (voir le journal)".into())
+    }
+}
+
 /// Claude Code marks the processes its tools start; an OpenVibe launched from
 /// a Claude Code session must not pass them on, or its agents become child
 /// sessions, left out of `--resume` (spec §8.2).
@@ -336,6 +353,11 @@ fn claude_command(
                 " {flag} {}",
                 quote(syntax, &path.to_string_lossy())
             ));
+            // The orchestrator gets OpenVibe's tools only: the user's MCP
+            // servers could write files out of reach of its `deny` list.
+            if flag == "--mcp-config" && launch.role == Role::Orchestrator {
+                claude.push_str(" --strict-mcp-config");
+            }
         }
     }
     if let Some(model) = launch.model.as_deref() {
@@ -713,6 +735,64 @@ mod tests {
                 r"claude --settings 'C:\data\hooks\n1.json' --mcp-config 'C:\data\mcp\n1.json' --append-system-prompt-file 'C:\data\mcp\n1.md' --resume {SESSION}"
             ))
         );
+    }
+
+    fn tooled() -> AgentHooks {
+        AgentHooks {
+            claude_settings: Some(PathBuf::from(r"C:\data\hooks\n1.json")),
+            mcp_config: Some(PathBuf::from(r"C:\data\mcp\n1.json")),
+            system_prompt: Some(PathBuf::from(r"C:\data\mcp\n1.md")),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn an_orchestrator_needs_all_its_tools() {
+        assert_eq!(orchestrator_tools(&tooled(), true), Ok(()));
+        assert_eq!(
+            orchestrator_tools(&AgentHooks::default(), false),
+            Err("le serveur local d'OpenVibe n'a pas démarré".to_string())
+        );
+        for partial in [
+            AgentHooks {
+                claude_settings: None,
+                ..tooled()
+            },
+            AgentHooks {
+                mcp_config: None,
+                ..tooled()
+            },
+            AgentHooks {
+                system_prompt: None,
+                ..tooled()
+            },
+        ] {
+            assert_eq!(
+                orchestrator_tools(&partial, true),
+                Err("ses réglages n'ont pas pu être écrits (voir le journal)".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn an_orchestrator_gets_only_openvibes_tools() {
+        let mut launch = claude(ClaudeMode::New, "");
+        launch.as_mut().unwrap().role = Role::Orchestrator;
+        let manager = agent_command(&spec(Agent::Claude, launch), ShellSyntax::Cmd, &tooled())
+            .unwrap()
+            .unwrap();
+        assert!(
+            manager.contains(r#"--mcp-config "C:\data\mcp\n1.json" --strict-mcp-config"#),
+            "{manager}"
+        );
+        let agent = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "")),
+            ShellSyntax::Cmd,
+            &tooled(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!agent.contains("--strict-mcp-config"), "{agent}");
     }
 
     fn hooked(settings: &str) -> AgentHooks {

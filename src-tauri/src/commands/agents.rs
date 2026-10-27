@@ -224,6 +224,11 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
     }
 }
 
+/// True when the local server runs: hooks, status line and MCP tools need it.
+pub fn server_running(app: &AppHandle) -> bool {
+    app.state::<AgentState>().hooks.is_some()
+}
+
 /// The hooks a new process gets: Claude's settings file, Codex's notify URL.
 /// Without a server, Claude starts without `--settings`.
 pub fn hooks_for(

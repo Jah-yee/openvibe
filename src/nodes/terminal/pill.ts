@@ -32,6 +32,8 @@ export function pillOf(status: TerminalStatus, activity?: Activity, indigo = fal
 /** What the card over a stopped terminal offers (spec habillage §7.3). */
 export function resumeOfferOf(status: TerminalStatus, agent: AgentId, hasSession: boolean): "resume" | "relaunch" | null {
   if (status.state === "running" || status.state === "starting") return null;
+  // A refused orchestrator's node says why and offers its own retry.
+  if (status.state === "error" && status.kind === "toolsUnavailable") return null;
   return agent === "claude" && hasSession ? "resume" : "relaunch";
 }
 

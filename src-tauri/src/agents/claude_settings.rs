@@ -18,8 +18,8 @@ pub fn settings_json(url: &str, role: Role) -> Value {
     // OpenVibe's own tools never ask (spec orchestrateur §4.2).
     let mut permissions = json!({ "allow": ["mcp__openvibe"] });
     if role == Role::Orchestrator {
-        // A manager does not code itself.
-        permissions["deny"] = json!(["Edit", "Write", "NotebookEdit"]);
+        // A manager does not code itself, nor run commands in the user's folder.
+        permissions["deny"] = json!(["Edit", "Write", "NotebookEdit", "Bash"]);
     }
     json!({
         "hooks": {
@@ -382,12 +382,12 @@ mod tests {
     }
 
     #[test]
-    fn an_orchestrator_may_not_edit_files() {
+    fn an_orchestrator_may_neither_edit_files_nor_run_commands() {
         let manager = settings_json(URL, Role::Orchestrator);
         assert_eq!(manager["permissions"]["allow"], json!(["mcp__openvibe"]));
         assert_eq!(
             manager["permissions"]["deny"],
-            json!(["Edit", "Write", "NotebookEdit"])
+            json!(["Edit", "Write", "NotebookEdit", "Bash"])
         );
         assert!(
             settings_json(URL, Role::Agent)["permissions"]
