@@ -6,13 +6,13 @@ pub mod scrollback;
 pub mod settings;
 pub mod workspaces;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{Connection, Transaction};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::sync::lock;
 
 /// One schema upgrade. Rust steps do what SQL alone cannot (read JSON payloads,
@@ -39,7 +39,9 @@ impl Db {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
-        Self::init(Connection::open(path)?)
+        let conn = Connection::open(path)?;
+        prepare_upgrade(&conn, path)?;
+        Self::init(conn)
     }
 
     #[cfg(test)]
@@ -60,6 +62,47 @@ impl Db {
         let mut conn = lock(&self.conn);
         f(&mut conn)
     }
+}
+
+const NEWER_BASE: &str =
+    "Cette base vient d'une version plus récente d'OpenVibe. Installe la dernière version.";
+
+/// A base from a newer OpenVibe is left untouched; an older one is copied
+/// before its first missing migration (spec première version §3.3). A copy
+/// already there is the one made before a first, failed attempt: it is kept.
+fn prepare_upgrade(conn: &Connection, path: &Path) -> AppResult<()> {
+    let applied: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let applied = applied as usize;
+    if applied > MIGRATIONS.len() {
+        return Err(AppError::InvalidInput(NEWER_BASE.into()));
+    }
+    if applied == 0 || applied == MIGRATIONS.len() {
+        return Ok(());
+    }
+    let backup = backup_path(path, applied);
+    if backup.exists() {
+        return Ok(());
+    }
+    conn.execute("VACUUM INTO ?1", [backup.to_string_lossy()])
+        .map_err(|err| {
+            AppError::InvalidInput(format!(
+                "Copie de la base impossible avant sa mise à jour : {err}"
+            ))
+        })?;
+    // The file name only: the log is meant to be sent, without the user's folders.
+    log::info!(
+        "base v{applied} copied to {}",
+        backup.file_name().unwrap_or_default().to_string_lossy()
+    );
+    Ok(())
+}
+
+/// `openvibe.v<N>-backup.db` next to the base: its copy before it left version `N`.
+pub fn backup_path(db: &Path, version: usize) -> PathBuf {
+    let stem = db.file_stem().map_or("openvibe".into(), |stem| {
+        stem.to_string_lossy().into_owned()
+    });
+    db.with_file_name(format!("{stem}.v{version}-backup.db"))
 }
 
 /// The user's home folder: the project of workspaces that had no terminal (migration 002).
@@ -156,6 +199,67 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    fn base_at_version(path: &Path, version: usize) {
+        let mut conn = Connection::open(path).unwrap();
+        migrate_up_to(&mut conn, version, "C:/home").unwrap();
+    }
+
+    fn backups_in(dir: &Path) -> usize {
+        std::fs::read_dir(dir)
+            .unwrap()
+            .filter(|entry| {
+                let name = entry.as_ref().unwrap().file_name();
+                name.to_string_lossy().contains("backup")
+            })
+            .count()
+    }
+
+    #[test]
+    fn copies_an_existing_base_before_upgrading_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("openvibe.db");
+        base_at_version(&path, 1);
+        Db::open(&path).unwrap();
+        let backup = backup_path(&path, 1);
+        assert_eq!(backup, dir.path().join("openvibe.v1-backup.db"));
+        let copy = Connection::open(&backup).unwrap();
+        let version: i64 = copy
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 1);
+    }
+
+    #[test]
+    fn keeps_the_copy_made_before_a_first_attempt() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("openvibe.db");
+        base_at_version(&path, 1);
+        std::fs::write(backup_path(&path, 1), b"first copy").unwrap();
+        Db::open(&path).unwrap();
+        assert_eq!(std::fs::read(backup_path(&path, 1)).unwrap(), b"first copy");
+    }
+
+    #[test]
+    fn no_copy_for_a_new_or_current_base() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("openvibe.db");
+        drop(Db::open(&path).unwrap());
+        drop(Db::open(&path).unwrap());
+        assert_eq!(backups_in(dir.path()), 0);
+    }
+
+    #[test]
+    fn refuses_a_base_from_a_newer_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("openvibe.db");
+        Connection::open(&path)
+            .unwrap()
+            .pragma_update(None, "user_version", MIGRATIONS.len() as i64 + 1)
+            .unwrap();
+        let err = Db::open(&path).err().unwrap().to_string();
+        assert!(err.contains("version plus récente d'OpenVibe"), "{err}");
     }
 
     #[test]
