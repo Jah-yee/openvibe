@@ -1,7 +1,9 @@
 import { toast } from "sonner";
 import { createStore, useStore } from "zustand";
+import { messages } from "@/i18n";
 import { getSetting, setSetting } from "@/ipc/db";
 import type { FleetFilter } from "./fleetView";
+import { fleetMessages } from "./messages";
 
 /** Spec identité §5.6: the panel comes back as it was left. */
 export const AGENTS_PANEL_KEY = "ui.agentsPanel";
@@ -34,7 +36,7 @@ export async function loadAgentsPanel() {
 export function setAgentsPanel(open: boolean) {
   agentsPanelStore.setState({ open });
   void setSetting(AGENTS_PANEL_KEY, open ? "open" : "closed").catch((error: unknown) => {
-    toast.error(`Réglage non enregistré : ${String(error)}`);
+    toast.error(messages(fleetMessages).settingNotSaved(String(error)));
   });
 }
 

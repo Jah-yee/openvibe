@@ -1,17 +1,19 @@
 import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
 import { nextGroupName } from "@/canvas/groups";
+import { messages } from "@/i18n";
 import type { AgentId } from "@/ipc/pty";
 import { workspacesStore } from "@/store/workspaces";
 import { agentsStore } from "./agentsStore";
 import { defaultAgent } from "./catalog";
 import { launchGroup } from "./groups";
 import { defaultLaunchOptions, launchAgent } from "./launchAgent";
+import { fleetMessages } from "./messages";
 import { addOrchestrator } from "./orchestrators";
 import { viewportCenter } from "./placement";
 import type { Point } from "./terminals";
 
-const reportLaunchError = (error: unknown) => toast.error(`Lancement impossible : ${String(error)}`);
+const reportLaunchError = (error: unknown) => toast.error(messages(fleetMessages).launchFailed(String(error)));
 
 /** An agent at `at`, else at the center of the view, in the group under it if any (spec habillage §11.3, spec menu radial §4.1). */
 export function launchAt(agent: AgentId, at?: Point) {

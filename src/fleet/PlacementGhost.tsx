@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { groupAt } from "@/canvas/groups";
+import { messages, useMessages } from "@/i18n";
 import { TOP_ROW_HEIGHT } from "@/shell/layout";
 import { uiStore, useUi } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
+import { fleetMessages } from "./messages";
 import { freeCell } from "./groupLayout";
 import { launchAgent } from "./launchAgent";
 import { addOrchestrator } from "./orchestrators";
@@ -13,6 +15,7 @@ import type { Point } from "./terminals";
 
 /** Dashed outline that follows the pointer until a click places the agent (spec habillage §10.1). */
 export function PlacementGhost() {
+  const t = useMessages(fleetMessages);
   const placing = useUi((s) => s.placing);
   const view = useCanvas((s) => s.view);
   const frames = useCanvas((s) => s.frames);
@@ -53,7 +56,7 @@ export function PlacementGhost() {
               ? addOrchestrator(workspaceId, center)
               : Promise.resolve()
             : launchAgent(placing.agent, placing.options, center);
-        void placed.catch((error: unknown) => toast.error(`Lancement impossible : ${String(error)}`));
+        void placed.catch((error: unknown) => toast.error(messages(fleetMessages).launchFailed(String(error))));
       }}
     >
       {rect && (
@@ -63,9 +66,7 @@ export function PlacementGhost() {
         className="ov-glass-strong pointer-events-none fixed left-1/2 -translate-x-1/2 rounded-[10px] px-3 py-1 text-xs text-ov-text-2"
         style={{ top: TOP_ROW_HEIGHT + 14 }}
       >
-        {group
-          ? `Clique pour l'ajouter au groupe ${group.name} · Échap pour annuler`
-          : `Clique pour poser ${orchestrator ? "l'orchestrateur" : "l'agent"} · Échap pour annuler`}
+        {group ? t.placement.addToGroup(group.name) : orchestrator ? t.placement.placeOrchestrator : t.placement.placeAgent}
       </div>
     </div>
   );

@@ -1,11 +1,13 @@
 import { toast } from "sonner";
 import { createStore, useStore } from "zustand";
+import { messages } from "@/i18n";
 import { ptySendText, ptyWrite } from "@/ipc/pty";
 import { freshText } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, sessionOf, updateSession } from "@/store/nodes";
 import { isRunning, terminalStatusStore } from "@/store/terminalStatus";
 import { AGENTS } from "./catalog";
+import { fleetMessages } from "./messages";
 
 /**
  * Claude Code's Remote Control (spec maj §2): a session followed from
@@ -19,7 +21,7 @@ const STEP_MS = 250;
 const ANSWER_MS = 20_000;
 /** A session started with `--remote-control` shows its link within this time. */
 const LAUNCH_MS = 60_000;
-const CONSENT_ERROR = "Claude demande ton accord pour Remote Control : réponds dans son terminal.";
+const consentError = () => messages(fleetMessages).remote.consent;
 
 /** What the last `/remote-control` of a screen says. */
 export type RemoteScreen =
@@ -99,7 +101,7 @@ async function waitFor(io: RemoteIo, done: (screen: RemoteScreen) => boolean, ti
 /** Turns Remote Control on: `/remote-control`, unless the screen says it already is. */
 export async function enableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promise<RemoteResult> {
   const before = remoteScreen(io.screen());
-  if (before.kind === "consent") return { error: CONSENT_ERROR };
+  if (before.kind === "consent") return { error: consentError() };
   if (before.kind === "active") return { on: true, url: before.url };
   if (before.kind === "menu") {
     await io.press(ESCAPE);
@@ -107,8 +109,8 @@ export async function enableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promise
   }
   await io.send(COMMAND);
   const after = await waitFor(io, (s) => s.kind === "menu" || s.kind === "active" || s.kind === "error" || s.kind === "consent", timeoutMs);
-  if (!after) return { error: "Claude n'a pas confirmé Remote Control." };
-  if (after.kind === "consent") return { error: CONSENT_ERROR };
+  if (!after) return { error: messages(fleetMessages).remote.notConfirmed };
+  if (after.kind === "consent") return { error: consentError() };
   if (after.kind === "error") return { error: after.message };
   // Its menu: it was on already.
   if (after.kind === "menu") await io.press(ESCAPE);
@@ -118,7 +120,7 @@ export async function enableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promise
 /** Turns Remote Control off: its menu, then « Disconnect this session ». */
 export async function disableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promise<RemoteResult> {
   let screen = remoteScreen(io.screen());
-  if (screen.kind === "consent") return { error: CONSENT_ERROR };
+  if (screen.kind === "consent") return { error: consentError() };
   if (screen.kind === "disconnected") return { on: false };
   if (screen.kind !== "menu") {
     const wasOn = screen.kind === "active";
@@ -130,8 +132,8 @@ export async function disableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promis
       await io.send(COMMAND);
       after = await waitFor(io, opened, timeoutMs);
     }
-    if (!after) return { error: "Claude n'a pas ouvert le menu Remote Control." };
-    if (after.kind === "consent") return { error: CONSENT_ERROR };
+    if (!after) return { error: messages(fleetMessages).remote.menuNotOpened };
+    if (after.kind === "consent") return { error: consentError() };
     if (after.kind === "error") return { error: after.message };
     screen = after;
   }
@@ -142,11 +144,11 @@ export async function disableRemote(io: RemoteIo, timeoutMs = ANSWER_MS): Promis
   }
   if (screen.kind !== "menu" || !screen.choice?.startsWith("Disconnect")) {
     await io.press(ESCAPE);
-    return { error: "Le menu Remote Control n'a pas pu être lu." };
+    return { error: messages(fleetMessages).remote.menuUnreadable };
   }
   await io.press("\r");
   const done = await waitFor(io, (s) => s.kind === "disconnected", timeoutMs);
-  return done ? { on: false } : { error: "Claude n'a pas confirmé la déconnexion." };
+  return done ? { on: false } : { error: messages(fleetMessages).remote.disconnectNotConfirmed };
 }
 
 /** What OpenVibe knows of a running session's Remote Control. */
@@ -191,7 +193,7 @@ function ioOf(nodeId: string): RemoteIo {
 
 function nameOf(nodeId: string): string {
   const session = sessionOf(nodesStore.getState().nodes[nodeId]);
-  return session?.name || (session ? AGENTS[session.agent].label : "Agent");
+  return session?.name || (session ? AGENTS[session.agent].label : messages(fleetMessages).agentFallback);
 }
 
 /** Only Claude sessions have Remote Control. */
@@ -261,18 +263,18 @@ export function setRemoteControl(nodeId: string, on: boolean): Promise<RemoteRes
 export async function setRemoteControlAll(nodeIds: readonly string[], on: boolean): Promise<void> {
   const ids = nodeIds.filter(hasRemote);
   if (ids.length === 0) {
-    toast("Aucune session Claude ici");
+    toast(messages(fleetMessages).remote.noClaudeSession);
     return;
   }
   const settled = await Promise.allSettled(ids.map((id) => setRemoteControl(id, on)));
   const results: (RemoteResult | null)[] = settled.map((s) => (s.status === "fulfilled" ? s.value : { error: String(s.reason) }));
   const done = ids.filter((_, i) => { const r = results[i]; return r !== null && "on" in r; });
   const later = ids.filter((_, i) => { const r = results[i]; return r !== null && "later" in r; });
-  if (done.length > 0) toast(`Remote Control ${on ? "activé" : "coupé"} : ${done.map(nameOf).join(", ")}`);
-  if (later.length > 0) toast(`Remote Control à la fin de leur tour : ${later.map(nameOf).join(", ")}`);
+  if (done.length > 0) toast(messages(fleetMessages).remote.done(on, done.map(nameOf).join(", ")));
+  if (later.length > 0) toast(messages(fleetMessages).remote.later(later.map(nameOf).join(", ")));
   ids.forEach((id, i) => {
     const result = results[i];
-    if (result && "error" in result) toast.error(`Remote Control de ${nameOf(id)} : ${result.error}`);
+    if (result && "error" in result) toast.error(messages(fleetMessages).remote.failedFor(nameOf(id), result.error));
   });
 }
 
@@ -283,7 +285,7 @@ async function watchStart(nodeId: string) {
   if (!isRunning(nodeId) || remoteStore.getState().links[nodeId]?.state !== "connecting") return;
   if (seen?.kind === "active") remoteStore.getState().set(nodeId, { state: "on", url: seen.url });
   else if (seen?.kind === "error") remoteStore.getState().set(nodeId, { state: "error", error: seen.message });
-  else if (seen?.kind === "consent") remoteStore.getState().set(nodeId, { state: "error", error: CONSENT_ERROR });
+  else if (seen?.kind === "consent") remoteStore.getState().set(nodeId, { state: "error", error: consentError() });
   else remoteStore.getState().set(nodeId, { state: "on" });
 }
 
