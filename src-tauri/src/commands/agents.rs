@@ -239,6 +239,23 @@ pub fn server_running(app: &AppHandle) -> bool {
 
 /// The hooks a new process gets: Claude's settings file, Codex's notify URL.
 /// Without a server, Claude starts without `--settings`.
+/// Where a terminal reports to (spec première version §4.3): the token is in
+/// the URL Claude reads from its settings file only; the status line and Codex
+/// run commands, so their URLs are bare and curl reads the token from a file.
+pub struct HookUrls {
+    pub settings: String,
+    pub status: String,
+    pub codex: String,
+}
+
+pub fn hook_urls(server: &HookServer, node_id: &str) -> HookUrls {
+    HookUrls {
+        settings: server.url(HookSource::Claude, node_id),
+        status: server.bare_status_url(node_id),
+        codex: server.bare_url(HookSource::Codex, node_id),
+    }
+}
+
 pub fn hooks_for(
     app: &AppHandle,
     node_id: &str,
@@ -250,6 +267,7 @@ pub fn hooks_for(
     let Some(server) = &state.hooks else {
         return AgentHooks::default();
     };
+    let urls = hook_urls(server, node_id);
     match agent {
         Agent::Claude => {
             // The user's own status line goes on showing, after OpenVibe has read the usage (spec maj §6).
@@ -259,7 +277,7 @@ pub fn hooks_for(
                 .clone()
                 .map(|config| claude_settings::StatusLine {
                     script: state.hooks_dir.join("statusline.sh"),
-                    url: server.bare_status_url(node_id),
+                    url: urls.status,
                     config,
                     user: claude_settings::status_line_for(
                         cwd,
@@ -269,7 +287,7 @@ pub fn hooks_for(
             let settings = claude_settings::write(
                 &state.hooks_dir,
                 node_id,
-                &server.url(HookSource::Claude, node_id),
+                &urls.settings,
                 role,
                 status.as_ref(),
             );
@@ -296,7 +314,7 @@ pub fn hooks_for(
             }
         }
         Agent::Codex => AgentHooks {
-            codex_notify: Some(server.bare_url(HookSource::Codex, node_id)),
+            codex_notify: Some(urls.codex),
             curl_config: state.curl_config.clone(),
             ..Default::default()
         },
@@ -366,5 +384,48 @@ mod tests {
             998_500
         );
         assert_eq!(epoch_ms(now, now, 1_000_000), 1_000_000);
+    }
+
+    #[test]
+    fn the_token_reaches_only_the_settings_file_never_a_command_line() {
+        use crate::pty::shell::{ShellKind, ShellSyntax, SpawnSpec, agent_command};
+        let server = HookServer {
+            port: 4242,
+            token: "tok-secret".into(),
+        };
+        let urls = hook_urls(&server, "n1");
+        assert!(
+            urls.settings.contains("tok-secret"),
+            "Claude's hooks read it from a file"
+        );
+        let config = PathBuf::from(r"C:\data\hooks\curl.cfg");
+        let line = claude_settings::status_line_json(&claude_settings::StatusLine {
+            script: PathBuf::from(r"C:\data\hooks\statusline.sh"),
+            url: urls.status.clone(),
+            config: config.clone(),
+            user: None,
+        });
+        let codex = AgentHooks {
+            codex_notify: Some(urls.codex.clone()),
+            curl_config: Some(config),
+            ..Default::default()
+        };
+        let spec = SpawnSpec {
+            cwd: ".".into(),
+            shell: ShellKind::Cmd,
+            agent: Agent::Codex,
+            command: String::new(),
+            claude: None,
+            ollama: None,
+        };
+        for syntax in [
+            ShellSyntax::Cmd,
+            ShellSyntax::PowerShell,
+            ShellSyntax::Posix,
+        ] {
+            let command = agent_command(&spec, syntax, &codex).unwrap().unwrap();
+            assert!(!command.contains("tok-secret"), "{command}");
+        }
+        assert!(!line["command"].as_str().unwrap().contains("tok-secret"));
     }
 }
