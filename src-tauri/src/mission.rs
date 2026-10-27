@@ -146,9 +146,16 @@ fn add_worktree(root: &Path, dir: &Path, slug: &str, from: &str) -> Result<Workt
     })
 }
 
+const NO_COMMIT: &str =
+    "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission.";
+
 /// The mission's branch, from the project's current commit, and its worktree (where merges happen).
 pub fn prepare(project: &Path, name: &str) -> Result<Worktree, String> {
     let (root, dir) = locate(project)?;
+    // Without a commit, git only says « invalid reference: HEAD » (final review H2).
+    if git(&root, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_err() {
+        return Err(NO_COMMIT.into());
+    }
     add_worktree(&root, &dir, &slug(name), "HEAD")
 }
 
@@ -309,6 +316,29 @@ mod tests {
         }
         commit(&proj, "a.txt", "a\n", "init");
         Some((parent, proj))
+    }
+
+    /// `project()` before its first commit.
+    fn repo_without_commit() -> Option<(tempfile::TempDir, PathBuf)> {
+        if Command::new("git").arg("--version").output().is_err() {
+            return None;
+        }
+        let parent = tempfile::tempdir().unwrap();
+        let proj = parent.path().join("proj");
+        std::fs::create_dir(&proj).unwrap();
+        run(&proj, &["init", "-q", "-b", "main"]);
+        Some((parent, proj))
+    }
+
+    #[test]
+    fn a_repository_without_a_commit_is_told_so() {
+        let Some((_parent, proj)) = repo_without_commit() else {
+            return;
+        };
+        assert_eq!(
+            prepare(&proj, "auth").unwrap_err(),
+            "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission."
+        );
     }
 
     fn same(a: impl AsRef<Path>, b: impl AsRef<Path>) -> bool {

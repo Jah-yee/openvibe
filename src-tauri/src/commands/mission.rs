@@ -10,7 +10,11 @@ async fn blocking<T: Send + 'static>(
     tauri::async_runtime::spawn_blocking(job)
         .await
         .map_err(|err| AppError::Io(std::io::Error::other(err.to_string())))?
-        .map_err(AppError::InvalidInput)
+        .map_err(|err| {
+            // In the log a tester sends (spec première version §3.6).
+            log::warn!("mission: {err}");
+            AppError::InvalidInput(err)
+        })
 }
 
 /// The mission's branch and worktree (spec orchestrateur §7.4).
