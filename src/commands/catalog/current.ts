@@ -18,6 +18,8 @@ import { isRunning } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
 import type { Command, CommandContext } from "../command";
 import { requestUi } from "../uiRequests";
+import { command } from "./define";
+import { catalog } from "./messages";
 
 /** The terminal of the moment (spec fenêtre §7.3): the one that had the keyboard when the palette opened. */
 function payloadOf(ctx: CommandContext): TerminalPayload | undefined {
@@ -48,67 +50,49 @@ const groupId = (ctx: CommandContext) => (groupOfCurrent(ctx) as SceneGroup).id;
 
 function terminalSection(ctx: CommandContext): string {
   const payload = payloadOf(ctx);
-  return `Terminal · ${payload ? payload.name || AGENTS[payload.agent].label : ""}`;
+  return catalog().sections.terminal(payload ? payload.name || AGENTS[payload.agent].label : "");
 }
 
-const groupSection = (ctx: CommandContext) => `Groupe · ${groupOfCurrent(ctx)?.name ?? ""}`;
+const groupSection = (ctx: CommandContext) => catalog().sections.group(groupOfCurrent(ctx)?.name ?? "");
 
 export const CURRENT: readonly Command[] = [
-  {
-    id: "terminal.rename",
-    label: "Renommer",
+  command("terminal.rename", {
     section: terminalSection,
-    keywords: ["nom", "prénom", "terminal"],
     available: hasTerminal,
     // The view moves if needed, without the keyboard: the name editor takes it.
     run: (ctx) => {
       showNode(terminalId(ctx));
       requestUi({ kind: "renameTerminal", id: terminalId(ctx) });
     },
-  },
-  {
-    id: "terminal.duplicate",
-    label: "Dupliquer",
+  }),
+  command("terminal.duplicate", {
     section: terminalSection,
-    keywords: ["copie", "dupliquer", "terminal"],
     available: hasTerminal,
     run: async (ctx) => {
       if (ctx.workspaceId) await duplicateTerminal(ctx.workspaceId, terminalId(ctx));
     },
-  },
-  {
-    id: "terminal.review",
-    label: "Revue des changements",
+  }),
+  command("terminal.review", {
     section: terminalSection,
-    keywords: ["diff", "revue", "review", "changements", "fichiers", "code"],
     available: hasTerminal,
     run: (ctx) => openReview(terminalId(ctx)),
-  },
-  {
-    id: "terminal.relaunch",
-    label: "Relancer",
+  }),
+  command("terminal.relaunch", {
     section: terminalSection,
-    keywords: ["relancer", "redémarrer", "reprendre"],
     available: hasTerminal,
     // Claude resumes its session, other agents start anew (plan F2, décision 2).
     run: (ctx) => {
       const payload = payloadOf(ctx) as TerminalPayload;
       relaunchTerminal(terminalId(ctx), payload, payload.agent === "claude" && payload.claudeSessionId ? "resume" : "new");
     },
-  },
-  {
-    id: "terminal.stop",
-    label: "Arrêter le processus",
+  }),
+  command("terminal.stop", {
     section: terminalSection,
-    keywords: ["arrêter", "tuer", "processus"],
     available: (ctx) => hasTerminal(ctx) && isRunning(terminalId(ctx)),
     run: (ctx) => stopTerminal(terminalId(ctx)),
-  },
-  {
-    id: "terminal.pause",
-    label: "Mettre en pause",
+  }),
+  command("terminal.pause", {
     section: terminalSection,
-    keywords: ["pause", "interrompre"],
     available: (ctx) => {
       const facts = factsOf(ctx);
       return facts !== null && canPause(facts);
@@ -116,12 +100,9 @@ export const CURRENT: readonly Command[] = [
     run: async (ctx) => {
       await pauseAgents([terminalId(ctx)]);
     },
-  },
-  {
-    id: "terminal.resume",
-    label: "Reprendre",
+  }),
+  command("terminal.resume", {
     section: terminalSection,
-    keywords: ["reprendre", "continuer"],
     available: (ctx) => {
       const facts = factsOf(ctx);
       return facts !== null && canResume(facts);
@@ -129,42 +110,30 @@ export const CURRENT: readonly Command[] = [
     run: async (ctx) => {
       await resumeAgent(terminalId(ctx));
     },
-  },
-  {
-    id: "terminal.close",
-    label: "Fermer",
+  }),
+  command("terminal.close", {
     section: terminalSection,
-    keywords: ["fermer", "terminal"],
     available: hasTerminal,
     run: (ctx) => requestClose(terminalId(ctx)),
-  },
-  {
-    id: "terminal.copy",
-    label: "Copier",
+  }),
+  command("terminal.copy", {
     section: terminalSection,
-    keywords: ["copier", "sélection", "presse-papiers"],
     available: hasTerminal,
-    disabled: (ctx) => (terminalSelection(terminalId(ctx)) ? null : "aucune sélection"),
+    disabled: (ctx) => (terminalSelection(terminalId(ctx)) ? null : catalog().reasons.noSelection),
     run: async (ctx) => {
       await navigator.clipboard.writeText(terminalSelection(terminalId(ctx)));
     },
-  },
-  {
-    id: "terminal.paste",
-    label: "Coller",
+  }),
+  command("terminal.paste", {
     section: terminalSection,
-    keywords: ["coller", "presse-papiers"],
     available: hasTerminal,
     run: async (ctx) => {
       const text = await readClipboardText();
       if (text !== null) pasteIntoTerminal(terminalId(ctx), text);
     },
-  },
-  {
-    id: "group.rename",
-    label: "Renommer le groupe",
+  }),
+  command("group.rename", {
     section: groupSection,
-    keywords: ["groupe", "nom"],
     available: hasGroup,
     // Its label edits the name: the group comes into view first.
     run: (ctx) => {
@@ -172,12 +141,9 @@ export const CURRENT: readonly Command[] = [
       focusGroup(id);
       requestAnimationFrame(() => uiStore.getState().setRenamingGroup(id));
     },
-  },
-  {
-    id: "group.addAgent",
-    label: "Ajouter un agent…",
+  }),
+  command("group.addAgent", {
     section: groupSection,
-    keywords: ["groupe", "agent", "ajouter"],
     available: hasGroup,
     // The group's menu, in the agents panel (plan F2, décision 4).
     run: (ctx) => {
@@ -185,47 +151,35 @@ export const CURRENT: readonly Command[] = [
       setAgentsPanel(true);
       requestUi({ kind: "groupMenu", id: groupId(ctx) });
     },
-  },
-  {
-    id: "group.orchestrate",
-    label: "Relier un orchestrateur",
+  }),
+  command("group.orchestrate", {
     section: groupSection,
-    keywords: ["orchestrateur", "relier", "groupe"],
     available: hasGroup,
     run: async (ctx) => {
       await orchestrateGroup(groupId(ctx));
     },
-  },
-  { id: "group.ungroup", label: "Dégrouper", section: groupSection, keywords: ["groupe", "dégrouper"], available: hasGroup, run: (ctx) => ungroup(groupId(ctx)) },
-  { id: "group.close", label: "Fermer le groupe", section: groupSection, keywords: ["groupe", "fermer"], available: hasGroup, run: (ctx) => requestCloseGroup(groupId(ctx)) },
-  {
-    id: "group.pause",
-    label: "Mettre le groupe en pause",
+  }),
+  command("group.ungroup", { section: groupSection, available: hasGroup, run: (ctx) => ungroup(groupId(ctx)) }),
+  command("group.close", { section: groupSection, available: hasGroup, run: (ctx) => requestCloseGroup(groupId(ctx)) }),
+  command("group.pause", {
     section: groupSection,
-    keywords: ["groupe", "pause"],
     available: hasGroup,
     run: async (ctx) => {
       await pauseAll(groupMembers(groupId(ctx)));
     },
-  },
-  {
-    id: "group.resume",
-    label: "Reprendre le groupe",
+  }),
+  command("group.resume", {
     section: groupSection,
-    keywords: ["groupe", "reprendre"],
     available: hasGroup,
     run: async (ctx) => {
       await resumeAll(groupMembers(groupId(ctx)));
     },
-  },
-  {
-    id: "group.frame",
-    label: "Cadrer le groupe",
+  }),
+  command("group.frame", {
     section: groupSection,
-    keywords: ["groupe", "cadrer", "voir"],
     available: hasGroup,
     run: (ctx) => {
       focusGroup(groupId(ctx));
     },
-  },
+  }),
 ];

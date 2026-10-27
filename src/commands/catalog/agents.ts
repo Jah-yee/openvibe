@@ -6,78 +6,70 @@ import { launchAt, launchFour, newConsole, placeOrchestrator } from "@/fleet/qui
 import type { AgentId } from "@/ipc/pty";
 import type { Command } from "../command";
 import { requestUi } from "../uiRequests";
+import { command, derived, sectionNamed } from "./define";
+import { catalog } from "./messages";
 import { inProject } from "./navigation";
 
 /** The agents of « Lancer … », in the spec's order (spec fenêtre §7.3). */
 const LAUNCHED: readonly AgentId[] = ["claude", "codex", "gemini", "qwen", "cursor", "opencode", "aider", "ollama", "shell"];
 
+const section = sectionNamed((s) => s.agents);
+
 /** Like the Agent menu: an agent not found on this computer is listed greyed, with why. */
 const notFound = (agent: AgentId) => () =>
-  agentsStore.getState().agents.some((a) => a.id === agent && a.available) ? null : `${AGENTS[agent].binary} introuvable dans le PATH`;
+  agentsStore.getState().agents.some((a) => a.id === agent && a.available) ? null : catalog().reasons.notFound(AGENTS[agent].binary);
 
 export const AGENT_COMMANDS: readonly Command[] = [
   ...LAUNCHED.map(
-    (agent): Command => ({
-      id: `agent.launch.${agent}`,
-      // Ollama starts on a model: its menu opens on them (plan F2, décision 1).
-      label: agent === "ollama" ? "Lancer Ollama…" : `Lancer ${AGENTS[agent].label}`,
-      section: "Agents",
-      keywords: [AGENTS[agent].label, AGENTS[agent].vendor, "agent", "lancer"],
-      available: inProject,
-      disabled: notFound(agent),
-      run: (ctx) => (agent === "ollama" ? requestUi({ kind: "agentMenu", view: "ollama", at: ctx.at }) : launchAt(agent, ctx.at)),
-    }),
+    (agent): Command =>
+      derived(
+        {
+          id: `agent.launch.${agent}`,
+          section,
+          available: inProject,
+          disabled: notFound(agent),
+          // Ollama starts on a model: its menu opens on them (plan F2, décision 1).
+          run: (ctx) => (agent === "ollama" ? requestUi({ kind: "agentMenu", view: "ollama", at: ctx.at }) : launchAt(agent, ctx.at)),
+        },
+        () => (agent === "ollama" ? catalog().commands["agent.ollama"].label : catalog().launch(AGENTS[agent].label)),
+        () => [AGENTS[agent].label, AGENTS[agent].vendor, ...catalog().launchKeywords],
+      ),
   ),
-  {
-    id: "agent.custom",
-    label: "Lancer un agent personnalisé…",
-    section: "Agents",
-    keywords: ["commande", "personnalisé", "agent"],
+  command("agent.custom", {
+    section,
     available: inProject,
     run: (ctx) => requestUi({ kind: "agentMenu", view: "options", at: ctx.at }),
-  },
-  {
-    id: "agent.other",
-    label: "Autre agent…",
-    section: "Agents",
-    keywords: ["agent", "catalogue", "lancer"],
+  }),
+  command("agent.other", {
+    section,
     available: inProject,
     // The ＋ menu's catalog; from the radial menu, the agent starts at its point (spec menu radial §4.1).
     run: (ctx) => requestUi({ kind: "agentMenu", view: "agents", at: ctx.at }),
-  },
-  { id: "agent.console", label: "Nouvelle console", section: "Agents", keywords: ["console", "terminal"], available: inProject, run: (ctx) => newConsole(ctx.at) },
-  { id: "agent.four", label: "Lancer 4 agents", section: "Agents", keywords: ["quatre", "groupe", "agents"], available: inProject, run: (ctx) => launchFour(ctx.at) },
-  { id: "agent.orchestrator", label: "Orchestrateur", section: "Agents", keywords: ["orchestrateur", "chef"], available: inProject, run: (ctx) => placeOrchestrator(ctx.at) },
-  {
-    id: "group.compose",
-    label: "Composer un groupe…",
-    section: "Agents",
-    keywords: ["groupe", "composer", "rôle"],
+  }),
+  command("agent.console", { section, available: inProject, run: (ctx) => newConsole(ctx.at) }),
+  command("agent.four", { section, available: inProject, run: (ctx) => launchFour(ctx.at) }),
+  command("agent.orchestrator", { section, available: inProject, run: (ctx) => placeOrchestrator(ctx.at) }),
+  command("group.compose", {
+    section,
     available: inProject,
     // Its window is anchored in the agents panel (plan F2, décision 4).
     run: () => {
       setAgentsPanel(true);
       requestUi({ kind: "composeGroup" });
     },
-  },
-  {
-    id: "agents.pauseAll",
-    label: "Tout mettre en pause",
-    section: "Agents",
-    keywords: ["pause", "interrompre", "tout"],
+  }),
+  command("agents.pauseAll", {
+    section,
     available: inProject,
     run: async () => {
       await pauseAll(workspaceTerminalIds());
     },
-  },
-  {
-    id: "agents.resumeAll",
-    label: "Tout reprendre",
-    section: "Agents",
-    keywords: ["reprendre", "continuer", "tout"],
+  }),
+  command("agents.resumeAll", {
+    section,
     available: inProject,
     run: async () => {
       await resumeAll(workspaceTerminalIds());
     },
-  },
+  }),
 ];

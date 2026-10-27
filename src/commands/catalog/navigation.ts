@@ -7,6 +7,8 @@ import { agentsPanelStore, setAgentsPanel } from "@/fleet/agentsPanelState";
 import { focusCommandBar } from "@/shell/commandBarFocus";
 import { projectsStore } from "@/store/projects";
 import type { Command, CommandContext } from "../command";
+import { command, sectionNamed } from "./define";
+import { catalog } from "./messages";
 import { openPalette } from "../paletteState";
 
 export const inProject = (ctx: CommandContext) => ctx.project;
@@ -21,24 +23,24 @@ function step(direction: 1 | -1, ctx: CommandContext) {
   if (target) arrive(target);
 }
 
+const nav = sectionNamed((s) => s.navigation);
+
 export const NAVIGATION: readonly Command[] = [
-  { id: "terminal.next", label: "Terminal suivant", section: "Navigation", keywords: ["suivant", "terminal", "agent"], shortcut: "Ctrl+Tab", available: withTerminals, run: (ctx) => step(1, ctx) },
-  { id: "terminal.previous", label: "Terminal précédent", section: "Navigation", keywords: ["précédent", "terminal", "agent"], shortcut: "Ctrl+Maj+Tab", available: withTerminals, run: (ctx) => step(-1, ctx) },
-  { id: "palette.goTo", label: "Aller à…", section: "Navigation", keywords: ["chercher", "rechercher", "terminal", "groupe", "workspace", "projet"], shortcut: "Ctrl+P", available: always, run: (ctx) => openPalette("goTo", ctx) },
-  { id: "canvas.overview", label: "Vue d'ensemble", section: "Navigation", keywords: ["ensemble", "tout", "voir", "agents"], shortcut: "Ctrl+Maj+A", available: inProject, run: () => overview() },
-  { id: "canvas.release", label: "Rendre la main au canvas", section: "Navigation", keywords: ["canvas", "clavier", "dessin"], shortcut: "Maj+Échap", available: inProject, run: () => releaseToCanvas() },
-  { id: "canvas.fit", label: "Ajuster à la scène", section: "Navigation", keywords: ["ajuster", "vue", "tout"], available: inProject, run: () => fitScene() },
-  { id: "canvas.zoom100", label: "Zoom 100 %", section: "Navigation", keywords: ["zoom", "taille", "réelle"], available: inProject, run: () => zoomTo(1) },
-  { id: "commandBar.focus", label: "Écrire une consigne", section: "Navigation", keywords: ["consigne", "commande", "barre"], available: inProject, run: () => void focusCommandBar() },
-  {
-    id: "agentsPanel.toggle",
-    label: () => (agentsPanelStore.getState().open ? "Masquer le panneau Agents" : "Afficher le panneau Agents"),
-    section: "Navigation",
-    keywords: ["agents", "panneau", "flotte"],
+  command("terminal.next", { section: nav, shortcut: "Ctrl+Tab", available: withTerminals, run: (ctx) => step(1, ctx) }),
+  command("terminal.previous", { section: nav, shortcut: "Ctrl+Maj+Tab", available: withTerminals, run: (ctx) => step(-1, ctx) }),
+  command("palette.goTo", { section: nav, shortcut: "Ctrl+P", available: always, run: (ctx) => openPalette("goTo", ctx) }),
+  command("canvas.overview", { section: nav, shortcut: "Ctrl+Maj+A", available: inProject, run: () => overview() }),
+  command("canvas.release", { section: nav, shortcut: "Maj+Échap", available: inProject, run: () => releaseToCanvas() }),
+  command("canvas.fit", { section: nav, available: inProject, run: () => fitScene() }),
+  command("canvas.zoom100", { section: nav, available: inProject, run: () => zoomTo(1) }),
+  command("commandBar.focus", { section: nav, available: inProject, run: () => void focusCommandBar() }),
+  command("agentsPanel.toggle", {
+    label: () => (agentsPanelStore.getState().open ? catalog().hideAgentsPanel : catalog().showAgentsPanel),
+    section: nav,
     available: inProject,
     run: () => setAgentsPanel(!agentsPanelStore.getState().open),
-  },
-  { id: "project.home", label: "Accueil", section: "Navigation", keywords: ["projets", "accueil"], available: inProject, run: () => projectsStore.getState().goHome() },
-  { id: "project.close", label: "Fermer le projet", section: "Navigation", keywords: ["fermer", "projet"], available: inProject, run: () => projectsStore.getState().close() },
-  { id: "palette.functions", label: "Rechercher une fonction…", section: "Navigation", keywords: ["fonction", "commande", "action"], shortcut: "Ctrl+Maj+P", available: always, run: (ctx) => openPalette("functions", ctx) },
+  }),
+  command("project.home", { section: nav, available: inProject, run: () => projectsStore.getState().goHome() }),
+  command("project.close", { section: nav, available: inProject, run: () => projectsStore.getState().close() }),
+  command("palette.functions", { section: nav, shortcut: "Ctrl+Maj+P", available: always, run: (ctx) => openPalette("functions", ctx) }),
 ];
