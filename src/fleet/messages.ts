@@ -5,6 +5,7 @@ export const fleetMessages = defineMessages(
   {
     launchFailed: (error: string) => `Lancement impossible : ${error}`,
     orchestratorFailed: (error: string) => `Orchestrateur impossible : ${error}`,
+    noClaude: "Claude Code n'est pas installé : l'orchestrateur en a besoin. Installe-le (voir « Bien démarrer » sur l'accueil), puis réessaie.",
     settingNotSaved: (error: string) => `Réglage non enregistré : ${error}`,
     agentFallback: "Agent",
     catalog: {
@@ -200,6 +201,7 @@ export const fleetMessages = defineMessages(
   {
     launchFailed: (error: string) => `Could not launch: ${error}`,
     orchestratorFailed: (error: string) => `Could not create the orchestrator: ${error}`,
+    noClaude: 'Claude Code is not installed: the orchestrator needs it. Install it (see "Getting started" on the home screen), then try again.',
     settingNotSaved: (error: string) => `Setting not saved: ${error}`,
     agentFallback: "Agent",
     catalog: {

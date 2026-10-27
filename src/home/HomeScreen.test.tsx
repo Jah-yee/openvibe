@@ -15,6 +15,7 @@ beforeEach(() => {
   mockIPC(
     (cmd) => {
       if (cmd === "list_projects") return [];
+      if (cmd === "list_agents" || cmd === "list_shells") return [];
       if (cmd === "plugin:window|is_maximized") return false;
     },
     { shouldMockEvents: true },
