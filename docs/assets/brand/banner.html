@@ -1,0 +1,133 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url("../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "JetBrains Mono"; src: url("../../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+:root {
+  --canvas: #232220; --dot: rgba(255,255,255,.07); --text: #F5F4EF; --text2: #B3B0A8; --text3: #86837C;
+  --accent: #D97757; --accent-soft: rgba(217,119,87,.18); --wait: #D4A27F; --ok: #8FA876;
+  --glass: rgba(40,39,36,.52); --glass-strong: rgba(42,41,38,.84); --glass-line: rgba(255,255,255,.10);
+  --glass-hi: inset 0 1px 0 rgba(255,255,255,.07); --glass-edge: 0 0 0 1px rgba(0,0,0,.28);
+  --tray: rgba(255,255,255,.028); --head: rgba(32,31,29,.70); --line: rgba(255,255,255,.09);
+  --glow1: rgba(217,119,87,.16); --glow2: rgba(143,168,118,.12); --glow3: rgba(106,155,204,.08);
+  --float-shadow: 0 8px 28px rgba(0,0,0,.32); --field: rgba(255,255,255,.05);
+}
+:root.light {
+  --canvas: #F7F5EF; --dot: rgba(41,38,27,.10); --text: #29261B; --text2: #625F57; --text3: #8F8C83;
+  --accent: #C2603F; --accent-soft: rgba(194,96,63,.13); --wait: #B07D3A; --ok: #5E7A43;
+  --glass: rgba(255,255,255,.50); --glass-strong: rgba(252,251,248,.88); --glass-line: rgba(255,255,255,.80);
+  --glass-hi: inset 0 1px 0 rgba(255,255,255,.90); --glass-edge: 0 0 0 1px rgba(41,38,27,.08);
+  --tray: rgba(255,255,255,.38); --head: rgba(255,255,255,.66); --line: rgba(41,38,27,.10);
+  --glow1: rgba(217,119,87,.16); --glow2: rgba(106,155,204,.14); --glow3: rgba(143,168,118,.12);
+  --float-shadow: 0 8px 28px rgba(41,38,27,.10); --field: rgba(255,255,255,.60);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1280px; height: var(--h, 400px); overflow: hidden; }
+body {
+  position: relative; font-family: Inter, sans-serif; color: var(--text); background: var(--canvas);
+  background-image:
+    radial-gradient(circle at 12% 0%, var(--glow1), transparent 46%),
+    radial-gradient(circle at 92% 100%, var(--glow2), transparent 50%),
+    radial-gradient(circle at 55% 0%, var(--glow3), transparent 40%),
+    radial-gradient(circle, var(--dot) 1px, transparent 1.4px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 20px 20px;
+  background-position: 0 0, 0 0, 0 0, 10px 10px;
+}
+.glass { background: var(--glass); backdrop-filter: blur(18px) saturate(150%); border: 1px solid var(--glass-line); box-shadow: var(--glass-hi), var(--glass-edge), var(--float-shadow); }
+.mono { font-family: "JetBrains Mono", monospace; }
+
+/* left: identity */
+.id { position: absolute; left: 72px; top: 0; bottom: 0; width: 560px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+.lockup { display: flex; align-items: center; gap: 22px; }
+.lockup svg { width: 76px; height: 76px; flex: none; }
+.lockup span { font-size: 60px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.tag { font-size: 23px; line-height: 1.4; font-weight: 500; color: var(--text); letter-spacing: -.005em; max-width: 520px; }
+.tag em { font-style: normal; color: var(--accent); }
+.sub { font-size: 13px; line-height: 1.6; color: var(--text3); letter-spacing: .01em; }
+
+/* right: a small board */
+.board { position: absolute; left: 660px; top: 0; right: 0; bottom: 0; }
+.tray { position: absolute; border-radius: 18px; background: var(--tray); border: 1px solid var(--glass-line); box-shadow: var(--glass-hi); }
+.tray-label { position: absolute; display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; letter-spacing: .04em; }
+.tray-label .role { width: 8px; height: 8px; border-radius: 2px; background: var(--accent); }
+.tray-label .meta { font: 400 10.5px "JetBrains Mono", monospace; color: var(--text2); letter-spacing: 0; }
+.node { position: absolute; border: 1px solid var(--glass-line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--float-shadow); }
+.node.focus { border-color: var(--accent); }
+.node.wait { border-color: var(--wait); }
+.nhead { height: 28px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: var(--head); backdrop-filter: blur(18px) saturate(150%); border-bottom: 1px solid var(--glass-line); font-size: 12px; }
+.nhead .tint { width: 8px; height: 8px; border-radius: 2px; }
+.nhead b { font-weight: 600; }
+.nhead .ag { color: var(--text2); }
+.nhead .st { margin-left: auto; font: 10.5px "JetBrains Mono", monospace; display: flex; align-items: center; gap: 5px; color: var(--text2); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.nbody { flex: 1; background: rgba(24,23,22,.97); padding: 8px 11px; font: 11px/1.6 "JetBrains Mono", monospace; color: #E8E5DD; white-space: pre; overflow: hidden; }
+.nbody .ac { color: #D97757; } .nbody .ok { color: #8FA876; } .nbody .dim { color: #77756F; } .nbody .wt { color: #D4A27F; } .nbody .hl { background: #3D2A22; color: #F5F4EF; }
+.cursor { display: inline-block; width: 7px; height: 13px; vertical-align: -2px; background: #D97757; }
+.orch { position: absolute; border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
+.orch .ohead { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 12px; }
+.orch .ohead .prog { margin-left: auto; font: 400 10.5px "JetBrains Mono", monospace; color: var(--text2); }
+.orow { display: flex; align-items: center; gap: 8px; height: 23px; padding: 0 10px; font-size: 11.5px; }
+.orow .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); position: relative; overflow: hidden; }
+.orow .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.orow .nm { width: 64px; color: var(--text2); }
+.orow .t { font: 10.5px "JetBrains Mono", monospace; color: var(--text3); width: 38px; text-align: right; }
+.cmd { position: absolute; height: 42px; border-radius: 16px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 14px; font-size: 13px; }
+.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font: 11px "JetBrains Mono", monospace; }
+.cmd .txt { color: var(--text); }
+.cmd .send { margin-left: auto; height: 28px; padding: 0 12px; border-radius: 9px; background: var(--accent); color: var(--canvas); font-size: 12px; font-weight: 600; display: flex; align-items: center; }
+:root.light .cmd .send { color: #fff; }
+</style>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme") === "light") document.documentElement.classList.add("light");
+  if (q.get("h")) document.documentElement.style.setProperty("--h", q.get("h") + "px");
+  if (q.get("layout") === "social") document.documentElement.classList.add("social");
+</script>
+<style>
+/* social preview: 1280 x 640, the identity above the board */
+:root.social .id { left: 0; right: 0; width: auto; top: 46px; bottom: auto; align-items: center; text-align: center; gap: 16px; }
+:root.social .tag { max-width: 760px; }
+:root.social .board { left: 342px; top: 250px; right: auto; width: 600px; }
+</style>
+</head>
+<body>
+<div class="id">
+  <div class="lockup">
+    <svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1A1918"/><path d="M10 36 C 18 14, 26 14, 32 32 S 46 50, 54 26" stroke="#D97757" stroke-width="7" fill="none" stroke-linecap="round"/></svg>
+    <span>OpenVibe</span>
+  </div>
+  <div class="tag">An infinite canvas of <em>real terminals</em> for your AI coding agents: brief a whole team, let an orchestrator split the work.</div>
+  <div class="sub mono">Claude Code · Codex · Gemini · Qwen Code · Cursor<br>OpenCode · Aider · Ollama · any shell</div>
+</div>
+
+<div class="board">
+  <div class="tray" style="left:18px; top:30px; width:560px; height:272px"></div>
+  <div class="tray-label" style="left:34px; top:38px"><span class="role"></span>FRONTEND <span class="meta">3 agents</span></div>
+
+  <div class="node focus" style="left:34px; top:62px; width:262px; height:146px">
+    <div class="nhead"><span class="tint" style="background:#D97757"></span><b>Athéna</b><span class="ag">claude</span><span class="st"><span class="dot" style="background:var(--accent)"></span>4:12</span></div>
+    <div class="nbody"><span class="ac">&gt;</span> Add OAuth login to the app
+<span class="ok">●</span> Read <span class="dim">src/auth/session.ts</span>
+<span class="ok">●</span> Update <span class="dim">src/auth/oauth.ts</span>
+  <span class="ok">+ 48</span> <span style="color:#E5534B">- 12</span>
+<span class="ac">✻</span> Wiring the callback… <span class="cursor"></span></div>
+  </div>
+
+  <div class="node wait" style="left:308px; top:62px; width:254px; height:146px">
+    <div class="nhead"><span class="tint" style="background:#D97757"></span><b>Hermès</b><span class="ag">claude</span><span class="st"><span class="dot" style="background:var(--wait)"></span>1:47</span></div>
+    <div class="nbody"><span class="wt">?</span> Run <span class="hl"> pnpm test auth </span>
+<span class="dim">  The command touches</span>
+<span class="dim">  the test database.</span>
+
+<span class="ac">❯</span> 1. Yes
+  2. No, explain why</div>
+  </div>
+
+  <div class="node" style="left:34px; top:220px; width:528px; height:74px">
+    <div class="nhead"><span class="tint" style="background:#D97757"></span><b>Apollon</b><span class="ag">codex</span><span class="st"><span class="dot" style="background:var(--text3)"></span>ready</span></div>
+    <div class="nbody"><span class="ok">✓</span> 42 tests passed <span class="dim">· 3 files · 0.9 s</span></div>
+  </div>
+
+  <div class="cmd glass" style="left:58px; top:318px; width:480px"><span class="chip">@frontend</span><span class="txt">run the auth tests, then open a PR</span><span class="send">Send</span></div>
+</div>
+</body></html>
