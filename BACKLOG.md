@@ -298,4 +298,4 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 ## Constats du jalon R3 (missions)
 
 - Tant qu'un nœud n'est pas activé, le canvas d'Excalidraw recouvre ses boutons : le premier clic sur le × d'un orchestrateur ou d'un terminal le sélectionne, le second agit.
-- Un orchestrateur arrêté (pas supprimé) ne reçoit plus les comptes rendus : ils restent dans le panneau et dans `equipe`, mais rien ne le lui signale à sa relance.
+- Fermer un orchestrateur en mission laisse ses worktrees et branches ; le dialogue ne le dit pas, et le panneau ne peut plus les nettoyer une fois la ligne purgée.
