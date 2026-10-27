@@ -315,3 +315,13 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Une erreur de consentement Remote Control est enregistrée en texte (`remoteStore`) : elle garde la langue du moment où elle est survenue.
 - Les entrées « Aller à » sont calculées à l'ouverture de la palette : un changement de langue palette ouverte ne les traduit qu'à la réouverture (les commandes de langue ferment la palette).
 - Le dialogue « Composer un groupe » garde le nom proposé dans l'ancienne langue si la langue change pendant qu'il est ouvert.
+
+## Constats du jalon R5c (ce qui est dit aux agents)
+
+- Un gros diff affiche le repère `[diff tronqué]` tel que Rust l'écrit (`review.rs`), en français même dans une interface anglaise : `parseDiff` pourrait le reconnaître et montrer son texte traduit.
+- Le tableau des niveaux du README (EN et FR) montre encore les identifiants français (`faible (low)`…), alors que l'orchestrateur reçoit et envoie `low`, `medium`, `high`, `extreme`.
+- `mission` rend `linked_agents` en liste, ou en phrase quand l'espace de l'orchestrateur n'est pas affiché : `null` avec une note serait plus simple à lire pour un agent.
+- En français, l'agent envoie `done` à `step` et lit en retour « fait » ou « en cours » : les deux vocabulaires se côtoient (textes français gardés tels quels).
+- `step` répond `echec` sans accent en français (l'identifiant interne transparaît).
+- Un orchestrateur relancé (`--resume`) reçoit ses consignes dans la langue courante, qui peut différer de celle de son historique.
+- La fenêtre d'erreur de base de données montre le français puis l'anglais ; l'erreur elle-même y est en français dans les deux moitiés.

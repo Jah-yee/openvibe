@@ -1,3 +1,5 @@
+import { messages } from "@/i18n";
+import { agentMessages } from "@/mcp/messages";
 import { missionOf } from "@/mission/store";
 import { nodesStore } from "@/store/nodes";
 
@@ -57,11 +59,12 @@ export interface Remark {
 
 /** What the agent reads: every remark, then what to do with them. */
 export function reviewMessage(remarks: readonly Remark[]): string {
+  const said = messages(agentMessages).review;
   const items = remarks.map((r) => {
-    const where = r.line === undefined ? r.file : r.side === "old" ? `${r.file} (ligne ${r.line} supprimée)` : `${r.file}:${r.line}`;
+    const where = r.line === undefined ? r.file : r.side === "old" ? said.removedLine(r.file, r.line) : `${r.file}:${r.line}`;
     return `- ${where} — ${r.text.replace(/\s*\n\s*/g, " ").trim()}`;
   });
-  return ["Revue de code de tes changements :", ...items, "Corrige ce qui doit l'être, puis dis-moi ce que tu as changé."].join("\n");
+  return [said.intro, ...items, said.outro].join("\n");
 }
 
 /** A mission agent's work is compared with the mission's branch, where its own forked. */

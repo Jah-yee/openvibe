@@ -1,6 +1,7 @@
 //! The settings file given to Claude with `--settings` (spec habillage §8.2,
 //! §10.3): http hooks that report its state, none that could block a decision.
 
+use crate::tr;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -157,7 +158,10 @@ pub fn write(
     if !valid_node_id(node_id) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("identifiant de nœud invalide : {node_id}"),
+            tr!(
+                "identifiant de nœud invalide : {node_id}",
+                "invalid node id: {node_id}"
+            ),
         ));
     }
     std::fs::create_dir_all(dir)?;
@@ -260,6 +264,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         assert!(write(dir.path(), "../evil", URL, Role::Agent, None).is_err());
         assert!(!dir.path().join("../evil.json").exists());
+        let english = crate::i18n::in_english(|| {
+            write(dir.path(), "../evil", URL, Role::Agent, None).unwrap_err()
+        });
+        assert_eq!(english.to_string(), "invalid node id: ../evil");
     }
 
     #[test]

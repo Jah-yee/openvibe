@@ -7,6 +7,7 @@ pub mod prompts;
 pub mod subagents;
 pub mod transcripts;
 
+use crate::tr;
 use std::process::Command;
 
 use serde::Serialize;
@@ -77,7 +78,9 @@ pub fn parse_ollama_list(output: &str) -> Vec<String> {
 pub fn ollama_models() -> AppResult<Vec<String>> {
     let output = hide_window(Command::new("ollama").arg("list"))
         .output()
-        .map_err(|err| AppError::NotFound(format!("ollama introuvable : {err}")))?;
+        .map_err(|err| {
+            AppError::NotFound(tr!("ollama introuvable : {err}", "ollama not found: {err}"))
+        })?;
     if !output.status.success() {
         return Err(AppError::Io(std::io::Error::other(
             String::from_utf8_lossy(&output.stderr).trim().to_string(),

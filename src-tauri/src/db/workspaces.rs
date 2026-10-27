@@ -1,3 +1,4 @@
+use crate::tr;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
@@ -90,9 +91,10 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
         |row| row.get(0),
     )?;
     if count <= 1 {
-        return Err(AppError::InvalidInput(
-            "impossible de supprimer le dernier workspace du projet".into(),
-        ));
+        return Err(AppError::InvalidInput(tr!(
+            "impossible de supprimer le dernier workspace du projet",
+            "cannot delete the project's last workspace"
+        )));
     }
     conn.execute("DELETE FROM workspaces WHERE id = ?1", [id])?;
     Ok(())
@@ -101,7 +103,10 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
 pub fn set_pantheon(conn: &Connection, id: &str, pantheon: &str) -> AppResult<()> {
     let pantheon = pantheon.trim();
     if pantheon.is_empty() {
-        return Err(AppError::InvalidInput("panthéon vide".into()));
+        return Err(AppError::InvalidInput(tr!(
+            "panthéon vide",
+            "empty pantheon"
+        )));
     }
     let changed = conn.execute(
         "UPDATE workspaces SET pantheon = ?2 WHERE id = ?1",
@@ -116,15 +121,19 @@ pub fn set_pantheon(conn: &Connection, id: &str, pantheon: &str) -> AppResult<()
 fn valid_name(name: &str) -> AppResult<String> {
     let name = name.trim();
     if name.is_empty() {
-        return Err(AppError::InvalidInput(
-            "le nom du workspace est vide".into(),
-        ));
+        return Err(AppError::InvalidInput(tr!(
+            "le nom du workspace est vide",
+            "the workspace name is empty"
+        )));
     }
     Ok(name.to_string())
 }
 
 fn not_found(id: &str) -> AppError {
-    AppError::NotFound(format!("workspace introuvable : {id}"))
+    AppError::NotFound(tr!(
+        "workspace introuvable : {id}",
+        "workspace not found: {id}"
+    ))
 }
 
 #[cfg(test)]
@@ -181,6 +190,28 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+    }
+
+    #[test]
+    fn explains_its_refusals_in_english() {
+        crate::i18n::in_english(|| {
+            Db::open_in_memory()
+                .unwrap()
+                .with(|conn| {
+                    let p = project(conn, "C:/p");
+                    assert_eq!(
+                        create(conn, &p, "  ").unwrap_err().to_string(),
+                        "the workspace name is empty"
+                    );
+                    let only = create(conn, &p, "A")?;
+                    assert_eq!(
+                        delete(conn, &only.id).unwrap_err().to_string(),
+                        "cannot delete the project's last workspace"
+                    );
+                    Ok(())
+                })
+                .unwrap();
+        });
     }
 
     #[test]

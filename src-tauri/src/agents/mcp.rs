@@ -3,6 +3,7 @@
 //! `tools/list` and `tools/call` are answered by the interface.
 
 use crate::sync::lock;
+use crate::tr;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -57,7 +58,11 @@ pub fn action(message: &Value) -> Action {
             method: method.to_string(),
             params: message.get("params").cloned().unwrap_or_else(|| json!({})),
         },
-        other => Action::Reply(failure(&id, -32601, &format!("méthode inconnue : {other}"))),
+        other => Action::Reply(failure(
+            &id,
+            -32601,
+            &tr!("méthode inconnue : {other}", "unknown method: {other}"),
+        )),
     }
 }
 

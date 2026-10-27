@@ -1,3 +1,5 @@
+import { messages } from "@/i18n";
+import { agentMessages } from "@/mcp/messages";
 import { readLevel, type Level } from "./router";
 
 /** The mission of an orchestrator (spec orchestrateur §7), saved in its payload. */
@@ -153,19 +155,20 @@ export function readMission(raw: unknown): Mission | undefined {
   return mission;
 }
 
-/** `proposer_plan`'s arguments as a plan, or what is wrong (spec §7.2). `linked`: names of the linked Claude agents. */
+/** `propose_plan`'s arguments (internal names, `@/mcp/protocol`) as a plan, or what is wrong (spec §7.2). `linked`: names of the linked Claude agents. */
 export function proposedPlan(
   args: Record<string, unknown>,
   mission: Mission,
   linked: readonly string[],
 ): { name: string; task: string; plan: SubTask[] } | string {
+  const e = messages(agentMessages).plan;
   const name = text(args.nom);
-  if (!name || name.length > MAX_TITLE) return `Donne un nom court à la mission (nom, ${MAX_TITLE} caractères au plus).`;
+  if (!name || name.length > MAX_TITLE) return e.name(MAX_TITLE);
   const task = text(args.tache);
-  if (!task) return "Rappelle la tâche de la mission (tache).";
+  if (!task) return e.task;
   const raw = args.sous_taches;
-  if (!Array.isArray(raw) || raw.length === 0) return "Donne au moins une sous-tâche.";
-  if (raw.length > mission.maxAgents) return `Pas plus de ${mission.maxAgents} sous-tâches : une par agent, ${mission.maxAgents} agents au plus.`;
+  if (!Array.isArray(raw) || raw.length === 0) return e.atLeastOne;
+  if (raw.length > mission.maxAgents) return e.tooMany(mission.maxAgents);
   const plan: SubTask[] = [];
   for (const [i, item] of raw.entries()) {
     const r = (typeof item === "object" && item !== null ? item : {}) as Record<string, unknown>;
@@ -174,21 +177,21 @@ export function proposedPlan(
     const brief = text(r.consigne);
     const agent = text(r.agent);
     const budget = r.budget_min;
-    if (!title || title.length > MAX_TITLE) return `Sous-tâche ${n} : un titre court (${MAX_TITLE} caractères au plus).`;
-    if (!brief) return `Sous-tâche ${n} : une consigne.`;
-    if (typeof budget !== "number" || !Number.isInteger(budget) || budget < 1) return `Sous-tâche ${n} : un budget en minutes (entier, 1 au moins).`;
+    if (!title || title.length > MAX_TITLE) return e.title(n, MAX_TITLE);
+    if (!brief) return e.brief(n);
+    if (typeof budget !== "number" || !Number.isInteger(budget) || budget < 1) return e.budget(n);
     const known = sameName(agent, NEW_AGENT) ? NEW_AGENT : linked.find((l) => sameName(l, agent));
-    if (!known) return `Sous-tâche ${n} : « ${agent} » n'est pas un agent Claude relié (prénom, ou « nouveau »).`;
-    if (known !== NEW_AGENT && plan.some((s) => s.agent === known)) return `${known} a déjà une sous-tâche : une sous-tâche par agent.`;
+    if (!known) return e.notLinked(n, agent);
+    if (known !== NEW_AGENT && plan.some((s) => s.agent === known)) return e.alreadyHas(known);
     const given = r.niveau !== undefined && r.niveau !== null;
     const level = readLevel(r.niveau);
-    if (given && !level) return `Sous-tâche ${n} : niveau faible, moyen, élevé ou extrême.`;
-    if (mission.router && !level) return `Sous-tâche ${n} : un niveau (faible, moyen, élevé ou extrême) — le routeur choisit le modèle de l'agent avec.`;
+    if (given && !level) return e.level(n);
+    if (mission.router && !level) return e.levelRouter(n);
     plan.push(level ? { title, brief, agent: known, budgetMin: budget, level } : { title, brief, agent: known, budgetMin: budget });
   }
   const total = plan.reduce((sum, s) => sum + s.budgetMin, 0);
   if (mission.budgetMin !== undefined && total > mission.budgetMin) {
-    return `Les budgets font ${total} min, plus que le budget global (${mission.budgetMin} min).`;
+    return e.overBudget(total, mission.budgetMin);
   }
   return { name, task, plan };
 }

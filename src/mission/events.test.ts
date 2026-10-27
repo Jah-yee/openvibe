@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
+import { langStore } from "@/i18n";
 import { ptySendText } from "@/ipc/pty";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
@@ -72,6 +73,20 @@ describe("events to the orchestrator (spec orchestrateur §7.5)", () => {
       "chef: [OpenVibe] Isis attend une réponse de l'utilisateur (un dialogue est ouvert dans son terminal).",
       "chef: [OpenVibe] Isis s'est arrêté : son terminal ne tourne plus.",
     ]);
+  });
+
+  it("tells it in English when the interface is (spec première version §7.1)", () => {
+    langStore.setState({ lang: "en" });
+    try {
+      activity("isis", "waiting");
+      status("isis", "exited");
+      expect(sent()).toEqual([
+        "chef: [OpenVibe] Isis is waiting for the user (a dialog is open in its terminal).",
+        "chef: [OpenVibe] Isis stopped: its terminal is no longer running.",
+      ]);
+    } finally {
+      langStore.setState({ lang: "fr" });
+    }
   });
 
   it("counts a member's terminal removed from the canvas as stopped", () => {

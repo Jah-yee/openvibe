@@ -1,3 +1,4 @@
+use crate::tr;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
@@ -98,7 +99,10 @@ pub fn create(conn: &Connection, path: &str) -> AppResult<Project> {
 pub fn rename(conn: &Connection, id: &str, name: &str) -> AppResult<()> {
     let name = name.trim();
     if name.is_empty() {
-        return Err(AppError::InvalidInput("le nom du projet est vide".into()));
+        return Err(AppError::InvalidInput(tr!(
+            "le nom du projet est vide",
+            "the project name is empty"
+        )));
     }
     changed(
         conn.execute(
@@ -208,9 +212,10 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<Deleted> {
 fn valid_path(conn: &Connection, path: &str, except: Option<&str>) -> AppResult<String> {
     let path = normalize_path(path);
     if path.is_empty() {
-        return Err(AppError::InvalidInput(
-            "le dossier du projet est vide".into(),
-        ));
+        return Err(AppError::InvalidInput(tr!(
+            "le dossier du projet est vide",
+            "the project folder is empty"
+        )));
     }
     let key = path_key(&path);
     let mut stmt = conn.prepare("SELECT id, path FROM projects")?;
@@ -223,8 +228,9 @@ fn valid_path(conn: &Connection, path: &str, except: Option<&str>) -> AppResult<
         .iter()
         .any(|(id, other)| Some(id.as_str()) != except && path_key(other) == key)
     {
-        return Err(AppError::InvalidInput(format!(
-            "ce dossier est déjà un projet : {path}"
+        return Err(AppError::InvalidInput(tr!(
+            "ce dossier est déjà un projet : {path}",
+            "this folder is already a project: {path}"
         )));
     }
     Ok(path)
@@ -239,7 +245,7 @@ fn changed(rows: usize, id: &str) -> AppResult<()> {
 }
 
 fn not_found(id: &str) -> AppError {
-    AppError::NotFound(format!("projet introuvable : {id}"))
+    AppError::NotFound(tr!("projet introuvable : {id}", "project not found: {id}"))
 }
 
 #[cfg(test)]
@@ -266,6 +272,22 @@ mod tests {
         assert_eq!(name_from_path("C:\\code\\api\\"), "api");
         assert_eq!(name_from_path("/home/me/web"), "web");
         assert_eq!(name_from_path("C:\\"), "C:");
+    }
+
+    #[test]
+    fn refuses_an_empty_folder_in_english() {
+        crate::i18n::in_english(|| {
+            Db::open_in_memory()
+                .unwrap()
+                .with(|conn| {
+                    assert_eq!(
+                        create(conn, "   ").unwrap_err().to_string(),
+                        "the project folder is empty"
+                    );
+                    Ok(())
+                })
+                .unwrap();
+        });
     }
 
     #[test]

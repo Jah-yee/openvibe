@@ -18,11 +18,21 @@ impl Lang {
 
 static ENGLISH: AtomicBool = AtomicBool::new(false);
 
+#[cfg(test)]
+thread_local! {
+    /// A test's own language: tests run side by side and must not change each other's.
+    static TEST_LANG: std::cell::Cell<Option<Lang>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn set(lang: Lang) {
     ENGLISH.store(lang == Lang::En, Ordering::Relaxed);
 }
 
 pub fn current() -> Lang {
+    #[cfg(test)]
+    if let Some(lang) = TEST_LANG.with(|l| l.get()) {
+        return lang;
+    }
     if ENGLISH.load(Ordering::Relaxed) {
         Lang::En
     } else {
@@ -40,6 +50,20 @@ macro_rules! tr {
             $crate::i18n::Lang::En => format!($en),
         }
     };
+}
+
+/// Runs `f` with the messages in English, on this test's thread only.
+#[cfg(test)]
+pub fn in_english<T>(f: impl FnOnce() -> T) -> T {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_LANG.with(|l| l.set(None));
+        }
+    }
+    TEST_LANG.with(|l| l.set(Some(Lang::En)));
+    let _reset = Reset;
+    f()
 }
 
 #[tauri::command]
@@ -66,5 +90,14 @@ mod tests {
             tr!("Dossier introuvable : {path}", "Folder not found: {path}"),
             "Dossier introuvable : C:/x"
         );
+    }
+
+    #[test]
+    fn a_test_reads_english_on_its_own_thread_only() {
+        let path = "C:/x";
+        let english =
+            in_english(|| tr!("Dossier introuvable : {path}", "Folder not found: {path}"));
+        assert_eq!(english, "Folder not found: C:/x");
+        assert_eq!(current(), Lang::Fr);
     }
 }
