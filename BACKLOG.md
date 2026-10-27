@@ -293,3 +293,7 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `--resume` garde le même identifiant de session : le coût cumulé que Claude restaure peut compter des dépenses d'avant l'ouverture d'OpenVibe.
 - Tests absents : la réponse 413 de `/status`, l'exécution réelle du script.
 
+### Vus en filmant le README (27 octobre)
+- Détail de l'usage : la section « Cache de prompt » garde les sessions des agents fermés. Après trois relances d'un groupe Athéna/Hermès/Apollon, chaque prénom y figure trois fois. N'y montrer que les sessions vivantes, ou griser et dater les autres.
+- Après « Lancer 4 agents », la vue s'ajuste à 40 % : les terminaux sont illisibles tant qu'on ne zoome pas. Plafonner l'ajustement plus haut, quitte à ne montrer que le début du groupe.
+
