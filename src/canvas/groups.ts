@@ -1,6 +1,8 @@
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
 import { isRoleId, type RoleId } from "@/fleet/roles";
 import { nodeKindOf } from "./nodeElement";
+import { messages } from "@/i18n";
+import { canvasMessages } from "./messages";
 
 export interface Rect {
   x: number;
@@ -79,8 +81,9 @@ export function groupBeingRenamed(editingFrame: string | null, frames: readonly 
 export function nextGroupName(frames: readonly SceneFrame[]): string {
   const taken = new Set(frames.map((f) => f.name));
   let n = 1;
-  while (taken.has(`Groupe ${n}`)) n++;
-  return `Groupe ${n}`;
+  // Either language's name counts: the language may have changed since.
+  while (taken.has(canvasMessages.fr.groupName(n)) || taken.has(canvasMessages.en.groupName(n))) n++;
+  return messages(canvasMessages).groupName(n);
 }
 
 /** The pantheons the groups of the scene draw their names from (spec §9.2). */

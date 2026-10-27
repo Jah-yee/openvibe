@@ -30,9 +30,12 @@ import { ResumeCard } from "../terminal/ResumeCard";
 import { HeaderButton } from "../terminal/TerminalHeader";
 import { useTerminalHost } from "../terminal/useTerminalHost";
 import { ToolsUnavailable } from "./ToolsUnavailable";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 /** The manager of a team: its Claude session, then its mission (spec orchestrateur §6). */
 export function OrchestratorNode({ nodeId }: { nodeId: string }) {
+  const t = useMessages(nodesMessages).orchestrator;
   const record = useNodes((s) => s.nodes[nodeId]);
   const links = useCanvas((s) => s.links[nodeId] ?? NO_LINKS);
   const frames = useCanvas((s) => s.frames);
@@ -56,7 +59,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
   if (record?.kind !== "orchestrator") {
     return (
       <div className="grid h-full place-items-center rounded-xl border border-ov-line bg-ov-surface text-sm text-ov-text-2">
-        Orchestrateur introuvable
+        {t.notFound}
       </div>
     );
   }
@@ -73,30 +76,30 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
         <Network className="size-4 shrink-0 text-ov-accent" />
         <NameField nodeId={nodeId} value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
         <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ov-text-2">
-          {clock && <span title="Temps passé / budget global">{clock}</span>}
-          <span>{sessionLabel(status, activity?.activity)}</span>
+          {clock && <span title={t.clockTitle}>{clock}</span>}
+          <span>{sessionLabel(t.session, status, activity?.activity)}</span>
         </span>
         {session && <RemoteButton nodeId={nodeId} wanted={session.remoteControl === true} running={status.state === "running"} />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Menu de l'orchestrateur"
+              aria-label={t.menu}
               className="grid size-5 place-items-center rounded text-ov-text-2 hover:bg-ov-card hover:text-ov-text"
             >
               <ChevronDown className="size-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onSelect={() => void pauseAll(linked.agentIds)}>Tout mettre en pause</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void resumeAll(linked.agentIds)}>Tout reprendre</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void pauseAll(linked.agentIds)}>{t.pauseAll}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void resumeAll(linked.agentIds)}>{t.resumeAll}</DropdownMenuItem>
             <DropdownMenuSeparator />
             {/* Spec maj §2: the orchestrator and its team, followed from the phone. */}
-            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], true)}>Remote Control pour l'équipe</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], false)}>Couper Remote Control</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], true)}>{t.remoteTeam}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], false)}>{t.remoteOff}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <HeaderButton label="Fermer l'orchestrateur" onClick={() => requestCloseOrchestrator(nodeId)}>
+        <HeaderButton label={t.close} onClick={() => requestCloseOrchestrator(nodeId)}>
           <X />
         </HeaderButton>
       </header>
@@ -112,15 +115,16 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
 }
 
 /** What its session does, in the header. */
-function sessionLabel(status: TerminalStatus, activity: Activity | undefined): string {
-  if (status.state === "starting") return "démarrage";
-  if (status.state === "error" && status.kind === "toolsUnavailable") return "outils indisponibles";
-  if (status.state !== "running") return "arrêté";
-  return activity === "working" ? "au travail" : activity === "waiting" ? "attend une réponse" : "inactif";
+function sessionLabel(t: (typeof nodesMessages)["fr"]["orchestrator"]["session"], status: TerminalStatus, activity: Activity | undefined): string {
+  if (status.state === "starting") return t.starting;
+  if (status.state === "error" && status.kind === "toolsUnavailable") return t.toolsUnavailable;
+  if (status.state !== "running") return t.stopped;
+  return activity === "working" ? t.working : activity === "waiting" ? t.waiting : t.idle;
 }
 
 /** The orchestrator's name; a double-click edits it, Enter or a click elsewhere keeps it, Escape cancels. */
 function NameField({ nodeId, value, onCommit }: { nodeId: string; value: string; onCommit: (name: string) => void }) {
+  const t = useMessages(nodesMessages).orchestrator;
   const [editing, setEditing] = useState(false);
   // « Renommer » of the orchestrator's radial menu.
   useUiRequest("renameOrchestrator", (request) => {
@@ -130,7 +134,7 @@ function NameField({ nodeId, value, onCommit }: { nodeId: string; value: string;
   });
   if (!editing) {
     return (
-      <span className="truncate text-[13px] font-semibold text-ov-text" onDoubleClick={() => setEditing(true)} title="Double-clic pour renommer">
+      <span className="truncate text-[13px] font-semibold text-ov-text" onDoubleClick={() => setEditing(true)} title={t.doubleClickRename}>
         {value}
       </span>
     );

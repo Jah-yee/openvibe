@@ -4,6 +4,8 @@ import { useNow } from "@/lib/useNow";
 import type { AgentActivity } from "@/store/agentActivity";
 import type { TerminalStatus } from "@/store/terminalStatus";
 import { pillOf, type PillTone } from "./pill";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 const TONES: Record<PillTone, string> = {
   live: "bg-ov-card text-ov-text",
@@ -31,13 +33,14 @@ const DOTS: Record<PillTone, string> = {
 export function StatusPill(props: { status: TerminalStatus; activity?: AgentActivity; indigo?: boolean }) {
   const { status, activity, indigo } = props;
   const now = useNow(15_000);
+  const t = useMessages(nodesMessages).pill;
   const running = status.state === "running";
   const pill = pillOf(status, running ? activity?.activity : undefined, indigo);
   const title =
     status.state === "error"
       ? status.message
       : running && activity
-        ? `${pill.label} depuis ${formatDuration(now - activity.since)}`
+        ? t.since(pill.label, formatDuration(now - activity.since))
         : undefined;
   return (
     <span

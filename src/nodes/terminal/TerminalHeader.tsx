@@ -25,6 +25,8 @@ import { newConversation, switchedAgent, type LaunchMode } from "./launch";
 import { relaunchTerminal, stopTerminal } from "./registry";
 import { StatusPill } from "./StatusPill";
 import { TerminalOptionsDialog } from "./TerminalOptionsDialog";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 
 export function HeaderButton(props: { label: string; onClick: () => void; children: ReactNode }) {
@@ -47,6 +49,7 @@ function switchAgent(nodeId: string, payload: TerminalPayload, agent: AgentId) {
 
 function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running: boolean }) {
   const { nodeId, payload, running } = props;
+  const t = useMessages(nodesMessages).header;
   const relaunch = (mode: LaunchMode) => relaunchTerminal(nodeId, payload, mode);
   const newSession = () => {
     const fresh = newConversation();
@@ -58,8 +61,8 @@ function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          title="Relancer"
-          aria-label="Relancer"
+          title={t.relaunch}
+          aria-label={t.relaunch}
           className="grid size-5 place-items-center rounded text-ov-text-2 hover:bg-ov-card hover:text-ov-text [&_svg]:size-3.5"
         >
           <RotateCw />
@@ -68,18 +71,18 @@ function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running
       <DropdownMenuContent align="end">
         {payload.agent === "claude" ? (
           <>
-            <DropdownMenuItem onSelect={() => relaunch("resume")}>Reprendre la session</DropdownMenuItem>
-            <DropdownMenuItem onSelect={newSession}>Nouvelle session</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => relaunch("continue")}>Plus récente du dossier</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => relaunch("resume")}>{t.resumeSession}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={newSession}>{t.newSession}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => relaunch("continue")}>{t.latestInFolder}</DropdownMenuItem>
           </>
         ) : (
-          <DropdownMenuItem onSelect={() => relaunch("new")}>Relancer</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => relaunch("new")}>{t.relaunch}</DropdownMenuItem>
         )}
         {running && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => stopTerminal(nodeId)}>
-              Arrêter le processus
+              {t.stopProcess}
             </DropdownMenuItem>
           </>
         )}
@@ -90,13 +93,14 @@ function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running
 
 /** The model a mission's router chose; it stays after the mission until cleared (final review maj §3). */
 function ModelChip({ nodeId, model }: { nodeId: string; model: string }) {
+  const t = useMessages(nodesMessages).header;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
           data-model={model}
-          title={`Modèle choisi par le routeur : ${model}`}
+          title={t.modelChosen(model)}
           className="rounded px-1 font-mono text-[10px] text-ov-text-2 hover:bg-ov-card hover:text-ov-text"
         >
           {modelLabel(model)}
@@ -104,7 +108,7 @@ function ModelChip({ nodeId, model }: { nodeId: string; model: string }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={() => nodesStore.getState().update(nodeId, { model: undefined })}>
-          Modèle par défaut au prochain démarrage
+          {t.modelDefault}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -120,6 +124,7 @@ export function TerminalHeader(props: {
   actions?: ReactNode;
 }) {
   const { nodeId, payload, status, activity, actions } = props;
+  const t = useMessages(nodesMessages).header;
   const [editing, setEditing] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   // « Renommer » of the palette.
@@ -150,12 +155,12 @@ export function TerminalHeader(props: {
             return (
               <DropdownMenuItem key={id} onSelect={() => switchAgent(nodeId, payload, id)}>
                 <Icon style={{ color: agentInk(AGENTS[id].tint) }} /> {AGENTS[id].label}
-                {id === payload.agent && <span className="ml-auto text-ov-text-2">actuel</span>}
+                {id === payload.agent && <span className="ml-auto text-ov-text-2">{t.current}</span>}
               </DropdownMenuItem>
             );
           })}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>Options…</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setOptionsOpen(true)}>{t.options}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <span
@@ -182,7 +187,7 @@ export function TerminalHeader(props: {
         <span
           className="truncate font-semibold text-ov-text"
           onDoubleClick={() => setEditing(true)}
-          title="Double-clic pour renommer"
+          title={t.doubleClickRename}
         >
           {payload.name || meta.label}
         </span>
@@ -191,7 +196,7 @@ export function TerminalHeader(props: {
         <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
         {payload.model && <ModelChip nodeId={nodeId} model={payload.model} />}
         {payload.agent === "claude" && <RemoteButton nodeId={nodeId} wanted={payload.remoteControl === true} running={status.state === "running"} />}
-        <HeaderButton label="Revue des changements" onClick={() => openReview(nodeId)}>
+        <HeaderButton label={t.review} onClick={() => openReview(nodeId)}>
           <FileDiff />
         </HeaderButton>
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
