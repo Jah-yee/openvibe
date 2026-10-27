@@ -132,12 +132,31 @@ pub struct SpawnPlan {
 pub struct AgentHooks {
     /// Claude: `claude --settings <file>`.
     pub claude_settings: Option<PathBuf>,
-    /// Codex: the URL its `notify` posts to.
+    /// Codex: the URL its `notify` posts to, without the token.
     pub codex_notify: Option<String>,
+    /// The curl config that carries the local server's token (spec première version §4.3).
+    pub curl_config: Option<PathBuf>,
     /// Claude: `--mcp-config <file>`, OpenVibe's tools (spec orchestrateur §4.2).
     pub mcp_config: Option<PathBuf>,
     /// Claude: `--append-system-prompt-file <file>`, its role.
     pub system_prompt: Option<PathBuf>,
+}
+
+/// What keeps an orchestrator a manager (spec première version §4.1): its
+/// settings (`deny`), OpenVibe's tools and its role. Without one of them it
+/// would start as a plain Claude in the user's folder, so it does not start.
+pub fn orchestrator_tools(hooks: &AgentHooks, server_running: bool) -> Result<(), String> {
+    if !server_running {
+        return Err("le serveur local d'OpenVibe n'a pas démarré".into());
+    }
+    let complete = hooks.claude_settings.is_some()
+        && hooks.mcp_config.is_some()
+        && hooks.system_prompt.is_some();
+    if complete {
+        Ok(())
+    } else {
+        Err("ses réglages n'ont pas pu être écrits (voir le journal)".into())
+    }
 }
 
 /// Claude Code marks the processes its tools start; an OpenVibe launched from
@@ -153,6 +172,35 @@ pub const INHERITED_MARKERS: [&str; 8] = [
     "CLAUDE_CODE_MESSAGING_TOKEN",
     "CLAUDE_CODE_SKIP_PROMPT_HISTORY",
 ];
+
+/// What a Claude Code session also sets for the processes it starts (spec
+/// première version §4.4). Outside Claude Code they can be the user's own
+/// settings (`GIT_EDITOR`…), so they are left alone there.
+pub const CLAUDE_SESSION_EXTRAS: [&str; 8] = [
+    "CLAUDE_CODE_SSE_PORT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_PID",
+    "CLAUDE_EFFORT",
+    "AI_AGENT",
+    "GIT_EDITOR",
+    "NoDefaultCurrentDirectoryInExePath",
+];
+
+/// The variables a terminal does not inherit; `inside_claude`: OpenVibe itself
+/// was started from a Claude Code session.
+pub fn removed_env(inside_claude: bool) -> Vec<String> {
+    let extras: &[&str] = if inside_claude {
+        &CLAUDE_SESSION_EXTRAS
+    } else {
+        &[]
+    };
+    INHERITED_MARKERS
+        .iter()
+        .chain(extras)
+        .map(|key| key.to_string())
+        .collect()
+}
 
 /// Finds an executable on PATH. Injected so tests don't depend on the machine.
 pub type Locate<'a> = &'a dyn Fn(&str) -> Option<PathBuf>;
@@ -287,7 +335,11 @@ pub fn agent_command(
             Some(command.to_string())
         }
         Agent::Claude => Some(claude_command(spec.claude.as_ref(), syntax, hooks)?),
-        Agent::Codex => Some(codex_command(syntax, hooks.codex_notify.as_deref())),
+        Agent::Codex => Some(codex_command(
+            syntax,
+            hooks.codex_notify.as_deref(),
+            hooks.curl_config.as_deref(),
+        )),
         Agent::Ollama => Some(ollama_command(spec.ollama.as_ref(), syntax)?),
         other => Some(binary(other).into()),
     })
@@ -336,6 +388,11 @@ fn claude_command(
                 " {flag} {}",
                 quote(syntax, &path.to_string_lossy())
             ));
+            // The orchestrator gets OpenVibe's tools only: the user's MCP
+            // servers could write files out of reach of its `deny` list.
+            if flag == "--mcp-config" && launch.role == Role::Orchestrator {
+                claude.push_str(" --strict-mcp-config");
+            }
         }
     }
     if let Some(model) = launch.model.as_deref() {
@@ -389,14 +446,26 @@ fn remote_flag(launch: &ClaudeLaunch, syntax: ShellSyntax) -> String {
 }
 
 /// `notify` is given as TOML literal strings: PowerShell 5.1 drops the
-/// double quotes nested in an argument passed to a native program.
-fn codex_command(syntax: ShellSyntax, notify_url: Option<&str>) -> String {
-    let Some(url) = notify_url else {
+/// double quotes nested in an argument passed to a native program. The token
+/// comes from the curl config, never from the command line.
+fn codex_command(syntax: ShellSyntax, notify_url: Option<&str>, config: Option<&Path>) -> String {
+    let (Some(url), Some(config)) = (notify_url, config) else {
         return "codex".into();
     };
     let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
-    let notify = format!("notify=['{curl}','-s','-X','POST','{url}','-d']");
+    let config = toml_literal(&config.to_string_lossy());
+    let notify = format!("notify=['{curl}','-s','-K',{config},'-X','POST','{url}','-d']");
     format!("codex -c {}", quote(syntax, &notify))
+}
+
+/// A TOML literal string; a path with an apostrophe (`O'Brien`) takes the
+/// multi-line form, which may hold one.
+fn toml_literal(text: &str) -> String {
+    if text.contains('\'') {
+        format!("'''{text}'''")
+    } else {
+        format!("'{text}'")
+    }
 }
 
 /// Titles are typed into an interactive shell: control characters would submit or
@@ -436,10 +505,7 @@ pub fn build_plan(
             ("OPENVIBE".into(), "1".into()),
             ("OPENVIBE_NODE_ID".into(), node_id.into()),
         ],
-        env_remove: INHERITED_MARKERS
-            .iter()
-            .map(|key| key.to_string())
-            .collect(),
+        env_remove: removed_env(std::env::var_os("CLAUDECODE").is_some()),
         initial_input,
         interrupt: interrupt_sequence(spec.agent),
     })
@@ -715,6 +781,64 @@ mod tests {
         );
     }
 
+    fn tooled() -> AgentHooks {
+        AgentHooks {
+            claude_settings: Some(PathBuf::from(r"C:\data\hooks\n1.json")),
+            mcp_config: Some(PathBuf::from(r"C:\data\mcp\n1.json")),
+            system_prompt: Some(PathBuf::from(r"C:\data\mcp\n1.md")),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn an_orchestrator_needs_all_its_tools() {
+        assert_eq!(orchestrator_tools(&tooled(), true), Ok(()));
+        assert_eq!(
+            orchestrator_tools(&AgentHooks::default(), false),
+            Err("le serveur local d'OpenVibe n'a pas démarré".to_string())
+        );
+        for partial in [
+            AgentHooks {
+                claude_settings: None,
+                ..tooled()
+            },
+            AgentHooks {
+                mcp_config: None,
+                ..tooled()
+            },
+            AgentHooks {
+                system_prompt: None,
+                ..tooled()
+            },
+        ] {
+            assert_eq!(
+                orchestrator_tools(&partial, true),
+                Err("ses réglages n'ont pas pu être écrits (voir le journal)".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn an_orchestrator_gets_only_openvibes_tools() {
+        let mut launch = claude(ClaudeMode::New, "");
+        launch.as_mut().unwrap().role = Role::Orchestrator;
+        let manager = agent_command(&spec(Agent::Claude, launch), ShellSyntax::Cmd, &tooled())
+            .unwrap()
+            .unwrap();
+        assert!(
+            manager.contains(r#"--mcp-config "C:\data\mcp\n1.json" --strict-mcp-config"#),
+            "{manager}"
+        );
+        let agent = agent_command(
+            &spec(Agent::Claude, claude(ClaudeMode::New, "")),
+            ShellSyntax::Cmd,
+            &tooled(),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(!agent.contains("--strict-mcp-config"), "{agent}");
+    }
+
     fn hooked(settings: &str) -> AgentHooks {
         AgentHooks {
             claude_settings: Some(PathBuf::from(settings)),
@@ -761,17 +885,34 @@ mod tests {
     }
 
     #[test]
+    fn a_curl_config_under_a_name_with_an_apostrophe_stays_one_toml_string() {
+        let hooks = AgentHooks {
+            codex_notify: Some("http://127.0.0.1:1/hook/codex/n1".into()),
+            curl_config: Some(PathBuf::from(r"C:\Users\O'Brien\curl.cfg")),
+            ..Default::default()
+        };
+        let cmd = agent_command(&spec(Agent::Codex, None), ShellSyntax::Cmd, &hooks)
+            .unwrap()
+            .unwrap();
+        assert!(
+            cmd.contains(r"'-K','''C:\Users\O'Brien\curl.cfg''','-X'"),
+            "{cmd}"
+        );
+    }
+
+    #[test]
     fn codex_notifies_the_end_of_its_turns() {
         let curl = if cfg!(windows) { "curl.exe" } else { "curl" };
         let hooks = AgentHooks {
-            codex_notify: Some("http://127.0.0.1:4242/hook/codex/n1?t=tok".into()),
+            codex_notify: Some("http://127.0.0.1:4242/hook/codex/n1".into()),
+            curl_config: Some(PathBuf::from(r"C:\Users\Jean Dupont\hooks\curl.cfg")),
             ..Default::default()
         };
         let cmd = agent_command(&spec(Agent::Codex, None), ShellSyntax::Cmd, &hooks).unwrap();
         assert_eq!(
             cmd.unwrap(),
             format!(
-                r#"codex -c "notify=['{curl}','-s','-X','POST','http://127.0.0.1:4242/hook/codex/n1?t=tok','-d']""#
+                r#"codex -c "notify=['{curl}','-s','-K','C:\Users\Jean Dupont\hooks\curl.cfg','-X','POST','http://127.0.0.1:4242/hook/codex/n1','-d']""#
             )
         );
         let plain = agent_command(
@@ -792,12 +933,31 @@ mod tests {
             &AgentHooks::default(),
         )
         .unwrap();
-        for marker in [
-            "CLAUDECODE",
-            "CLAUDE_CODE_CHILD_SESSION",
-            "CLAUDE_CODE_SESSION_ID",
-        ] {
+        for marker in INHERITED_MARKERS {
             assert!(plan.env_remove.iter().any(|key| key == marker), "{marker}");
+        }
+    }
+
+    #[test]
+    fn inside_claude_code_its_session_variables_stay_behind() {
+        let outside = removed_env(false);
+        assert_eq!(outside.len(), INHERITED_MARKERS.len());
+        assert!(!outside.contains(&"GIT_EDITOR".to_string()));
+        let inside = removed_env(true);
+        for key in INHERITED_MARKERS.iter().chain(CLAUDE_SESSION_EXTRAS.iter()) {
+            assert!(inside.contains(&key.to_string()), "{key}");
+        }
+        for key in [
+            "CLAUDE_CODE_SSE_PORT",
+            "CLAUDE_CODE_SESSION_ATTENDED",
+            "CLAUDE_CODE_EXECPATH",
+            "CLAUDE_PID",
+            "CLAUDE_EFFORT",
+            "AI_AGENT",
+            "GIT_EDITOR",
+            "NoDefaultCurrentDirectoryInExePath",
+        ] {
+            assert!(inside.contains(&key.to_string()), "{key}");
         }
     }
 

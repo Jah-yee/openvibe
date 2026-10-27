@@ -29,6 +29,7 @@ import { markForAutostart } from "../terminal/registry";
 import { ResumeCard } from "../terminal/ResumeCard";
 import { HeaderButton } from "../terminal/TerminalHeader";
 import { useTerminalHost } from "../terminal/useTerminalHost";
+import { ToolsUnavailable } from "./ToolsUnavailable";
 
 /** The manager of a team: its Claude session, then its mission (spec orchestrateur §6). */
 export function OrchestratorNode({ nodeId }: { nodeId: string }) {
@@ -73,7 +74,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
         <NameField nodeId={nodeId} value={record.payload.name} onCommit={(name) => renameOrchestrator(nodeId, name)} />
         <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-ov-text-2">
           {clock && <span title="Temps passé / budget global">{clock}</span>}
-          <span>{sessionLabel(status.state, activity?.activity)}</span>
+          <span>{sessionLabel(status, activity?.activity)}</span>
         </span>
         {session && <RemoteButton nodeId={nodeId} wanted={session.remoteControl === true} running={status.state === "running"} />}
         <DropdownMenu>
@@ -102,6 +103,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
       <div className="relative min-h-0 flex-1 bg-ov-terminal px-1 pt-1">
         <div ref={hostRef} className="relative h-full w-full overflow-hidden" />
         {session && <ResumeCard nodeId={nodeId} payload={session} status={status} />}
+        {status.state === "error" && status.kind === "toolsUnavailable" && <ToolsUnavailable nodeId={nodeId} message={status.message} />}
       </div>
       <MissionPanel nodeId={nodeId} />
       {waiting && <div className="pointer-events-none absolute inset-0 z-20 rounded-xl" style={{ boxShadow: WAITING_GLOW }} />}
@@ -110,9 +112,10 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
 }
 
 /** What its session does, in the header. */
-function sessionLabel(state: TerminalStatus["state"], activity: Activity | undefined): string {
-  if (state === "starting") return "démarrage";
-  if (state !== "running") return "arrêté";
+function sessionLabel(status: TerminalStatus, activity: Activity | undefined): string {
+  if (status.state === "starting") return "démarrage";
+  if (status.state === "error" && status.kind === "toolsUnavailable") return "outils indisponibles";
+  if (status.state !== "running") return "arrêté";
   return activity === "working" ? "au travail" : activity === "waiting" ? "attend une réponse" : "inactif";
 }
 

@@ -1,3 +1,4 @@
+import { AppError } from "@/ipc/invoke";
 import { getScrollback, ptyAttach, ptyKill, ptySpawn } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
@@ -45,8 +46,10 @@ export async function startSession(nodeId: string, term: TermSink, payload: Term
     await ptySpawn(nodeId, spec, term.cols, term.rows, (bytes) => term.write(bytes));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    setStatus(nodeId, { state: "error", message });
-    term.write(`\r\n\x1b[31m${message}\x1b[0m\r\n`);
+    const kind = error instanceof AppError ? error.kind : undefined;
+    setStatus(nodeId, kind ? { state: "error", message, kind } : { state: "error", message });
+    // A refused orchestrator says why over its terminal (spec première version §4.1).
+    if (kind !== "toolsUnavailable") term.write(`\r\n\x1b[31m${message}\x1b[0m\r\n`);
   }
 }
 

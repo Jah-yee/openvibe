@@ -7,7 +7,9 @@ use crate::commands::agents;
 use crate::db::{Db, scrollback};
 use crate::error::{AppError, AppResult};
 use crate::pty::session::OutputSink;
-use crate::pty::shell::{ShellKind, SpawnSpec, build_plan, which_locate};
+use crate::pty::shell::{
+    Agent, Role, ShellKind, SpawnSpec, build_plan, orchestrator_tools, which_locate,
+};
 use crate::pty::{PtyManager, pty_size};
 
 /// Forwards PTY output to the webview as raw bytes (an `ArrayBuffer` in JS).
@@ -62,6 +64,16 @@ pub async fn pty_spawn(
         role,
         std::path::Path::new(&spec.cwd),
     );
+    if spec.agent == Agent::Claude
+        && role == Role::Orchestrator
+        && let Err(cause) = orchestrator_tools(&hooks, agents::server_running(&app))
+    {
+        agents::ended(&app, &node_id);
+        log::warn!("orchestrator {node_id} not started: {cause}");
+        return Err(AppError::ToolsUnavailable(format!(
+            "Outils OpenVibe indisponibles : {cause}."
+        )));
+    }
     let plan = match build_plan(&node_id, &spec, &which_locate, &hooks) {
         Ok(plan) => plan,
         Err(err) => {

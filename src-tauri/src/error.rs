@@ -10,6 +10,9 @@ pub enum AppError {
     NotFound(String),
     #[error("{0}")]
     Pty(String),
+    /// An orchestrator without OpenVibe's tools and guards does not start (spec première version §4.1).
+    #[error("{0}")]
+    ToolsUnavailable(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
@@ -24,6 +27,7 @@ impl AppError {
             AppError::InvalidInput(_) => "invalidInput",
             AppError::NotFound(_) => "notFound",
             AppError::Pty(_) => "pty",
+            AppError::ToolsUnavailable(_) => "toolsUnavailable",
             AppError::Io(_) => "io",
             AppError::Db(_) => "db",
         }
@@ -42,6 +46,15 @@ impl Serialize for AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_orchestrator_without_its_tools_has_its_own_kind() {
+        let json = serde_json::to_value(AppError::ToolsUnavailable("x".into())).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "toolsUnavailable", "message": "x" })
+        );
+    }
 
     #[test]
     fn serializes_as_kind_and_message() {
