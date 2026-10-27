@@ -20,6 +20,7 @@ export const homeMessages = defineMessages(
       launchHint: (keys: string) => `Clic droit sur le canvas, ou ${keys}.`,
       done: "fait",
     },
+    troubleshoot: "Un souci ? Dépannage",
     noAgent: {
       title: "Aucun agent de code trouvé",
       hint: "OpenVibe lance les agents installés sur ce PC. Installes-en au moins un, puis vérifie à nouveau.",
@@ -72,6 +73,7 @@ export const homeMessages = defineMessages(
       launchHint: (keys: string) => `Right-click the canvas, or ${keys}.`,
       done: "done",
     },
+    troubleshoot: "Something wrong? Troubleshooting",
     noAgent: {
       title: "No coding agent found",
       hint: "OpenVibe launches the agents installed on this PC. Install at least one, then check again.",

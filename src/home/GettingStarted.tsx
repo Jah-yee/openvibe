@@ -33,7 +33,7 @@ export function GettingStarted({ hasProject }: { hasProject: boolean }) {
             <span
               className={cn(
                 "grid size-6 shrink-0 place-items-center rounded-full font-mono text-[11px] font-semibold",
-                step.done ? "bg-ov-live/15 text-ov-live" : "bg-ov-accent-soft text-ov-accent",
+                step.done ? "bg-ov-ok/15 text-ov-ok" : "bg-ov-accent-soft text-ov-accent",
               )}
               aria-label={step.done ? t.done : undefined}
             >

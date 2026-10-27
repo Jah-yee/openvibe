@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { ArrowDownCircle, Download, FileText, ImageDown, Info, Upload } from "lucide-react";
+import { ArrowDownCircle, Download, FileText, ImageDown, Info, LifeBuoy, Upload } from "lucide-react";
 import { showAbout } from "@/app/about";
 import { openLogDir } from "@/app/logs";
 import { checkForUpdate, setAutoUpdates, useUpdates } from "@/app/updates";
@@ -19,6 +19,7 @@ import { langStore, readLanguageChoice, useMessages } from "@/i18n";
 import { setLanguage } from "@/i18n/settings";
 import { useStore } from "zustand";
 import { shellMessages } from "./messages";
+import { showTroubleshooting } from "./troubleshoot";
 import { exportCurrentPng, exportCurrentScene, importIntoScene } from "./sceneActions";
 
 /** Gear menu: what Excalidraw's hidden main menu used to offer (spec habillage §5.2), opened from `trigger`. */
@@ -79,6 +80,9 @@ export function SettingsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void openLogDir()}>
           <FileText /> {t.openLogs}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void showTroubleshooting()}>
+          <LifeBuoy /> {t.troubleshoot}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
