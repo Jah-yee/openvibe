@@ -12,6 +12,8 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 - A strict content security policy for the interface.
 
 ### Changed
+- OpenVibe's MCP tools have English names, arguments and values for every agent: `declare_steps`, `step`, `report`, `mission`, `propose_plan`, `team`, `read_output`, `write`, `extend`, `interrupt`, `reassign`, `merge`, `finish`, `remote_control`. A conversation that calls a former French name is told the new one; French values are still understood.
+- What OpenVibe says to agents (role prompts, sub-tasks, budget warnings, tool answers, review remarks) follows the interface's language.
 - An orchestrator may no longer run shell commands, and only gets OpenVibe's own MCP tools.
 - Closing a working orchestrator asks for confirmation first.
 

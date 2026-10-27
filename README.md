@@ -105,7 +105,7 @@ With the **model router**, each sub-task's level picks the model its agent runs 
 | `élevé` (high) | Claude Opus 5.5 |
 | `extrême` (extreme) | Claude Fable 5.1 |
 
-The orchestrator talks to OpenVibe through a local MCP server, with tools such as `proposer_plan`, `equipe`, `lire_sortie`, `prolonger`, `reattribuer`, `fusionner` and `remote_control`. It can read the repository, but it is denied `Edit`, `Write` and `NotebookEdit`: the agents write the code.
+The orchestrator talks to OpenVibe through a local MCP server, with tools such as `propose_plan`, `team`, `read_output`, `extend`, `reassign`, `merge` and `remote_control`. It can read the repository, but it is denied `Edit`, `Write` and `NotebookEdit`: the agents write the code.
 
 ## Supported agents
 

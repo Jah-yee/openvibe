@@ -105,7 +105,7 @@ Avec le **routeur de modèles**, le niveau de chaque sous-tâche choisit le mod�
 | `élevé` | Claude Opus 5.5 |
 | `extrême` | Claude Fable 5.1 |
 
-L'orchestrateur échange avec OpenVibe par un serveur MCP local, avec des outils comme `proposer_plan`, `equipe`, `lire_sortie`, `prolonger`, `reattribuer`, `fusionner` et `remote_control`. Il peut lire le dépôt, mais `Edit`, `Write` et `NotebookEdit` lui sont refusés : ce sont les agents qui écrivent le code.
+L'orchestrateur échange avec OpenVibe par un serveur MCP local, avec des outils comme `propose_plan`, `team`, `read_output`, `extend`, `reassign`, `merge` et `remote_control`. Il peut lire le dépôt, mais `Edit`, `Write` et `NotebookEdit` lui sont refusés : ce sont les agents qui écrivent le code.
 
 ## Agents pris en charge
 
