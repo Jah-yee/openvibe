@@ -296,3 +296,5 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 - Excalidraw déclare pour chaque police une adresse de secours sur esm.sh : la CSP la bloque (rien ne sort), mais la console de la webview affiche ~460 refus à chaque chargement. Retirer l'adresse de secours (patch d'Excalidraw) si ce bruit gêne.
 - L'export PNG ou SVG par le dialogue d'enregistrement n'a pas été parcouru sous la CSP (dialogue natif) ; ses besoins (WebAssembly, workers `blob:`, polices locales) l'ont été un par un.
+- cmd retire `%`, `!` et `^` des chemins : un compte Windows dont le nom en contient donne à Codex un `-K` faux (états perdus, sans trace au journal).
+- `claude_settings::clear` ne supprime que les `.json` : un `curl.cfg` d'une exécution précédente (jeton mort) reste si le serveur ne démarre pas.
