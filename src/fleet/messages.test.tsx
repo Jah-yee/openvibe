@@ -174,6 +174,25 @@ describe("components in English", () => {
     expect(text).toContain("local model");
   });
 
+  it("switches the @ list's words when the language changes, the bar staying open (final review R5a)", async () => {
+    const agents: TargetAgent[] = [{ id: "b", name: "Thot", groupName: null }];
+    langStore.setState({ lang: "fr" });
+    await act(async () =>
+      root.render(<CommandInput agents={agents} groups={[]} fallback={[]} placeholder="Consigne" emptyHint="Tape @" />),
+    );
+    const field = host.querySelector("textarea")!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(field, "@");
+      field.setSelectionRange(1, 1);
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const options = () => [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent);
+    expect(options()[0]).toContain("@tous");
+    await act(async () => langStore.setState({ lang: "en" }));
+    expect(options()).toEqual(["@all1 agent", "@thotNo group"]);
+  });
+
   it("words the command bar and sends @all to every agent", async () => {
     const agents: TargetAgent[] = [{ id: "b", name: "Thot", groupName: null }];
     vi.mocked(sendCommand).mockClear();

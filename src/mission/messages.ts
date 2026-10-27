@@ -1,4 +1,4 @@
-import { defineMessages } from "@/i18n";
+import { defineMessages, plural } from "@/i18n";
 
 export const missionMessages = defineMessages(
   {
@@ -59,7 +59,7 @@ export const missionMessages = defineMessages(
     maxAgentsLabel: "Maximum number of agents",
     routerLabel: "Model router",
     routerTitle: "Each agent takes the model of its sub-task's level: low Haiku 5.5, medium Sonnet 5.5, high Opus 5.5, extreme Fable 5.1",
-    linked: (count: number) => `${count} Claude linked`,
+    linked: (count: number) => plural("en", count, "Claude agent linked", "Claude agents linked"),
     done: "Done",
     link: "+ Link",
     total: (total: number, budget: number | undefined) => `Total ${total} min${budget ? ` / ${budget}` : ""}`,

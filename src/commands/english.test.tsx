@@ -84,7 +84,7 @@ describe("the palette's catalogs in English", () => {
     const error = vi.spyOn(toast, "error").mockReturnValue("");
     const failing = { ...find("project.close"), run: () => Promise.reject(new Error("boom")) };
     runCommand(failing, busy);
-    await vi.waitFor(() => expect(error).toHaveBeenCalledWith("Close project failed: Error: boom"));
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith("Close the project failed: Error: boom"));
   });
 
   it("go-to sections, keywords and labels follow the language", () => {

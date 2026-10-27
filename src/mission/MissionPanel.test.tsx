@@ -104,7 +104,7 @@ it("shows the mission panel in English", async () => {
   expect(host.textContent).toContain("plan proposed");
   expect(host.textContent).toContain("Global budget");
   expect(host.textContent).toContain("low · Haiku 5.5");
-  expect(host.textContent).toContain("0 Claude linked");
+  expect(host.textContent).toContain("0 Claude agents linked");
   expect(button("Launch the mission")).toBeDefined();
 });
 

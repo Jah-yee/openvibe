@@ -56,6 +56,7 @@ export const nodesMessages = defineMessages(
       restartMarker: "── relance ──",
     },
     orchestrator: {
+      defaultName: "Orchestrateur",
       notFound: "Orchestrateur introuvable",
       clockTitle: "Temps passé / budget global",
       menu: "Menu de l'orchestrateur",
@@ -135,6 +136,7 @@ export const nodesMessages = defineMessages(
       restartMarker: "── restart ──",
     },
     orchestrator: {
+      defaultName: "Orchestrator",
       notFound: "Orchestrator not found",
       clockTitle: "Time spent / overall budget",
       menu: "Orchestrator menu",

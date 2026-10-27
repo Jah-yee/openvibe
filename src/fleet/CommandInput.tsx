@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { useStore } from "zustand";
 import type { SceneFrame } from "@/canvas/groups";
-import { useMessages } from "@/i18n";
+import { useLang, useMessages } from "@/i18n";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
 import { cn } from "@/lib/utils";
 import { sendCommand } from "./broadcast";
@@ -69,7 +69,9 @@ export function CommandInput(props: {
   const field = useRef<HTMLTextAreaElement>(null);
   const history = useStore(historyStore, (s) => s.entries);
 
-  const options = useMemo(() => targetOptions(agents, groups), [agents, groups]);
+  // The « @tous » / "@all" label and the details follow the language.
+  const lang = useLang();
+  const options = useMemo(() => targetOptions(agents, groups), [agents, groups, lang]);
   const labels = new Map(options.map((o) => [targetKey(o.target), o.label]));
   const chips = targets.filter((t) => labels.has(targetKey(t)));
   const mention = mentionAt(text, caret);

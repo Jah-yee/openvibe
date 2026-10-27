@@ -4,6 +4,7 @@ import { defineMessages } from "@/i18n";
 export const appMessages = defineMessages(
   {
     loading: "Chargement…",
+    hooksDown: "États des agents approximatifs : serveur local indisponible",
     aboutDescription: "Canvas d'agents local et open source.",
     logsFailed: "Impossible d'ouvrir le dossier des journaux",
     settingNotSaved: (error: string) => `Réglage non enregistré : ${error}`,
@@ -14,6 +15,7 @@ export const appMessages = defineMessages(
   },
   {
     loading: "Loading…",
+    hooksDown: "Agent states are approximate: the local server is unavailable",
     aboutDescription: "A local, open source canvas for agents.",
     logsFailed: "Could not open the logs folder",
     settingNotSaved: (error: string) => `Setting not saved: ${error}`,

@@ -256,7 +256,7 @@ export const shellMessages = defineMessages(
       text: "Text (T)",
       eraser: "Eraser (E)",
       image: "Image",
-      launchAgent: "Start an agent",
+      launchAgent: "Launch an agent",
       fitView: "Fit the view",
     },
     pen: {
