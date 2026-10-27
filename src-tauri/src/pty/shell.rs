@@ -173,6 +173,35 @@ pub const INHERITED_MARKERS: [&str; 8] = [
     "CLAUDE_CODE_SKIP_PROMPT_HISTORY",
 ];
 
+/// What a Claude Code session also sets for the processes it starts (spec
+/// première version §4.4). Outside Claude Code they can be the user's own
+/// settings (`GIT_EDITOR`…), so they are left alone there.
+pub const CLAUDE_SESSION_EXTRAS: [&str; 8] = [
+    "CLAUDE_CODE_SSE_PORT",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_PID",
+    "CLAUDE_EFFORT",
+    "AI_AGENT",
+    "GIT_EDITOR",
+    "NoDefaultCurrentDirectoryInExePath",
+];
+
+/// The variables a terminal does not inherit; `inside_claude`: OpenVibe itself
+/// was started from a Claude Code session.
+pub fn removed_env(inside_claude: bool) -> Vec<String> {
+    let extras: &[&str] = if inside_claude {
+        &CLAUDE_SESSION_EXTRAS
+    } else {
+        &[]
+    };
+    INHERITED_MARKERS
+        .iter()
+        .chain(extras)
+        .map(|key| key.to_string())
+        .collect()
+}
+
 /// Finds an executable on PATH. Injected so tests don't depend on the machine.
 pub type Locate<'a> = &'a dyn Fn(&str) -> Option<PathBuf>;
 
@@ -476,10 +505,7 @@ pub fn build_plan(
             ("OPENVIBE".into(), "1".into()),
             ("OPENVIBE_NODE_ID".into(), node_id.into()),
         ],
-        env_remove: INHERITED_MARKERS
-            .iter()
-            .map(|key| key.to_string())
-            .collect(),
+        env_remove: removed_env(std::env::var_os("CLAUDECODE").is_some()),
         initial_input,
         interrupt: interrupt_sequence(spec.agent),
     })
@@ -907,12 +933,31 @@ mod tests {
             &AgentHooks::default(),
         )
         .unwrap();
-        for marker in [
-            "CLAUDECODE",
-            "CLAUDE_CODE_CHILD_SESSION",
-            "CLAUDE_CODE_SESSION_ID",
-        ] {
+        for marker in INHERITED_MARKERS {
             assert!(plan.env_remove.iter().any(|key| key == marker), "{marker}");
+        }
+    }
+
+    #[test]
+    fn inside_claude_code_its_session_variables_stay_behind() {
+        let outside = removed_env(false);
+        assert_eq!(outside.len(), INHERITED_MARKERS.len());
+        assert!(!outside.contains(&"GIT_EDITOR".to_string()));
+        let inside = removed_env(true);
+        for key in INHERITED_MARKERS.iter().chain(CLAUDE_SESSION_EXTRAS.iter()) {
+            assert!(inside.contains(&key.to_string()), "{key}");
+        }
+        for key in [
+            "CLAUDE_CODE_SSE_PORT",
+            "CLAUDE_CODE_SESSION_ATTENDED",
+            "CLAUDE_CODE_EXECPATH",
+            "CLAUDE_PID",
+            "CLAUDE_EFFORT",
+            "AI_AGENT",
+            "GIT_EDITOR",
+            "NoDefaultCurrentDirectoryInExePath",
+        ] {
+            assert!(inside.contains(&key.to_string()), "{key}");
         }
     }
 
