@@ -1,3 +1,4 @@
+use crate::tr;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
@@ -98,7 +99,10 @@ pub fn create(conn: &Connection, path: &str) -> AppResult<Project> {
 pub fn rename(conn: &Connection, id: &str, name: &str) -> AppResult<()> {
     let name = name.trim();
     if name.is_empty() {
-        return Err(AppError::InvalidInput("le nom du projet est vide".into()));
+        return Err(AppError::InvalidInput(tr!(
+            "le nom du projet est vide",
+            "the project name is empty"
+        )));
     }
     changed(
         conn.execute(
@@ -223,8 +227,9 @@ fn valid_path(conn: &Connection, path: &str, except: Option<&str>) -> AppResult<
         .iter()
         .any(|(id, other)| Some(id.as_str()) != except && path_key(other) == key)
     {
-        return Err(AppError::InvalidInput(format!(
-            "ce dossier est déjà un projet : {path}"
+        return Err(AppError::InvalidInput(tr!(
+            "ce dossier est déjà un projet : {path}",
+            "this folder is already a project: {path}"
         )));
     }
     Ok(path)
@@ -239,7 +244,7 @@ fn changed(rows: usize, id: &str) -> AppResult<()> {
 }
 
 fn not_found(id: &str) -> AppError {
-    AppError::NotFound(format!("projet introuvable : {id}"))
+    AppError::NotFound(tr!("projet introuvable : {id}", "project not found: {id}"))
 }
 
 #[cfg(test)]

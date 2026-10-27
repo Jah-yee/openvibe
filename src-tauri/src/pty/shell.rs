@@ -1,3 +1,4 @@
+use crate::tr;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -147,7 +148,10 @@ pub struct AgentHooks {
 /// would start as a plain Claude in the user's folder, so it does not start.
 pub fn orchestrator_tools(hooks: &AgentHooks, server_running: bool) -> Result<(), String> {
     if !server_running {
-        return Err("le serveur local d'OpenVibe n'a pas démarré".into());
+        return Err(tr!(
+            "le serveur local d'OpenVibe n'a pas démarré",
+            "OpenVibe's local server did not start"
+        ));
     }
     let complete = hooks.claude_settings.is_some()
         && hooks.mcp_config.is_some()
@@ -155,7 +159,10 @@ pub fn orchestrator_tools(hooks: &AgentHooks, server_running: bool) -> Result<()
     if complete {
         Ok(())
     } else {
-        Err("ses réglages n'ont pas pu être écrits (voir le journal)".into())
+        Err(tr!(
+            "ses réglages n'ont pas pu être écrits (voir le journal)",
+            "its settings could not be written (see the log)"
+        ))
     }
 }
 
@@ -237,7 +244,12 @@ pub fn resolve_shell(kind: ShellKind, locate: Locate) -> AppResult<ShellProgram>
                 args: vec!["-NoLogo".into()],
                 syntax: ShellSyntax::PowerShell,
             })
-            .ok_or_else(|| AppError::NotFound("pwsh introuvable dans le PATH".into())),
+            .ok_or_else(|| {
+                AppError::NotFound(tr!(
+                    "pwsh introuvable dans le PATH",
+                    "pwsh not found in the PATH"
+                ))
+            }),
         ShellKind::GitBash => locate("git")
             .and_then(|git| find_git_bash(&git))
             .map(|p| ShellProgram {
@@ -245,7 +257,7 @@ pub fn resolve_shell(kind: ShellKind, locate: Locate) -> AppResult<ShellProgram>
                 args: vec!["--login".into(), "-i".into()],
                 syntax: ShellSyntax::Posix,
             })
-            .ok_or_else(|| AppError::NotFound("Git Bash introuvable".into())),
+            .ok_or_else(|| AppError::NotFound(tr!("Git Bash introuvable", "Git Bash not found"))),
     }
 }
 
@@ -328,9 +340,10 @@ pub fn agent_command(
         Agent::Custom => {
             let command = spec.command.trim();
             if command.is_empty() {
-                return Err(AppError::InvalidInput(
-                    "la commande personnalisée est vide".into(),
-                ));
+                return Err(AppError::InvalidInput(tr!(
+                    "la commande personnalisée est vide",
+                    "the custom command is empty"
+                )));
             }
             Some(command.to_string())
         }
@@ -348,16 +361,18 @@ pub fn agent_command(
 /// Model names are typed into a shell: only the characters Ollama uses in them
 /// ("qwen2.5-coder:7b", "hf.co/user/model:tag") are accepted.
 fn ollama_command(launch: Option<&OllamaLaunch>, syntax: ShellSyntax) -> AppResult<String> {
-    let launch =
-        launch.ok_or_else(|| AppError::InvalidInput("options Ollama manquantes".into()))?;
+    let launch = launch.ok_or_else(|| {
+        AppError::InvalidInput(tr!("options Ollama manquantes", "Ollama options missing"))
+    })?;
     let model = launch.model.trim();
     let valid = !model.is_empty()
         && model
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || "._:/-".contains(c));
     if !valid {
-        return Err(AppError::InvalidInput(format!(
-            "modèle Ollama invalide : {model}"
+        return Err(AppError::InvalidInput(tr!(
+            "modèle Ollama invalide : {model}",
+            "invalid Ollama model: {model}"
         )));
     }
     Ok(match launch.mode {
@@ -374,8 +389,9 @@ fn claude_command(
     syntax: ShellSyntax,
     hooks: &AgentHooks,
 ) -> AppResult<String> {
-    let launch =
-        launch.ok_or_else(|| AppError::InvalidInput("options Claude manquantes".into()))?;
+    let launch = launch.ok_or_else(|| {
+        AppError::InvalidInput(tr!("options Claude manquantes", "Claude options missing"))
+    })?;
     let mut claude = "claude".to_string();
     let flags = [
         ("--settings", &hooks.claude_settings),
@@ -402,7 +418,10 @@ fn claude_command(
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '[' | ']'));
         if !valid {
-            return Err(AppError::InvalidInput(format!("modèle invalide : {model}")));
+            return Err(AppError::InvalidInput(tr!(
+                "modèle invalide : {model}",
+                "invalid model: {model}"
+            )));
         }
         claude.push_str(&format!(" --model {}", quote(syntax, model)));
     }

@@ -6,6 +6,7 @@ pub mod scrollback;
 pub mod settings;
 pub mod workspaces;
 
+use crate::tr;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -64,8 +65,12 @@ impl Db {
     }
 }
 
-const NEWER_BASE: &str =
-    "Cette base vient d'une version plus récente d'OpenVibe. Installe la dernière version.";
+fn newer_base() -> String {
+    tr!(
+        "Cette base vient d'une version plus récente d'OpenVibe. Installe la dernière version.",
+        "This database comes from a newer version of OpenVibe. Install the latest version."
+    )
+}
 
 /// A base from a newer OpenVibe is left untouched; an older one is copied
 /// before its first missing migration (spec première version §3.3). A copy
@@ -76,7 +81,7 @@ fn prepare_upgrade(conn: &Connection, path: &Path) -> AppResult<()> {
     let applied: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     let applied = applied as usize;
     if applied > MIGRATIONS.len() {
-        return Err(AppError::InvalidInput(NEWER_BASE.into()));
+        return Err(AppError::InvalidInput(newer_base()));
     }
     if applied == 0 || applied == MIGRATIONS.len() {
         return Ok(());
@@ -86,8 +91,9 @@ fn prepare_upgrade(conn: &Connection, path: &Path) -> AppResult<()> {
         return Ok(());
     }
     copy_checked(conn, &backup, applied).map_err(|err| {
-        AppError::InvalidInput(format!(
-            "Copie de la base impossible avant sa mise à jour : {err}"
+        AppError::InvalidInput(tr!(
+            "Copie de la base impossible avant sa mise à jour : {err}",
+            "Could not copy the database before upgrading it: {err}"
         ))
     })?;
     // The file name only: the log is meant to be sent, without the user's folders.

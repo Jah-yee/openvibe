@@ -51,10 +51,10 @@ pub fn run() {
                 Err(err) => {
                     log::error!("base not opened: {err}");
                     // Spec §10: a blocking dialog with the file path, then stop.
+                    let shown = path.display();
                     app.dialog()
                         .message(format!(
-                            "Impossible d'ouvrir la base {} :\n{err}",
-                            path.display()
+                            "Impossible d'ouvrir la base {shown} :\n{err}\n\nCannot open the database {shown}:\n{err}"
                         ))
                         .kind(MessageDialogKind::Error)
                         .title("OpenVibe")
