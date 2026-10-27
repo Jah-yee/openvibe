@@ -193,6 +193,14 @@ pub fn merge_agent(mission: &Path, agent: &Path, branch: &str) -> Result<MergeRe
                 .map(str::to_string)
                 .collect();
             if files.is_empty() {
+                // A hook that refused the commit leaves the merge half done:
+                // the next merges would all fail on it (final review H2).
+                if git(mission, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_ok() {
+                    let _ = git(mission, &["merge", "--abort"]);
+                    return Err(format!(
+                        "La fusion de {branch} a échoué et a été annulée : {err}"
+                    ));
+                }
                 return Err(err);
             }
             let _ = git(mission, &["merge", "--abort"]);
@@ -442,6 +450,32 @@ mod tests {
                 uncommitted: true
             }
         );
+    }
+
+    #[test]
+    fn a_merge_refused_by_a_hook_is_undone() {
+        let Some((parent, proj)) = project() else {
+            return;
+        };
+        let mission = prepare(&proj, "auth").unwrap();
+        let athena = add_agent(&proj, &mission.slug, "Athéna").unwrap();
+        commit(Path::new(&athena.path), "login.txt", "login\n", "login");
+        // Worktrees share the repository's config, so its hooks.
+        let hooks = parent.path().join("hooks");
+        std::fs::create_dir(&hooks).unwrap();
+        std::fs::write(hooks.join("pre-merge-commit"), "#!/bin/sh\nexit 1\n").unwrap();
+        run(
+            &proj,
+            &["config", "core.hooksPath", &hooks.to_string_lossy()],
+        );
+        let m = Path::new(&mission.path);
+        let err = merge_agent(m, Path::new(&athena.path), &athena.branch).unwrap_err();
+        assert!(err.contains("annulée"), "{err}");
+        assert!(git(m, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_err());
+        assert_eq!(run(m, &["status", "--porcelain"]), "");
+        std::fs::remove_file(hooks.join("pre-merge-commit")).unwrap();
+        let again = merge_agent(m, Path::new(&athena.path), &athena.branch).unwrap();
+        assert_eq!(again.merge, Merge::Merged);
     }
 
     #[test]
