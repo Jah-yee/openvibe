@@ -2,10 +2,10 @@
 
 The scripts that make the logos, banners, screenshots and GIFs in [`docs/assets/`](../../docs/assets/). Run them again when the interface changes.
 
-They need Python 3.10+ with the packages in `requirements.txt`, Node.js 22 and Microsoft Edge (for the banners).
+They need Python 3.11+ (Pillow 13 requires it) with the packages in `requirements.txt`, Node.js 22 and Microsoft Edge (for the banners).
 
 ```powershell
-python -m venv .venv-media
+py -3.12 -m venv .venv-media
 .venv-media\Scripts\pip install -r scripts/media/requirements.txt
 ```
 
