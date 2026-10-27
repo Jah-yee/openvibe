@@ -38,11 +38,13 @@ OpenVibe is a local desktop app. It is designed around these rules:
 - **Your agents keep their own guardrails.** OpenVibe never adds permission-bypass flags such as `--dangerously-skip-permissions`. Your agents run with your user account and ask for permission the way you configured them. The only prompt OpenVibe ever answers for you is Claude Code's folder-trust question, and only in the mission worktrees it created itself.
 - **The local server only accepts requests from your machine.**
   - The server that receives agent hooks, status lines and MCP calls listens on `127.0.0.1` only, on a port the OS picks at random.
-  - Hook and status routes need a token drawn each time the app starts.
+  - Hook and status routes need a token drawn each time the app starts. The status line and Codex hand it to `curl` through a configuration file in OpenVibe's app data folder, so it never appears on a command line.
   - The MCP route needs a separate bearer token for each session, revoked when that session ends.
   - Request bodies are capped (64 KiB for hooks, 256 KiB for MCP), and node ids are checked against a strict pattern.
 - **Your Claude settings are only read.** OpenVibe reads your `~/.claude/settings.json` and the project's `.claude/settings*.json` to keep your own status line. It never writes to them.
   - Its own per-session files (the `--settings` file, the MCP configuration and the role prompt) are written to its app data folder, deleted when the session ends, and cleared at startup.
+- **The orchestrator cannot change your files.** Its Claude session is denied `Edit`, `Write`, `NotebookEdit` and `Bash`, and only gets OpenVibe's own MCP tools. If its settings, tools or role cannot be given to it, it does not start, and its node says why.
+- **The interface runs under a strict Content Security Policy.** Only the app's own scripts, styles, fonts and images load. No remote content, frame or plugin.
 - **Git stays local.** Missions create branches and worktrees next to your repository. OpenVibe never pushes, and never merges into your own branch.
 - **No telemetry.** The app itself makes no network requests. Fonts and icon libraries are bundled. Links you click, such as a Remote Control link, open in your browser.
 - **Inputs to launch commands are checked.** Session ids must be UUIDs, model and Ollama names must match a strict pattern, and terminal titles are stripped of quotes and control characters. A *Custom* agent's command is typed exactly as you wrote it: that is its purpose.
@@ -52,8 +54,7 @@ OpenVibe is a local desktop app. It is designed around these rules:
 These are known and tracked. Reports that show a practical way to exploit them are still welcome.
 
 - **Terminal history is stored unencrypted.** Each terminal keeps up to 512 KiB of its output in the local SQLite database (`%APPDATA%\dev.openvibe.app\openvibe.db`). Anything an agent printed, secrets included, can end up there.
-- **Tokens are visible to your own account.** The hook token appears on the command lines of the `curl` and `bash` processes that report status, and Codex receives it in its `notify` setting. Another program running under your account could read it and send fake states or usage to OpenVibe.
-- **The webview has no Content Security Policy** (`"csp": null` in `src-tauri/tauri.conf.json`). The interface only loads bundled assets, but a policy would add defense in depth.
+- **Tokens are readable by your own account.** The hook token sits in OpenVibe's own files in its app data folder (Claude's per-session settings, `curl.cfg`). Another program running under your account could read it and send fake states or usage to OpenVibe.
 - **Agents run with your permissions.** OpenVibe does not sandbox them. Review what you let an agent do, especially in auto-accept modes, and prefer missions, which isolate each agent in its own worktree.
 
 ## Out of scope

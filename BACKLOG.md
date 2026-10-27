@@ -67,12 +67,10 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Un rattachement raté devrait revenir à l'écran sauvegardé (`restoreSession`) et retirer le nœud des sessions vivantes à `pty-exit` ; le recalage avant rattachement marque le terminal comme actif.
 - Les échecs de sauvegarde différée sont des rejets non gérés (aucun toast).
 - Un `pty-exit` tardif d'un ancien processus peut marquer un terminal relancé comme terminé (ajouter le pid à l'événement).
-- CSP de la webview à `null` : à corriger avant d'afficher du contenu externe (tuile web, studios).
 - Noms de workspace en double autorisés.
 
 ## Constats du plan A (relecture finale)
 
-- Les agents lancés depuis un OpenVibe démarré dans une session Claude Code héritent de son marqueur de session enfant (`CLAUDE_CODE_CHILD_SESSION`…) : Claude n'enregistre pas les conversations et « Reprendre » échoue. Retirer ces marqueurs de l'environnement des terminaux (la spec V1 dit que les terminaux héritent de l'environnement).
 - `restoreSession` ne pose pas la garde `replaying` : une relance pendant la restauration d'un long écran peut envoyer au nouveau processus les réponses de xterm aux anciennes requêtes.
 - `list_projects` teste l'existence des dossiers en tenant le verrou de la base (un lecteur réseau hors ligne bloquerait toutes les commandes).
 - Restes de « Terminal introuvable » : copie d'un terminal dont la source n'est plus en mémoire ; copie pendant son adoption ; une image « ARRÊTÉ » avant le montage d'un nouveau terminal.
@@ -104,7 +102,7 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Le dialogue de fermeture dit toujours « tourne encore » ; la spec (§7.5) veut « est en cours » ou « est prête » selon l'activité.
 - Le clic sur une ligne du panneau Flotte centre et donne le clavier mais n'active pas l'élément (spec §5.5 « l'active ») : le menu de l'en-tête demande un clic de plus.
 - Les compteurs de groupe ne vérifient pas que le processus tourne ; `fleetStateOf` range « en marche sans activité connue » dans Inactifs alors que la pastille dit ACTIF.
-- Non traités : un proxy HTTP qui intercepterait `127.0.0.1` (les hooks échouent, l'activité du terminal prend le relais) ; les marqueurs de session Claude Code au-delà des 8 de la spec (`CLAUDE_CODE_SSE_PORT`…) ; un dialogue d'autorisation répondu hors du terminal (IDE, à distance) laisse ATTEND jusqu'au hook suivant.
+- Non traités : un proxy HTTP qui intercepterait `127.0.0.1` (les hooks échouent, l'activité du terminal prend le relais) ; un dialogue d'autorisation répondu hors du terminal (IDE, à distance) laisse ATTEND jusqu'au hook suivant.
 
 ## Constats du plan B3 (commande et orchestrateur, relecture finale)
 
@@ -208,7 +206,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Un dépôt sans aucun commit fait échouer « Lancer la mission » avec le texte brut de git (« fatal: invalid reference: HEAD ») : vérifier `rev-parse --verify HEAD` dans `mission::prepare` et dire « Le dépôt n'a pas encore de commit ».
 - Une fusion qui échoue sans fichier en conflit mais laisse `MERGE_HEAD` (hook en échec) n'est pas annulée : les `fusionner` suivants échouent. Annuler dès que `MERGE_HEAD` existe (`mission.rs`, `merge_agent`).
 - Le × d'un orchestrateur au travail arrête sa session sans demander ; son enregistrement reste en mémoire, et les comptes rendus de ses agents leur répondent « transmis » alors que personne ne les lit.
-- Sans serveur de hooks (ou si l'écriture des réglages échoue), l'orchestrateur démarre comme un Claude ordinaire, sans `deny` ni consigne de rôle (il peut modifier la branche de l'utilisateur) ; `Bash` n'est jamais interdit. Refuser de lancer un orchestrateur sans ses réglages, et afficher « Outils OpenVibe indisponibles » dans le nœud (spec §9).
 - Un évènement tapé pendant que l'utilisateur écrit dans le terminal de l'orchestrateur part avec son texte à moitié tapé : attendre quelques secondes après une frappe.
 - `rebaseTerminalFolders` (projet déplacé) ne rebase ni la session de l'orchestrateur ni les chemins de sa mission.
 - Les orchestrateurs créés avant H2 gardent leur taille 320 × 420 : le terminal de Claude et le panneau y sont à l'étroit.
@@ -278,7 +275,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Le `curl` du script passe avant ta ligne d'état : ~100-150 ms de plus à chaque rafraîchissement, jusqu'à ~1 s si le serveur local ne répond pas. Le lancer en arrière-plan.
 - `input=$(cat)` retire les sauts de ligne finaux du JSON : une ligne d'état qui lit avec `read -r` sous `set -e` pourrait s'arrêter.
 - `CLAUDE_CONFIG_DIR` est lu dans l'environnement d'OpenVibe, pas dans celui du terminal ; la ligne d'état de l'utilisateur est lue au démarrage de chaque session seulement.
-- Le jeton du serveur local apparaît dans la ligne de commande de `bash` et `curl` (visible dans la liste des processus) : quelqu'un sur la machine pourrait envoyer de faux usages ou états.
 - Une remise à zéro hebdomadaire au même jour de la semaine suivante s'affiche « mar. 09:00 », comme aujourd'hui : ajouter la date au-delà de 6 jours. Une limite propre à un modèle, seule, ne s'affiche pas dans la barre.
 - `--resume` garde le même identifiant de session : le coût cumulé que Claude restaure peut compter des dépenses d'avant l'ouverture d'OpenVibe.
 - Tests absents : la réponse 413 de `/status`, l'exécution réelle du script.
@@ -295,3 +291,8 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Une panique dans le traitement d'une requête arrête la boucle du serveur local : hooks et outils MCP ne répondent plus jusqu'au redémarrage. Entourer chaque requête de `catch_unwind` et répondre 500.
 - Une sauvegarde d'historique refusée (capture plus ancienne, horloge reculée) ne laisse aucune trace : la journaliser.
 - React journalise ses erreurs avec `console.error("%o…")` : la ligne du journal commence par un `%o` littéral.
+
+## Constats du jalon R2 (sécurité)
+
+- Excalidraw déclare pour chaque police une adresse de secours sur esm.sh : la CSP la bloque (rien ne sort), mais la console de la webview affiche ~460 refus à chaque chargement. Retirer l'adresse de secours (patch d'Excalidraw) si ce bruit gêne.
+- L'export PNG ou SVG par le dialogue d'enregistrement n'a pas été parcouru sous la CSP (dialogue natif) ; ses besoins (WebAssembly, workers `blob:`, polices locales) l'ont été un par un.
