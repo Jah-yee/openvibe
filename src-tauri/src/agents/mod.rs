@@ -25,7 +25,7 @@ pub struct AgentInfo {
 }
 
 /// Menu order of the catalog (spec habillage §8).
-const CATALOG: [Agent; 10] = [
+pub(crate) const CATALOG: [Agent; 10] = [
     Agent::Claude,
     Agent::Codex,
     Agent::Gemini,

@@ -71,6 +71,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::app::open_log_dir,
+            commands::app::open_data_dir,
+            commands::app::diagnostics,
             i18n::set_language,
             commands::app::prepare_for_update,
             commands::pty::pty_spawn,
