@@ -156,8 +156,16 @@ fn git_version(git: &Path) -> Option<String> {
     (output.status.success() && !text.is_empty()).then_some(text)
 }
 
+/// Scans the PATH for every agent and runs `git --version`: off the main
+/// thread, or the window would freeze (final review R5d).
 #[tauri::command]
-pub fn diagnostics(app: AppHandle) -> AppResult<Diagnostics> {
+pub async fn diagnostics(app: AppHandle) -> AppResult<Diagnostics> {
+    tauri::async_runtime::spawn_blocking(move || collect(&app))
+        .await
+        .map_err(|err| AppError::Io(std::io::Error::other(err.to_string())))?
+}
+
+fn collect(app: &AppHandle) -> AppResult<Diagnostics> {
     let home = home_dir();
     let git = which_locate("git");
     Ok(Diagnostics {
@@ -176,9 +184,9 @@ pub fn diagnostics(app: AppHandle) -> AppResult<Diagnostics> {
             .as_deref()
             .and_then(find_git_bash)
             .map(|path| shown(&path, &home)),
-        server: crate::commands::agents::server_running(&app),
-        data_dir: shown(&data_dir(&app)?, &home),
-        log_dir: shown(&log_dir(&app)?, &home),
+        server: crate::commands::agents::server_running(app),
+        data_dir: shown(&data_dir(app)?, &home),
+        log_dir: shown(&log_dir(app)?, &home),
     })
 }
 

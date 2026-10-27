@@ -35,16 +35,33 @@ pub fn expand(raw: &str, var: impl Fn(&str) -> Option<String>) -> String {
     out
 }
 
+/// A variable for `expand`: the process's, else the registry's, where an
+/// installer may just have created it (its own `%…%` expanded from the
+/// process's). Names compare case-insensitively, as Windows does.
+pub fn lookup(
+    name: &str,
+    process: impl Fn(&str) -> Option<String>,
+    registry: &[(String, String)],
+) -> Option<String> {
+    process(name).or_else(|| {
+        registry
+            .iter()
+            .find(|(key, _)| key.eq_ignore_ascii_case(name))
+            .map(|(_, value)| expand(value, &process))
+    })
+}
+
 fn same_folder(entry: &str) -> String {
     entry.trim_end_matches(['\\', '/']).to_lowercase()
 }
 
-/// Machine PATH, then user PATH (as Windows builds a new process's PATH),
-/// then what only this process has, so what OpenVibe started with is kept.
+/// This process's PATH in its order, then the registry's entries it lacks,
+/// machine then user (as Windows orders them): a new install is found and
+/// what OpenVibe was started with still comes first (final review R5d).
 pub fn merge(machine: &str, user: &str, process: &str) -> String {
     let mut seen = std::collections::HashSet::new();
     let mut entries: Vec<&str> = Vec::new();
-    for entry in [machine, user, process]
+    for entry in [process, machine, user]
         .into_iter()
         .flat_map(|list| list.split(';'))
     {
@@ -57,11 +74,30 @@ pub fn merge(machine: &str, user: &str, process: &str) -> String {
 }
 
 #[cfg(windows)]
-fn registry_path(root: winreg::HKEY, key: &str) -> String {
-    winreg::RegKey::predef(root)
-        .open_subkey(key)
-        .and_then(|key| key.get_value::<String, _>("Path"))
-        .unwrap_or_default()
+const MACHINE_ENVIRONMENT: &str = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment";
+
+/// The variables of a registry `Environment` key, `Path` included.
+#[cfg(windows)]
+fn registry_variables(root: winreg::HKEY, key: &str) -> Vec<(String, String)> {
+    let Ok(key) = winreg::RegKey::predef(root).open_subkey(key) else {
+        return Vec::new();
+    };
+    key.enum_values()
+        .flatten()
+        .filter_map(|(name, _)| {
+            key.get_value::<String, _>(&name)
+                .ok()
+                .map(|value| (name, value))
+        })
+        .collect()
+}
+
+#[cfg(windows)]
+fn path_of(variables: &[(String, String)]) -> &str {
+    variables
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("Path"))
+        .map_or("", |(_, value)| value.as_str())
 }
 
 /// Re-reads the PATH from the registry (no-op off Windows).
@@ -69,15 +105,14 @@ pub fn refresh() {
     #[cfg(windows)]
     {
         use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
-        let env = |name: &str| std::env::var(name).ok();
-        let user = expand(&registry_path(HKEY_CURRENT_USER, "Environment"), env);
-        let machine = expand(
-            &registry_path(
-                HKEY_LOCAL_MACHINE,
-                r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
-            ),
-            env,
-        );
+        let user_vars = registry_variables(HKEY_CURRENT_USER, "Environment");
+        let machine_vars = registry_variables(HKEY_LOCAL_MACHINE, MACHINE_ENVIRONMENT);
+        // A user variable overrides a machine one of the same name, as in Windows.
+        let registry: Vec<(String, String)> =
+            user_vars.iter().chain(&machine_vars).cloned().collect();
+        let env = |name: &str| lookup(name, |n| std::env::var(n).ok(), &registry);
+        let user = expand(path_of(&user_vars), env);
+        let machine = expand(path_of(&machine_vars), env);
         let process = std::env::var("PATH").unwrap_or_default();
         let merged = merge(&machine, &user, &process);
         *REFRESHED.write().unwrap_or_else(|e| e.into_inner()) = Some(merged.into());
@@ -114,6 +149,24 @@ mod tests {
     }
 
     #[test]
+    fn reads_a_variable_an_installer_just_created_from_the_registry() {
+        // pnpm's setup adds PNPM_HOME and %PNPM_HOME% to the PATH: this
+        // process never had the variable (final review R5d).
+        let registry = vec![
+            ("PNPM_HOME".to_string(), r"%LOCALAPPDATA%\pnpm".to_string()),
+            ("USERPROFILE".to_string(), r"C:\Elsewhere".to_string()),
+        ];
+        let var = |name: &str| lookup(name, vars, &registry);
+        assert_eq!(
+            expand(r"%PNPM_HOME%;%pnpm_home%\bin;C:\x", var),
+            r"C:\Users\Me\AppData\Local\pnpm;C:\Users\Me\AppData\Local\pnpm\bin;C:\x"
+        );
+        // The process's own value comes first.
+        assert_eq!(expand(r"%USERPROFILE%", var), r"C:\Users\Me");
+        assert_eq!(expand(r"%NOPE%", var), r"%NOPE%");
+    }
+
+    #[test]
     fn keeps_unknown_variables_and_lone_percents() {
         assert_eq!(expand(r"%NOPE%\bin", vars), r"%NOPE%\bin");
         assert_eq!(expand(r"C:\100%\x", vars), r"C:\100%\x");
@@ -121,10 +174,12 @@ mod tests {
     }
 
     #[test]
-    fn merges_machine_then_user_then_process_only() {
+    fn keeps_the_process_path_in_its_order_then_adds_the_registry_s_new_entries() {
+        // Launched from a shell with its own prepends (nvm, venv), a terminal
+        // still finds the same tools first (final review R5d).
         assert_eq!(
-            merge(r"C:\m1;C:\m2", r"C:\u1", r"C:\m2;C:\p1;C:\u1"),
-            r"C:\m1;C:\m2;C:\u1;C:\p1"
+            merge(r"C:\m1;C:\m2", r"C:\u1;C:\u2", r"C:\p0;C:\m2;C:\u1"),
+            r"C:\p0;C:\m2;C:\u1;C:\m1;C:\u2"
         );
     }
 
@@ -132,7 +187,7 @@ mod tests {
     fn merge_drops_empty_entries_and_duplicates() {
         assert_eq!(
             merge(r"C:\Bin;;C:\bin\;c:\BIN/", "", r"C:\other\"),
-            r"C:\Bin;C:\other\"
+            r"C:\other\;C:\Bin"
         );
         assert_eq!(merge("", "", ""), "");
     }
