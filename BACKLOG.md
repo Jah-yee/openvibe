@@ -203,9 +203,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 ## Constats du plan H2 (mission de l'orchestrateur, relecture finale)
 
-- Un dépôt sans aucun commit fait échouer « Lancer la mission » avec le texte brut de git (« fatal: invalid reference: HEAD ») : vérifier `rev-parse --verify HEAD` dans `mission::prepare` et dire « Le dépôt n'a pas encore de commit ».
-- Une fusion qui échoue sans fichier en conflit mais laisse `MERGE_HEAD` (hook en échec) n'est pas annulée : les `fusionner` suivants échouent. Annuler dès que `MERGE_HEAD` existe (`mission.rs`, `merge_agent`).
-- Le × d'un orchestrateur au travail arrête sa session sans demander ; son enregistrement reste en mémoire, et les comptes rendus de ses agents leur répondent « transmis » alors que personne ne les lit.
 - Un évènement tapé pendant que l'utilisateur écrit dans le terminal de l'orchestrateur part avec son texte à moitié tapé : attendre quelques secondes après une frappe.
 - `rebaseTerminalFolders` (projet déplacé) ne rebase ni la session de l'orchestrateur ni les chemins de sa mission.
 - Les orchestrateurs créés avant H2 gardent leur taille 320 × 420 : le terminal de Claude et le panneau y sont à l'étroit.
@@ -216,7 +213,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 ## Constats du plan H3 (temps d'une mission, relecture finale)
 
-- Les temps du panneau continuent de courir après « terminer » : un agent qui n'a pas rendu compte affiche le lendemain « 1440 / 20 min » en rouge. Enregistrer `endedAt` dans `endMission` et y plafonner `spentMin`.
 - `reattribuer` vers un agent arrêté (par exemple après un redémarrage d'OpenVibe) répond « passe à … », puis l'orchestrateur reçoit « n'a pas démarré » 60 s plus tard : refuser d'emblée un agent arrêté.
 - `prolonger` accepte un agent dont la sous-tâche est passée à un autre, ou qui a déjà rendu compte : refuser ces cas.
 - Un palier de dépassement est enregistré « signalé » alors que sa ligne attend encore dans la file en mémoire : si OpenVibe se ferme avant que l'orchestrateur soit libre, la ligne est perdue et le palier n'est plus signalé.
@@ -298,3 +294,8 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - L'export PNG ou SVG par le dialogue d'enregistrement n'a pas été parcouru sous la CSP (dialogue natif) ; ses besoins (WebAssembly, workers `blob:`, polices locales) l'ont été un par un.
 - cmd retire `%`, `!` et `^` des chemins : un compte Windows dont le nom en contient donne à Codex un `-K` faux (états perdus, sans trace au journal).
 - `claude_settings::clear` ne supprime que les `.json` : un `curl.cfg` d'une exécution précédente (jeton mort) reste si le serveur ne démarre pas.
+
+## Constats du jalon R3 (missions)
+
+- Tant qu'un nœud n'est pas activé, le canvas d'Excalidraw recouvre ses boutons : le premier clic sur le × d'un orchestrateur ou d'un terminal le sélectionne, le second agit.
+- Un orchestrateur arrêté (pas supprimé) ne reçoit plus les comptes rendus : ils restent dans le panneau et dans `equipe`, mais rien ne le lui signale à sa relance.
