@@ -1,20 +1,25 @@
+import { messages } from "@/i18n";
 import { mcpReply, onMcpCall, type McpCall } from "@/ipc/mcp";
 import { nodesStore, terminalOf } from "@/store/nodes";
-import { AGENT_TOOLS, declareSteps, markStep, refused, report } from "./agentTools";
-import { ORCHESTRATOR_TOOLS, orchestratorTool } from "./orchestratorTools";
+import { AGENT_ONLY, agentTools, declareSteps, markStep, refused, report } from "./agentTools";
+import { agentMessages } from "./messages";
+import { ORCHESTRATOR_ONLY, orchestratorTool, orchestratorTools } from "./orchestratorTools";
+import { internalCall, RENAMED } from "./protocol";
 
-const ORCHESTRATOR_ONLY = new Set<string>(ORCHESTRATOR_TOOLS.map((t) => t.name));
+const t = () => messages(agentMessages).router;
 
 /** The interface's answer to one MCP call of a node, by its kind (spec orchestrateur §4.1, §4.3). */
 export async function answer(call: McpCall): Promise<unknown> {
   const record = nodesStore.getState().nodes[call.nodeId];
   const orchestrator = record?.kind === "orchestrator";
-  if (call.method === "tools/list") return { tools: orchestrator ? ORCHESTRATOR_TOOLS : AGENT_TOOLS };
-  const name = String(call.params.name ?? "");
-  const args = (call.params.arguments ?? {}) as Record<string, unknown>;
-  if (orchestrator) return orchestratorTool(call.nodeId, name, args);
-  if (!terminalOf(record)) return refused("Ce terminal n'est plus sur le canvas.");
-  if (ORCHESTRATOR_ONLY.has(name)) return refused("Outil réservé à l'orchestrateur.");
+  if (call.method === "tools/list") return { tools: orchestrator ? orchestratorTools() : agentTools() };
+  const asked = String(call.params.name ?? "");
+  const { name, args } = internalCall(asked, (call.params.arguments ?? {}) as Record<string, unknown>);
+  // A conversation resumed from before the English names may still call a former one.
+  if (!name) return refused(Object.prototype.hasOwnProperty.call(RENAMED, asked) ? t().renamed(RENAMED[asked]) : t().unknown(asked));
+  if (orchestrator) return AGENT_ONLY.has(name) ? refused(t().agentsOnly) : orchestratorTool(call.nodeId, name, args);
+  if (!terminalOf(record)) return refused(t().gone);
+  if (ORCHESTRATOR_ONLY.has(name)) return refused(t().orchestratorOnly);
   switch (name) {
     case "declarer_etapes":
       return declareSteps(call.nodeId, args);
@@ -23,7 +28,7 @@ export async function answer(call: McpCall): Promise<unknown> {
     case "rendre_compte":
       return report(call.nodeId, args);
     default:
-      return refused(`Outil inconnu : ${name}`);
+      return refused(t().unknown(asked));
   }
 }
 
@@ -34,7 +39,7 @@ export async function installMcp() {
     try {
       result = await answer(call);
     } catch (error) {
-      result = refused(`OpenVibe n'a pas pu répondre : ${String(error)}`);
+      result = refused(t().failed(String(error)));
     }
     await mcpReply(call.callId, result);
   });
