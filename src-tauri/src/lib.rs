@@ -3,6 +3,7 @@ mod commands;
 mod db;
 mod error;
 mod git;
+mod i18n;
 mod logging;
 mod mission;
 mod process;
@@ -69,6 +70,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::app::open_log_dir,
+            i18n::set_language,
             commands::app::prepare_for_update,
             commands::pty::pty_spawn,
             commands::pty::pty_attach,

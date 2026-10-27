@@ -15,6 +15,7 @@ import { installUsage } from "@/usage/usageStore";
 import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
+import { loadLanguage } from "@/i18n/settings";
 import { loadThemeSettings } from "./theme";
 import { loadUpdateSettings, startUpdateChecks } from "./updates";
 import { syncWindowTitle } from "./windowTitle";
@@ -28,6 +29,7 @@ let booting: Promise<void> | undefined;
  */
 export function boot(): Promise<void> {
   booting ??= (async () => {
+    await loadLanguage();
     await loadThemeSettings();
     await loadUpdateSettings();
     await loadAgentsPanel();
