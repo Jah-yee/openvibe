@@ -70,6 +70,15 @@ it("shows the plan and gives the go-ahead (spec §7.3)", async () => {
   expect(launchMission).toHaveBeenCalledWith("chef");
 });
 
+it("shows no runaway time for a mission ended before end times were kept", async () => {
+  await show({
+    state: "terminee",
+    name: "Auth",
+    members: [{ nodeId: "isis", name: "Isis", task: "Login", budgetMin: 20, linked: true, branch: "b", worktree: "C:/w", sentAt: 0 }],
+  });
+  expect(host.querySelector('[data-member="Isis"]')?.textContent).not.toContain("/ 20 min");
+});
+
 it("shows the team's reports and the summary, and cleans the mission (spec §7.7)", async () => {
   await show({
     state: "terminee",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { budgetBar, budgetOf, clockText, NEW_MISSION, oneLine, overruns, proposedPlan, readMission, remainingGlobal, sameName, spentMin, type Member, type Mission } from "./mission";
+import { budgetBar, budgetOf, clockText, memberTime, NEW_MISSION, oneLine, overruns, proposedPlan, readMission, remainingGlobal, sameName, spentMin, type Member, type Mission } from "./mission";
 
 const task = (agent: string, budget = 20) => ({ titre: "Login", consigne: "Fais le login", agent, budget_min: budget });
 const args = (...sous_taches: object[]) => ({ nom: "Auth", tache: "Ajoute l'authentification", sous_taches });
@@ -84,6 +84,16 @@ describe("the time of a mission (spec orchestrateur §8)", () => {
     expect(spentMin(member({ report: { summary: "ok", status: "termine", at: 4 * min } }), 9 * min)).toBe(4);
     expect(spentMin(member({ sentAt: undefined }), 9 * min)).toBe(0);
     expect(budgetOf(member({ extraMin: 5 }))).toBe(15);
+  });
+
+  it("stops a member's time when the mission ends (spec première version §5.3)", () => {
+    const ended = running([member()], { state: "terminee", endedAt: 30 * min });
+    expect(memberTime(ended, member(), 1440 * min)).toBe(30);
+    expect(memberTime(running([member()]), member(), 9 * min)).toBe(9);
+    const before = running([member()], { state: "terminee" });
+    expect(memberTime(before, member(), 1440 * min)).toBeUndefined();
+    expect(memberTime(before, member({ report: { summary: "ok", status: "termine", at: 6 * min } }), 1440 * min)).toBe(6);
+    expect(readMission({ ...ended })?.endedAt).toBe(30 * min);
   });
 
   it("finds each overrun once per step, 100 % then 200 %, and the end of the global budget", () => {
