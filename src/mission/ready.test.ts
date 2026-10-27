@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { trustKeys, whenReady, type ReadyProbe } from "./ready";
+import { TRUST_QUIET_MS, trustKey, whenReady, type ReadyProbe } from "./ready";
 
 const TRUST = "Accessing workspace:\n\nQuick safety check: Is this a project you created or one you trust?\n\n❯ No, exit\n  Yes, I trust this folder\n\nEnter to confirm · Esc to cancel";
+const TRUST_YES = TRUST.replace("❯ No, exit\n  Yes", "  No, exit\n❯ Yes");
+/** The question is drawn, its options not yet. */
+const TRUST_QUESTION = "Accessing workspace:\n\nQuick safety check: Is this a project you created or one you trust? If not, take a\nmoment to review what's in this folder first.";
 /** Claude's screen as seen in the app: its banner, then its input box between two rules. */
 const CLAUDE = " ▐▛███▜▌   Claude Code v2.1.304\n▝▜█████▛▘  Opus 5.5\n\n──────────────────────── Claude · demo ─\n❯ \n────────────────────────────────────────\n  ⏵⏵ auto mode on (shift+tab to cycle)";
 /** A resumed conversation: its history has pushed the banner off the screen. */
@@ -32,17 +35,22 @@ function agent(first: string, onPress: (keys: string, show: (screen: string) => 
   return { probe, wait, pressed, now: () => clock, wroteAt: () => wrote };
 }
 
-describe("trustKeys (spec orchestrateur §7.3)", () => {
-  it("moves to « Yes » when « No » is selected, presses Enter when « Yes » already is", () => {
-    expect(trustKeys(TRUST)).toEqual(["\x1b[B", "\r"]);
-    expect(trustKeys(TRUST.replace("❯ No, exit\n  Yes", "  No, exit\n❯ Yes"))).toEqual(["\r"]);
-    expect(trustKeys(CLAUDE)).toBeNull();
+describe("trustKey (spec orchestrateur §7.3)", () => {
+  it("moves down while « No » is selected and confirms only « Yes »", () => {
+    expect(trustKey(TRUST)).toBe("\x1b[B");
+    expect(trustKey(TRUST_YES)).toBe("\r");
+    expect(trustKey(CLAUDE)).toBeNull();
+  });
+
+  it("waits for the options: the question drawn without its menu takes no key (README mission)", () => {
+    expect(trustKey(TRUST_QUESTION)).toBeNull();
   });
 });
 
 describe("whenReady (spec orchestrateur §7.3)", () => {
   it("accepts the trust prompt once, then waits for Claude's prompt to stay quiet 2 s", async () => {
     const a = agent(TRUST, (keys, show) => {
+      if (keys === "\x1b[B") show(TRUST_YES);
       if (keys === "\r") show(CLAUDE);
     });
     expect(await whenReady(a.probe, a.wait)).toBe(true);
@@ -58,11 +66,34 @@ describe("whenReady (spec orchestrateur §7.3)", () => {
     expect(a.pressed).toEqual([]);
   });
 
-  it("gives up after 60 s, and never answers the prompt twice", async () => {
+  it("never confirms « No, exit »: a Down the menu missed is sent again, Enter waits for « Yes » (README mission)", async () => {
+    let downs = 0;
+    const a = agent(TRUST, (keys, show) => {
+      // Claude's menu draws before it takes keys: the first Down is lost.
+      if (keys === "\x1b[B" && ++downs === 2) show(TRUST_YES);
+      if (keys === "\r") show(CLAUDE);
+    });
+    expect(await whenReady(a.probe, a.wait)).toBe(true);
+    expect(a.pressed).toEqual(["\x1b[B", "\x1b[B", "\r"]);
+  });
+
+  it("lets the prompt settle before its first key", async () => {
+    const quietAtPress: number[] = [];
+    const a = agent(TRUST);
+    a.probe.press = async (keys) => {
+      quietAtPress.push(a.probe.quietMs());
+      a.pressed.push(keys);
+    };
+    await whenReady(a.probe, a.wait);
+    expect(quietAtPress[0]).toBeGreaterThanOrEqual(TRUST_QUIET_MS);
+  });
+
+  it("gives up after 60 s, never confirming a prompt that stays on « No »", async () => {
     const a = agent(TRUST);
     expect(await whenReady(a.probe, a.wait)).toBe(false);
     expect(a.now()).toBeGreaterThanOrEqual(60_000);
-    expect(a.pressed).toEqual(["\x1b[B", "\r"]);
+    expect(a.pressed).not.toContain("\r");
+    expect(a.pressed.length).toBeLessThanOrEqual(5);
   });
 
   it("knows Claude is up by its input box, the banner gone from a resumed conversation (final review H2)", async () => {

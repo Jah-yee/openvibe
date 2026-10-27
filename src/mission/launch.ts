@@ -143,10 +143,15 @@ async function assign(
   const id = member.nodeId;
   // Before its relaunch ends, its screen and silence are the previous session's (final review H2).
   await restarted.catch(() => undefined);
-  await whenReady({ running: () => isRunning(id), quietMs: () => quietFor(id), screen: () => freshText(id, 50), press: (keys) => ptyWrite(id, keys) });
+  const ready = await whenReady({ running: () => isRunning(id), quietMs: () => quietFor(id), screen: () => freshText(id, 50), press: (keys) => ptyWrite(id, keys) });
   if (missionOf(nodesStore.getState().nodes[orchestratorId])?.state !== "en_cours") return;
   if (!isRunning(id)) {
     notify(orchestratorId, `${member.name} n'a pas démarré : sa sous-tâche n'est pas envoyée.`);
+    return;
+  }
+  // Its shell outlives a Claude that quit: the sub-task would be typed as a command (README mission).
+  if (!ready) {
+    notify(orchestratorId, `${member.name} n'est pas prêt au bout d'une minute, sa session Claude ne s'est pas ouverte : sa sous-tâche n'est pas envoyée. Regarde son terminal avec lire_sortie.`);
     return;
   }
   await ptySendText(id, subTaskText(mission, task, member.branch, handover));
