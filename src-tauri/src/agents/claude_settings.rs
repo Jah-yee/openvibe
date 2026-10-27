@@ -104,13 +104,18 @@ pub fn status_line_for(cwd: &Path, user: Option<&Path>) -> Option<Value> {
     .or_else(|| user.and_then(user_status_line))
 }
 
-/// Claude's user settings: `$CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json`.
-pub fn user_settings_file() -> Option<PathBuf> {
+/// Claude's folder: `$CLAUDE_CONFIG_DIR`, else `~/.claude`.
+pub fn claude_config_dir() -> Option<PathBuf> {
     if let Some(dir) = std::env::var_os("CLAUDE_CONFIG_DIR") {
-        return Some(PathBuf::from(dir).join("settings.json"));
+        return Some(PathBuf::from(dir));
     }
     let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
-    Some(PathBuf::from(home).join(".claude").join("settings.json"))
+    Some(PathBuf::from(home).join(".claude"))
+}
+
+/// Claude's user settings: `settings.json` in its folder.
+pub fn user_settings_file() -> Option<PathBuf> {
+    Some(claude_config_dir()?.join("settings.json"))
 }
 
 /// `<dir>/<nodeId>.json`, rewritten at each launch (port and token change

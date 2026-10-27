@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import type { TerminalPayload } from "@/nodes/types";
+import { nodesStore } from "@/store/nodes";
 import { statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { acceptsInput, attachSession, relaunchSession, restoreSession, startSession, type TermSink } from "./session";
 
@@ -41,6 +42,20 @@ it("marks the terminal running before spawning, so ConPTY's cursor query can be 
   await startSession("t", fakeTerm(), payload, "new");
   expect(statusDuringSpawn).toBe("running");
   expect(calls[0].args).toMatchObject({ nodeId: "t", cols: 100, rows: 30, spec: { agent: "shell" } });
+});
+
+it("gives a Claude terminal without a conversation id one, and keeps it in its node", async () => {
+  const claude: TerminalPayload = { ...payload, agent: "claude" };
+  mockIPC((cmd, args) => {
+    calls.push({ cmd, args: args as Record<string, unknown> });
+    return 1;
+  });
+  await nodesStore.getState().create("c", { workspaceId: "w", kind: "terminal", payload: claude });
+  await startSession("c", fakeTerm(), claude, "resume");
+  const spec = calls.find((c) => c.cmd === "pty_spawn")!.args.spec as { claude: { sessionId: string; mode: string } };
+  expect(spec.claude.sessionId).toMatch(/^[0-9a-f-]{36}$/);
+  expect(spec.claude.mode).toBe("resume");
+  expect(nodesStore.getState().nodes.c.payload).toMatchObject({ claudeSessionId: spec.claude.sessionId });
 });
 
 it("shows a failed launch in the terminal and as an error status", async () => {

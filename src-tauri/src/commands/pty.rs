@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::agents::{self as catalog, AgentInfo};
+use crate::agents::{self as catalog, AgentInfo, claude_settings, transcripts};
 use crate::commands::agents;
 use crate::db::{Db, scrollback};
 use crate::error::{AppError, AppResult};
@@ -42,6 +42,17 @@ pub async fn pty_spawn(
         return Err(AppError::InvalidInput(format!(
             "le terminal {node_id} tourne déjà"
         )));
+    }
+    let mut spec = spec;
+    if let Some(claude) = spec.claude.as_mut() {
+        let config = claude_settings::claude_config_dir();
+        let cwd = std::path::Path::new(&spec.cwd);
+        let mode =
+            transcripts::launch_mode(claude.mode, &claude.session_id, cwd, config.as_deref());
+        if mode != claude.mode {
+            log::info!("terminal {node_id}: no saved conversation, a new one under the same id");
+            claude.mode = mode;
+        }
     }
     let role = spec.claude.as_ref().map(|c| c.role).unwrap_or_default();
     let hooks = agents::hooks_for(
