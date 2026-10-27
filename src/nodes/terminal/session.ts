@@ -4,6 +4,8 @@ import type { TerminalPayload } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
 import { isRunning, terminalStatusStore, waitForExit } from "@/store/terminalStatus";
 import { buildSpawnSpec, type LaunchMode } from "./launch";
+import { messages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 /** The part of an xterm `Terminal` the session logic needs (lets tests use a fake). */
 export interface TermSink {
@@ -100,6 +102,6 @@ export async function relaunchSession(
     await waitForExit(nodeId);
   }
   await beforeStart?.();
-  term.write("\r\n\x1b[2m── relance ──\x1b[0m\r\n");
+  term.write(`\r\n\x1b[2m${messages(nodesMessages).session.restartMarker}\x1b[0m\r\n`);
   await startSession(nodeId, term, payload, mode);
 }

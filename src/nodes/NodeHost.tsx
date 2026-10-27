@@ -5,6 +5,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CrashNotice } from "@/shell/CrashNotice";
 import { OrchestratorNode } from "./orchestrator/OrchestratorNode";
 import { TerminalNode } from "./terminal/TerminalNode";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "./messages";
 
 /**
  * Renders the OpenVibe node behind an Excalidraw embeddable, chosen by its kind.
@@ -19,12 +21,13 @@ export const NodeHost = memo(function NodeHost({ element }: { element: NonDelete
 }, (prev, next) => prev.element.id === next.element.id);
 
 function NodeOfKind({ element }: { element: NonDeleted<ExcalidrawEmbeddableElement> }) {
+  const t = useMessages(nodesMessages);
   switch (nodeKindOf(element)) {
     case "terminal":
       return <TerminalNode nodeId={element.id} />;
     case "orchestrator":
       return <OrchestratorNode nodeId={element.id} />;
     default:
-      return <div className="grid h-full place-items-center rounded-md border bg-card text-muted-foreground">Nœud inconnu</div>;
+      return <div className="grid h-full place-items-center rounded-md border bg-card text-muted-foreground">{t.unknownNode}</div>;
   }
 }

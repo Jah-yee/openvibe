@@ -4,10 +4,13 @@ import type { TerminalPayload } from "@/nodes/types";
 import type { TerminalStatus } from "@/store/terminalStatus";
 import { resumeOfferOf } from "./pill";
 import { relaunchTerminal } from "./registry";
+import { useMessages } from "@/i18n";
+import { nodesMessages } from "@/nodes/messages";
 
 /** Floating card over a stopped terminal (spec habillage §7.3). */
 export function ResumeCard(props: { nodeId: string; payload: TerminalPayload; status: TerminalStatus }) {
   const { nodeId, payload, status } = props;
+  const t = useMessages(nodesMessages).resumeCard;
   const [dismissed, setDismissed] = useState(false);
   const offer = resumeOfferOf(status, payload.agent, Boolean(payload.claudeSessionId));
 
@@ -27,14 +30,14 @@ export function ResumeCard(props: { nodeId: string; payload: TerminalPayload; st
         <History className="size-4 shrink-0 text-ov-accent" />
         <span className="min-w-0">
           <span className="block font-medium text-ov-text">
-            {resume ? "Reprendre la dernière conversation ?" : "Relancer ?"}
+            {resume ? t.resumeTitle : t.relaunchTitle}
           </span>
           <span className="block truncate text-ov-text-2">
-            {resume ? "Cliquer pour reprendre · taper démarre à neuf" : "Cliquer pour relancer · taper démarre à neuf"}
+            {resume ? t.resumeHint : t.relaunchHint}
           </span>
         </span>
       </button>
-      <button type="button" aria-label="Masquer" className="text-ov-text-2 hover:text-ov-text" onClick={() => setDismissed(true)}>
+      <button type="button" aria-label={t.hide} className="text-ov-text-2 hover:text-ov-text" onClick={() => setDismissed(true)}>
         <X className="size-3.5" />
       </button>
     </div>

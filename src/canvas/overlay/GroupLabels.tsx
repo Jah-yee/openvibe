@@ -9,6 +9,8 @@ import { useActivities } from "@/store/agentActivity";
 import { uiStore, useUi } from "@/store/ui";
 import { canvasStore, useCanvas, type CanvasView } from "../canvasStore";
 import { groupBeingRenamed, isGroup, type SceneGroup } from "../groups";
+import { useMessages } from "@/i18n";
+import { canvasMessages } from "../messages";
 
 /** The label sits on the frame's top edge, 16 px from its corner, like a tab (spec §11.4). */
 const LABEL_INSET = 16;
@@ -94,6 +96,7 @@ function GroupLabel(props: { group: SceneGroup; view: CanvasView; working: numbe
 
 /** The group's name, edited in place: Enter or a click elsewhere keeps it, Escape cancels. */
 function NameField({ name, onDone }: { name: string; onDone: (name: string | null) => void }) {
+  const t = useMessages(canvasMessages);
   // Removing the focused field may fire one last blur: only the first ending counts.
   const done = useRef(false);
   const finish = (value: string | null) => {
@@ -106,7 +109,7 @@ function NameField({ name, onDone }: { name: string; onDone: (name: string | nul
     <input
       autoFocus
       defaultValue={name}
-      aria-label="Nom du groupe"
+      aria-label={t.groupNameLabel}
       size={Math.max(4, name.length + 1)}
       onFocus={(e) => e.currentTarget.select()}
       onBlur={(e) => finish(e.currentTarget.value)}
