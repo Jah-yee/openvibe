@@ -4,6 +4,15 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 
 ## [Unreleased]
 
+The first public beta of OpenVibe: a local, open source canvas where AI coding agents work side by side in real terminals.
+
+### Highlights
+- Real terminals on an Excalidraw canvas for Claude Code, Codex, Gemini CLI, Qwen Code, Cursor CLI, opencode, Aider, Ollama or any command, each with its live state.
+- Groups with roles and names from a pantheon, and one instruction box for everyone, a group or a single agent.
+- An orchestrator that proposes a plan, gives each agent a sub-task on its own git branch and worktree, watches the time budgets and merges the results into a mission branch.
+- Change review with line remarks sent back to the agent, Remote Control for Claude Code, and your Claude usage in the title bar.
+- English and French, a guided first launch, a troubleshooting dialog, and updates that install themselves.
+
 ### Added
 - The interface in English and French. It follows Windows' language (English unless Windows is in French); the settings menu and the command palette switch it at once.
 - A guided first launch: while no project exists or no coding agent is installed, the home screen shows three steps. Without any agent, it gives Claude Code's official install command to copy and the other agents' official pages.

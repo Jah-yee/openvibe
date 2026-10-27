@@ -4,11 +4,11 @@ OpenVibe launches AI coding agents in real terminals on your machine, so its sec
 
 ## Supported versions
 
-OpenVibe is an early preview. Only the latest code on the `main` branch receives security fixes.
+OpenVibe is in beta. Only the latest release and the `main` branch receive security fixes; installed versions update themselves.
 
 | Version | Supported |
 |---|---|
-| `main` (0.1.x) | Yes |
+| Latest release (1.0.0 betas) and `main` | Yes |
 | Anything older | No |
 
 ## Reporting a vulnerability
