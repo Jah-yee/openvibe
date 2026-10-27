@@ -2,6 +2,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { framesFromScene, groupOf, isGroup } from "@/canvas/groups";
 import { nodeKindOf } from "@/canvas/nodeElement";
 import { readingOrder, terminalOrder } from "@/canvas/terminalOrder";
+import { messages } from "@/i18n";
 import { AGENTS } from "@/fleet/catalog";
 import { ROLES } from "@/fleet/roles";
 import { orchestratorLinks } from "@/fleet/wires";
@@ -9,6 +10,7 @@ import type { Project, Workspace } from "@/ipc/db";
 import type { AgentId } from "@/ipc/pty";
 import { readOrchestratorPayload } from "@/nodes/types";
 import { terminalOf, type NodeRecord } from "@/store/nodes";
+import { commandsMessages } from "./messages";
 import { rank, rankSections } from "./search";
 
 export type GoToKind = "terminal" | "group" | "orchestrator" | "workspace" | "project";
@@ -35,13 +37,7 @@ export interface GoToItem {
   path?: string;
 }
 
-export const GO_TO_SECTIONS: readonly { kind: GoToKind; label: string }[] = [
-  { kind: "terminal", label: "Terminaux" },
-  { kind: "group", label: "Groupes" },
-  { kind: "orchestrator", label: "Orchestrateurs" },
-  { kind: "workspace", label: "Workspaces" },
-  { kind: "project", label: "Projets" },
-];
+export const GO_TO_SECTIONS: readonly GoToKind[] = ["terminal", "group", "orchestrator", "workspace", "project"];
 
 export interface GoToInput {
   home: boolean;
@@ -68,6 +64,7 @@ function projectItems(input: GoToInput): GoToItem[] {
 /** The items of « Aller à », section by section, in their order without a search (spec fenêtre §7.2). */
 export function goToItems(input: GoToInput): GoToItem[] {
   if (input.home) return projectItems(input);
+  const words = messages(commandsMessages).goTo.keywords;
   const onScreenFirst = [...input.workspaces].sort(
     (a, b) => Number(b.id === input.activeWorkspaceId) - Number(a.id === input.activeWorkspaceId),
   );
@@ -102,7 +99,7 @@ export function goToItems(input: GoToInput): GoToItem[] {
         key: `group:${frame.id}`,
         kind: "group",
         label: frame.name,
-        keywords: ["groupe", role.label, workspace.name],
+        keywords: [words.group, role.label, workspace.name],
         workspaceId: workspace.id,
         targetId: frame.id,
         elsewhere,
@@ -117,7 +114,7 @@ export function goToItems(input: GoToInput): GoToItem[] {
         key: `orchestrator:${element.id}`,
         kind: "orchestrator",
         label: readOrchestratorPayload(input.nodes[element.id]?.payload).name,
-        keywords: ["orchestrateur", workspace.name],
+        keywords: [words.orchestrator, workspace.name],
         workspaceId: workspace.id,
         targetId: element.id,
         elsewhere,
@@ -130,7 +127,7 @@ export function goToItems(input: GoToInput): GoToItem[] {
       key: `workspace:${w.id}`,
       kind: "workspace",
       label: w.name,
-      keywords: ["workspace", "onglet"],
+      keywords: [words.workspace, words.tab],
       workspaceId: w.id,
       live: input.live[w.id] ?? 0,
       current: w.id === input.activeWorkspaceId,
@@ -147,7 +144,8 @@ export interface GoToSection {
 
 /** The sections of « Aller à », each ranked by the search, the best match's first while searching; empty ones left out. */
 export function goToSections(items: readonly GoToItem[], query: string): GoToSection[] {
-  const sections = GO_TO_SECTIONS.map(({ kind, label }) => ({ kind, label, items: rank(items.filter((i) => i.kind === kind), query, (i) => i) })).filter(
+  const labels = messages(commandsMessages).goTo.sections;
+  const sections = GO_TO_SECTIONS.map((kind) => ({ kind, label: labels[kind], items: rank(items.filter((i) => i.kind === kind), query, (i) => i) })).filter(
     (section) => section.items.length > 0,
   );
   return rankSections(sections, query, (i: GoToItem) => i);

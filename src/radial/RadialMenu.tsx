@@ -1,11 +1,13 @@
 import { useEffect, type PointerEvent } from "react";
 import { X } from "lucide-react";
 import { paletteStore } from "@/commands/paletteState";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { projectsStore } from "@/store/projects";
 import { uiStore } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
 import { chooseSlot } from "./choose";
+import { radialMessages } from "./messages";
 import { BUTTON_SIZE, PILL_GAP, RING_RADIUS, slotPosition } from "./gesture";
 import { closeRadial, radialStore, updateRadial, useRadial } from "./radialState";
 import { lineOf, RINGS } from "./rings";
@@ -30,6 +32,7 @@ const keepKeyboard = (event: PointerEvent) => event.preventDefault();
 /** The ring of the right click (spec menu radial §5). */
 export function RadialMenu() {
   const ring = useRadial((s) => s.ring);
+  const t = useMessages(radialMessages);
   useEffect(closeOnLeave, []);
   if (!ring) return null;
   const lines = RINGS[ring.kind].map((slot) => (slot ? lineOf(slot, ring.context) : null));
@@ -64,7 +67,7 @@ export function RadialMenu() {
       })}
       <button
         type="button"
-        aria-label="Fermer le menu"
+        aria-label={t.closeMenu}
         onPointerDown={keepKeyboard}
         onClick={closeRadial}
         className="ov-glass-strong pointer-events-auto absolute grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-ov-text-2"

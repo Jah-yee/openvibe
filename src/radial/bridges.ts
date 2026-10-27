@@ -1,6 +1,8 @@
 import { toast } from "sonner";
+import { messages } from "@/i18n";
 import { canvasStore } from "@/canvas/canvasStore";
 import type { Point } from "@/fleet/terminals";
+import { radialMessages } from "./messages";
 
 /** Excalidraw's container: its keys, copy and paste act when it has the keyboard. */
 const container = () => document.querySelector<HTMLElement>(".excalidraw-container");
@@ -51,11 +53,11 @@ export async function readClipboard(): Promise<DataTransfer | null> {
       }
     }
   } catch {
-    toast.error("Lecture du presse-papiers impossible");
+    toast.error(messages(radialMessages).clipboardUnreadable);
     return null;
   }
   if (data.types.length === 0) {
-    toast("Presse-papiers vide");
+    toast(messages(radialMessages).clipboardEmpty);
     return null;
   }
   return data;
@@ -66,7 +68,7 @@ export async function readClipboardText(): Promise<string | null> {
   const data = await readClipboard();
   if (!data) return null;
   const text = data.getData("text/plain");
-  if (text === "") toast("Presse-papiers vide");
+  if (text === "") toast(messages(radialMessages).clipboardEmpty);
   return text === "" ? null : text;
 }
 

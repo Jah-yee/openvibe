@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import { toast } from "sonner";
+import { messages } from "@/i18n";
 import { useStore } from "zustand";
 import { canvasStore } from "@/canvas/canvasStore";
 import { loadScene } from "@/canvas/sceneCache";
@@ -9,6 +10,7 @@ import { useProjects } from "@/store/projects";
 import { countRunning } from "@/store/running";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { useWorkspaces } from "@/store/workspaces";
+import { commandsMessages } from "./messages";
 import { goToItems, type GoToItem } from "./goTo";
 
 /**
@@ -42,7 +44,7 @@ export function useGoToData(): { items: GoToItem[]; loading: boolean } {
         (scene) => keep(workspace.id, scene.initialData.elements ?? []),
         () => {
           if (!alive) return;
-          toast.error(`Workspace ${workspace.name} illisible`);
+          toast.error(messages(commandsMessages).goTo.unreadable(workspace.name));
           keep(workspace.id, []);
         },
       );
