@@ -39,7 +39,7 @@ it("draws the bottom row and its command bar in dense glass: they carry text ove
     expect(readSource(file), `${file} : verre léger sous du texte`).not.toMatch(/ov-glass(?!-strong)\b/);
   }
   expect(readSource("shell/CommandBar.tsx")).toContain("w-[680px]");
-  expect(readSource("shell/CommandBar.tsx")).toContain('placeholder="Consigne aux agents · @ pour cibler · / commande · ↑ historique"');
+  expect(readSource("shell/messages.ts")).toContain("Consigne aux agents · @ pour cibler · / commande · ↑ historique");
   expect(readSource("fleet/CommandInput.tsx")).toContain("rounded-[10px]");
 });
 
