@@ -1,3 +1,6 @@
+import { messages } from "@/i18n";
+import { agentMessages } from "@/mcp/messages";
+
 /** A step an agent declared (spec orchestrateur §4.4, §5): its frieze shows them in order. */
 export type StepState = "a_venir" | "en_cours" | "fait" | "echec";
 
@@ -12,7 +15,7 @@ const STATES: readonly string[] = ["a_venir", "en_cours", "fait", "echec"];
 const MARKS: readonly string[] = ["en_cours", "fait", "echec"];
 
 const titleOf = (raw: unknown) => (typeof raw === "string" && raw.trim() ? raw.trim().slice(0, MAX_STEP_TITLE) : null);
-const TOO_LONG = `Chaque étape est un titre court (${MAX_STEP_TITLE} caractères au plus).`;
+const t = () => messages(agentMessages).steps;
 /** An agent's title past the limit is refused, never cut: it would no longer name its step. */
 const tooLong = (raw: unknown) => typeof raw === "string" && raw.trim().length > MAX_STEP_TITLE;
 
@@ -24,22 +27,22 @@ export function readSteps(raw: unknown): Step[] | undefined {
   return steps.map((s) => ({ title: titleOf(s.title)!, state: s.state as StepState }));
 }
 
-/** `declarer_etapes`: the steps, all to come; or what is wrong. */
+/** `declare_steps`: the steps, all to come; or what is wrong. */
 export function declaredSteps(raw: unknown): Step[] | string {
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_STEPS) return `Donne entre 1 et ${MAX_STEPS} étapes.`;
-  if (raw.some(tooLong)) return TOO_LONG;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_STEPS) return t().count(MAX_STEPS);
+  if (raw.some(tooLong)) return t().tooLong(MAX_STEP_TITLE);
   const titles = raw.map(titleOf);
-  if (titles.some((t) => t === null)) return "Chaque étape est un titre court.";
+  if (titles.some((title) => title === null)) return t().shortTitle;
   return titles.map((title) => ({ title: title!, state: "a_venir" }));
 }
 
-/** `etape`: the step of that title (case aside) takes the state; an unknown one is added at the end. */
+/** `step`: the step of that title (case aside) takes the state; an unknown one is added at the end. */
 export function markedSteps(steps: readonly Step[], rawTitle: unknown, state: unknown): Step[] | string {
-  if (tooLong(rawTitle)) return TOO_LONG;
+  if (tooLong(rawTitle)) return t().tooLong(MAX_STEP_TITLE);
   const title = titleOf(rawTitle);
-  if (!title) return "Chaque étape est un titre court.";
-  if (typeof state !== "string" || !MARKS.includes(state)) return `État inconnu : ${String(state)} (en_cours, fait ou echec).`;
+  if (!title) return t().shortTitle;
+  if (typeof state !== "string" || !MARKS.includes(state)) return t().unknownState(String(state));
   const at = steps.findIndex((s) => s.title.toLowerCase() === title.toLowerCase());
-  if (at === -1) return steps.length >= MAX_STEPS ? `Pas plus de ${MAX_STEPS} étapes.` : [...steps, { title, state: state as StepState }];
+  if (at === -1) return steps.length >= MAX_STEPS ? t().tooMany(MAX_STEPS) : [...steps, { title, state: state as StepState }];
   return steps.map((s, i) => (i === at ? { ...s, state: state as StepState } : s));
 }

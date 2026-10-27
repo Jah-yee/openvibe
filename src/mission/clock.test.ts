@@ -2,6 +2,7 @@
 import { beforeAll, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { toast } from "sonner";
+import { langStore } from "@/i18n";
 import { nodesStore } from "@/store/nodes";
 import { checkBudgets } from "./clock";
 import { notify } from "./events";
@@ -37,7 +38,7 @@ it("tells the orchestrator once when a budget runs out, warns the user at 200 % 
   checkBudgets(11 * min);
   checkBudgets(12 * min);
   expect(vi.mocked(notify).mock.calls).toEqual([
-    ["chef", "Budget écoulé : Isis (Login) a passé ses 10 min sans rendre compte. Décide : ecrire, prolonger, interrompre ou reattribuer."],
+    ["chef", "Budget écoulé : Isis (Login) a passé ses 10 min sans rendre compte. Décide : write, extend, interrupt ou reassign."],
   ]);
   expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].overdue).toBe(1);
   checkBudgets(21 * min);
@@ -64,4 +65,25 @@ it("says nothing about the mission of a closed orchestrator (spec première vers
   setOrchestratorClosed("chef", false);
   checkBudgets(100 * min);
   expect(notify).toHaveBeenCalled();
+});
+
+it("tells the orchestrator and the user in English when the interface is (spec première version §7.1)", () => {
+  const fresh = { nodeId: "isis", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0 };
+  setMission("chef", { members: [fresh], globalOverdue: undefined });
+  vi.mocked(notify).mockClear();
+  vi.mocked(toast.warning).mockClear();
+  langStore.setState({ lang: "en" });
+  try {
+    checkBudgets(100 * min);
+    expect(vi.mocked(notify).mock.calls).toEqual([
+      ["chef", "Budget used up: Isis (Login) went past its 10 min without reporting. Decide: write, extend, interrupt or reassign."],
+      ["chef", "Overall budget used up (30 min): finish with what is done."],
+    ]);
+    expect(vi.mocked(toast.warning).mock.calls).toEqual([
+      ["Isis has gone over twice its budget (10 min) without reporting."],
+      ["Mission Auth: overall budget used up (30 min)."],
+    ]);
+  } finally {
+    langStore.setState({ lang: "fr" });
+  }
 });

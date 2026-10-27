@@ -37,6 +37,8 @@ export const missionMessages = defineMessages(
     cleaned: (removed: string[], kept: string[]) =>
       `Worktrees retirés : ${removed.join(", ") || "aucun"}${kept.length ? ` · gardés : ${kept.join(", ")}` : ""}`,
     clean: "Nettoyer la mission",
+    overBudgetTwice: (name: string, budget: number) => `${name} a dépassé deux fois son budget (${budget} min) sans rendre compte.`,
+    globalOver: (mission: string, budget: number) => `Budget global de la mission ${mission} écoulé (${budget} min).`,
   },
   {
     state: {
@@ -74,5 +76,7 @@ export const missionMessages = defineMessages(
     cleaned: (removed: string[], kept: string[]) =>
       `Worktrees removed: ${removed.join(", ") || "none"}${kept.length ? ` · kept: ${kept.join(", ")}` : ""}`,
     clean: "Clean up the mission",
+    overBudgetTwice: (name: string, budget: number) => `${name} has gone over twice its budget (${budget} min) without reporting.`,
+    globalOver: (mission: string, budget: number) => `Mission ${mission}: overall budget used up (${budget} min).`,
   },
 );

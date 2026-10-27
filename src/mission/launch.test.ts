@@ -8,6 +8,7 @@ import { closeGroup, launchGroup } from "@/fleet/groups";
 import { linkOrchestrator } from "@/fleet/orchestrators";
 import { addTerminal } from "@/fleet/terminals";
 import { missionAddAgent, missionCleanup, missionDiscard, missionMerge, missionPrepare, type Worktree } from "@/ipc/mission";
+import { langStore } from "@/i18n";
 import { ptySendText } from "@/ipc/pty";
 import { relaunchTerminal, stopTerminal } from "@/nodes/terminal/registry";
 import type { TerminalPayload } from "@/nodes/types";
@@ -76,8 +77,57 @@ beforeEach(() => {
 
 it("writes an agent's sub-task on one line, with its budget, branch and duties (spec §7.3)", () => {
   expect(subTaskText("Auth", plan[1], "openvibe/auth-horus")).toBe(
-    "[OpenVibe · mission Auth] API — Fais l'API puis teste. Budget : 30 min. Branche : openvibe/auth-horus. Ce worktree est neuf : les dépendances (node_modules…) n'y sont pas installées. Déclare tes étapes, délègue à tes sous-agents, commit sur ta branche, puis rends compte avec rendre_compte.",
+    "[OpenVibe · mission Auth] API — Fais l'API puis teste. Budget : 30 min. Branche : openvibe/auth-horus. Ce worktree est neuf : les dépendances (node_modules…) n'y sont pas installées. Déclare tes étapes, délègue à tes sous-agents, commit sur ta branche, puis rends compte avec report.",
   );
+});
+
+describe("what OpenVibe types to agents, in English (spec première version §7.1)", () => {
+  const english = async (check: () => Promise<void> | void) => {
+    langStore.setState({ lang: "en" });
+    try {
+      await check();
+    } finally {
+      langStore.setState({ lang: "fr" });
+    }
+  };
+
+  it("writes the sub-task and the handover in the interface's language", () =>
+    english(() => {
+      expect(subTaskText("Auth", plan[1], "openvibe/auth-horus")).toBe(
+        "[OpenVibe · mission Auth] API — Fais l'API puis teste. Budget: 30 min. Branch: openvibe/auth-horus. This worktree is new: its dependencies (node_modules…) are not installed. Declare your steps, delegate to your sub-agents, commit on your branch, then report with report.",
+      );
+      expect(handoverText(member("n1", "Horus", false, { report: { summary: "API done", status: "termine", at: 1 } }))).toBe(
+        'Taking over Horus\'s work: its report (done): "API done". Its branch openvibe/auth-n1: merge it into yours to start from its work.',
+      );
+      expect(handoverText(member("n1", "Horus", false))).toContain("it did not report");
+    }));
+
+  it("tells the orchestrator in English that the mission could not start", () =>
+    english(async () => {
+      await setup();
+      vi.mocked(missionPrepare).mockRejectedValueOnce(new Error("boom"));
+      await launchMission("chef");
+      expect(notify).toHaveBeenCalledWith("chef", "The mission could not start: boom");
+    }));
+
+  it("says what was merged in English", () =>
+    english(async () => {
+      const done = { summary: "ok", status: "termine" as const, at: 1 };
+      await setup({ state: "en_cours", worktree: "C:/w/auth", branch: "openvibe/auth", members: [member("isis", "Isis", true, { report: done }), member("n1", "Horus", false, { report: done })] });
+      vi.mocked(missionMerge).mockImplementation(async (_mission, _agent, branch) =>
+        branch.endsWith("isis") ? { merge: { kind: "merged" }, uncommitted: true } : { merge: { kind: "conflict", files: ["a.ts"] }, uncommitted: false },
+      );
+      expect(await mergeMission("chef")).toBe("Branch openvibe/auth:\nIsis: merged (uncommitted changes in its worktree are not merged)\nHorus: conflict, merge undone — a.ts");
+    }));
+
+  it("refuses a reassignment in English, and tells the previous agent in English", () =>
+    english(async () => {
+      const report = { summary: "API done", status: "termine" as const, at: 1 };
+      await setup({ state: "en_cours", project: "C:/code/proj", slug: "auth", frameId: "f1", members: [member("isis", "Isis", true, { task: "Login" }), member("n1", "Horus", false, { task: "API", report, merged: true })] });
+      expect(await reassignTask("chef", "n1", "Isis")).toBe('Isis has not finished its sub-task: choose an agent that has reported, or "new".');
+      expect(await reassignTask("chef", "isis", "Horus")).toEqual({ name: "Horus" });
+      expect(ptySendText).toHaveBeenCalledWith("isis", '[OpenVibe] Your sub-task "Login" goes to Horus: stop it and commit nothing more on it.');
+    }));
 });
 
 describe("the model router (spec maj §3)", () => {
@@ -322,7 +372,7 @@ describe("reassignTask (spec §7.2 reattribuer)", () => {
     // Its finished work must reach the mission's branch before its entry takes another sub-task (final review H3).
     updateMember("chef", "n1", { merged: false });
     const unmerged = missionNow();
-    expect(await reassignTask("chef", "isis", "Horus")).toContain("appelle fusionner d'abord");
+    expect(await reassignTask("chef", "isis", "Horus")).toContain("appelle merge d'abord");
     expect(missionNow()).toEqual(unmerged);
     expect(pauseAgents).not.toHaveBeenCalled();
   });

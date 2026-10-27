@@ -151,6 +151,13 @@ export const agentMessages = defineMessages(
       notMerged: (name: string, task: string) => `${name} a fini « ${task} » mais sa branche n'est pas fusionnée : appelle merge d'abord.`,
       createFailed: "Le nouvel agent n'a pas pu être créé.",
     },
+    launch: {
+      unlinked: (agent: string) => `${agent} n'est plus relié à l'orchestrateur.`,
+      leftWorkspace: "L'espace de l'orchestrateur n'est plus affiché : reviens-y et relance la mission.",
+      groupFailed: "Le groupe des nouveaux agents n'a pas pu être créé.",
+      noFolder: "La mission n'a pas de dossier.",
+      notFinished: "La mission n'est pas terminée.",
+    },
     review: {
       intro: "Revue de code de tes changements :",
       removedLine: (file: string, line: number) => `${file} (ligne ${line} supprimée)`,
@@ -264,9 +271,9 @@ export const agentMessages = defineMessages(
         "This worktree is new: its dependencies (node_modules…) are not installed. " +
         "Declare your steps, delegate to your sub-agents, commit on your branch, then report with report.",
       handover: (name: string, report: string, branch: string) =>
-        `Taking over ${name}'s work: ${report}. Their branch ${branch}: merge it into yours to start from their work.`,
-      handoverReport: (status: string, summary: string) => `their report (${status}): "${summary}"`,
-      handoverNoReport: "they did not report",
+        `Taking over ${name}'s work: ${report}. Its branch ${branch}: merge it into yours to start from its work.`,
+      handoverReport: (status: string, summary: string) => `its report (${status}): "${summary}"`,
+      handoverNoReport: "it did not report",
       handedAway: (task: string, name: string) => `[OpenVibe] Your sub-task "${task}" goes to ${name}: stop it and commit nothing more on it.`,
       notStarted: (name: string) => `${name} did not start: its sub-task is not sent.`,
       notReady: (name: string) => `${name} is not ready after a minute, its Claude session did not open: its sub-task is not sent. Look at its terminal with read_output.`,
@@ -300,6 +307,13 @@ export const agentMessages = defineMessages(
       notDone: (name: string) => `${name} has not finished its sub-task: choose an agent that has reported, or "new".`,
       notMerged: (name: string, task: string) => `${name} finished "${task}" but its branch is not merged: call merge first.`,
       createFailed: "The new agent could not be created.",
+    },
+    launch: {
+      unlinked: (agent: string) => `${agent} is no longer linked to the orchestrator.`,
+      leftWorkspace: "The orchestrator's workspace is no longer on screen: go back to it and launch the mission again.",
+      groupFailed: "The new agents' group could not be created.",
+      noFolder: "The mission has no folder.",
+      notFinished: "The mission is not finished.",
     },
     review: {
       intro: "Code review of your changes:",

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { langStore } from "@/i18n";
 import { declaredSteps, markedSteps, readSteps } from "./steps";
 import { readTerminalPayload } from "./types";
 
@@ -24,10 +25,21 @@ describe("an agent's steps (spec orchestrateur §4.4, §5)", () => {
       { title: "Code", state: "a_venir" },
     ]);
     expect(markedSteps(steps, "Tests", "en_cours")).toEqual([...steps, { title: "Tests", state: "en_cours" }]);
-    expect(markedSteps(steps, "Plan", "fini")).toBe("État inconnu : fini (en_cours, fait ou echec).");
+    expect(markedSteps(steps, "Plan", "fini")).toBe("État inconnu : fini (in_progress, done ou failed).");
     expect(markedSteps([], "Plan", "fait")).toEqual([{ title: "Plan", state: "fait" }]);
     expect(markedSteps(steps, "", "fait")).toBe("Chaque étape est un titre court.");
     expect(markedSteps(steps, "x".repeat(41), "fait")).toBe("Chaque étape est un titre court (40 caractères au plus).");
+  });
+
+  it("explains a refusal in English when the interface is (spec première version §7.1)", () => {
+    langStore.setState({ lang: "en" });
+    try {
+      expect(declaredSteps([])).toBe("Give between 1 and 12 steps.");
+      expect(declaredSteps(["x".repeat(41)])).toBe("Each step is a short title (40 characters at most).");
+      expect(markedSteps([], "Plan", "fini")).toBe("Unknown state: fini (in_progress, done or failed).");
+    } finally {
+      langStore.setState({ lang: "fr" });
+    }
   });
 
   it("keeps the steps a terminal saved, drops what it cannot read", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { langStore } from "@/i18n";
 import { budgetBar, budgetOf, clockText, memberTime, NEW_MISSION, oneLine, overruns, proposedPlan, readMission, remainingGlobal, sameName, spentMin, type Member, type Mission } from "./mission";
 
 const task = (agent: string, budget = 20) => ({ titre: "Login", consigne: "Fais le login", agent, budget_min: budget });
@@ -26,6 +27,19 @@ describe("proposedPlan (spec orchestrateur §7.2)", () => {
     expect(proposedPlan(args(task("nouveau", 0)), NEW_MISSION, [])).toContain("budget");
     expect(proposedPlan({ tache: "x", sous_taches: [task("nouveau")] }, NEW_MISSION, [])).toContain("nom");
     expect(proposedPlan(args(), NEW_MISSION, [])).toContain("au moins une");
+  });
+});
+
+describe("a refused plan in English (spec première version §7.1)", () => {
+  it("explains what is wrong in the interface's language", () => {
+    langStore.setState({ lang: "en" });
+    try {
+      expect(proposedPlan(args(task("Zeus")), NEW_MISSION, ["Athéna"])).toBe('Sub-task 1: "Zeus" is not a linked Claude agent (a first name, or "new").');
+      expect(proposedPlan(args(task("nouveau", 0)), NEW_MISSION, [])).toBe("Sub-task 1: a budget in minutes (a whole number, 1 at least).");
+      expect(proposedPlan(args(task("nouveau")), { ...NEW_MISSION, router: true }, [])).toBe("Sub-task 1: a level (low, medium, high or extreme) — the router chooses the agent's model with it.");
+    } finally {
+      langStore.setState({ lang: "fr" });
+    }
   });
 });
 

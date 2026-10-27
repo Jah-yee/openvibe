@@ -1,7 +1,10 @@
 import { toast } from "sonner";
+import { messages } from "@/i18n";
+import { agentMessages } from "@/mcp/messages";
 import { nodesStore } from "@/store/nodes";
 import { notify } from "./events";
 import { overruns } from "./mission";
+import { missionMessages } from "./messages";
 import { isOrchestratorClosed, missionOf, setMission, updateMember } from "./store";
 
 /** How often the missions' clocks are read. */
@@ -13,20 +16,19 @@ export function checkBudgets(now = Date.now()) {
     const mission = missionOf(record);
     if (!mission || isOrchestratorClosed(orchestratorId)) continue;
     const found = overruns(mission, now);
+    const lines = messages(agentMessages).lines;
+    const said = messages(missionMessages);
     for (const overrun of found.members) {
       const before = mission.members.find((m) => m.nodeId === overrun.nodeId)?.overdue ?? 0;
       if (before < 1) {
-        notify(
-          orchestratorId,
-          `Budget écoulé : ${overrun.name} (${overrun.task}) a passé ses ${overrun.budget} min sans rendre compte. Décide : ecrire, prolonger, interrompre ou reattribuer.`,
-        );
+        notify(orchestratorId, lines.budgetOver(overrun.name, overrun.task, overrun.budget));
       }
-      if (overrun.level === 2) toast.warning(`${overrun.name} a dépassé deux fois son budget (${overrun.budget} min) sans rendre compte.`);
+      if (overrun.level === 2) toast.warning(said.overBudgetTwice(overrun.name, overrun.budget));
       updateMember(orchestratorId, overrun.nodeId, { overdue: overrun.level });
     }
     if (found.global) {
-      notify(orchestratorId, `Budget global écoulé (${mission.budgetMin} min) : termine avec ce qui est fait.`);
-      toast.warning(`Budget global de la mission ${mission.name ?? ""} écoulé (${mission.budgetMin} min).`);
+      notify(orchestratorId, lines.globalOver(mission.budgetMin ?? 0));
+      toast.warning(said.globalOver(mission.name ?? "", mission.budgetMin ?? 0));
       setMission(orchestratorId, { globalOverdue: true });
     }
   }

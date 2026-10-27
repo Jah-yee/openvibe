@@ -1,4 +1,6 @@
+import { messages } from "@/i18n";
 import { ptySendText } from "@/ipc/pty";
+import { agentMessages } from "@/mcp/messages";
 import { freshText, quietFor } from "@/nodes/terminal/registry";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore } from "@/store/nodes";
@@ -67,7 +69,7 @@ export function installMissionEvents(): () => void {
     for (const [nodeId, now] of Object.entries(state.activities)) {
       if (now.activity !== "waiting" || previous.activities[nodeId]?.activity === "waiting") continue;
       const found = memberOf(nodeId);
-      if (found) notify(found.orchestratorId, `${found.member.name} attend une réponse de l'utilisateur (un dialogue est ouvert dans son terminal).`);
+      if (found) notify(found.orchestratorId, messages(agentMessages).lines.waiting(found.member.name));
     }
     flushAll();
   });
@@ -78,7 +80,7 @@ export function installMissionEvents(): () => void {
       if (started && nodesStore.getState().nodes[nodeId]?.kind === "orchestrator") awaitPrompt(nodeId);
       if (previous.statuses[nodeId]?.state !== "running" || state.statuses[nodeId]?.state === "running") continue;
       const found = memberOf(nodeId);
-      if (found) notify(found.orchestratorId, `${found.member.name} s'est arrêté : son terminal ne tourne plus.`);
+      if (found) notify(found.orchestratorId, messages(agentMessages).lines.stopped(found.member.name));
     }
     flushAll();
   });
