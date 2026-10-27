@@ -2,9 +2,11 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, X } from "lucide-react";
 import { useStore } from "zustand";
 import type { SceneFrame } from "@/canvas/groups";
+import { useMessages } from "@/i18n";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
 import { cn } from "@/lib/utils";
 import { sendCommand } from "./broadcast";
+import { fleetMessages } from "./messages";
 import { browseHistory, historyStore } from "./history";
 import { commandAt, isKnownCommand, isSlashCommand, matchCommands } from "./slashCommands";
 import {
@@ -56,6 +58,7 @@ export function CommandInput(props: {
   compact?: boolean;
 }) {
   const { agents, groups, fallback, placeholder, emptyHint, compact = false } = props;
+  const t = useMessages(fleetMessages).command;
   const [text, setText] = useState("");
   const [caret, setCaret] = useState(0);
   const [targets, setTargets] = useState<Target[]>([]);
@@ -217,7 +220,7 @@ export function CommandInput(props: {
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {text.trim() && nothingTargeted && <p className="text-[11px] text-ov-text-2">{emptyHint}</p>}
-        {unknown && <p className="text-[11px] text-ov-text-2">Cible inconnue : {unknown}</p>}
+        {unknown && <p className="text-[11px] text-ov-text-2">{t.unknownTarget(unknown)}</p>}
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           {chips.map((target) => (
             <span
@@ -227,7 +230,7 @@ export function CommandInput(props: {
               {labels.get(targetKey(target))}
               <button
                 type="button"
-                aria-label={`Retirer ${labels.get(targetKey(target))}`}
+                aria-label={t.remove(labels.get(targetKey(target)) ?? "")}
                 onClick={() => setTargets(chips.filter((c) => targetKey(c) !== targetKey(target)))}
                 className="grid size-4 place-items-center rounded-full text-ov-text-2 hover:text-ov-text"
               >
@@ -251,8 +254,8 @@ export function CommandInput(props: {
       </div>
       <button
         type="button"
-        aria-label="Envoyer"
-        title={canSend ? "Envoyer" : nothingTargeted ? emptyHint : "Écris une consigne"}
+        aria-label={t.send}
+        title={canSend ? t.send : nothingTargeted ? emptyHint : t.writeInstruction}
         disabled={!canSend}
         onClick={send}
         className={cn(
@@ -262,7 +265,7 @@ export function CommandInput(props: {
         )}
       >
         <ArrowUp className="size-4" />
-        {!compact && "Envoyer"}
+        {!compact && t.send}
       </button>
     </div>
   );

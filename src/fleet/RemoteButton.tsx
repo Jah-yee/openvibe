@@ -8,27 +8,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { messages, useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { fleetMessages } from "./messages";
 import { setRemoteControl, useRemoteLink, type RemoteLink } from "./remoteControl";
 
 /** What the phone icon says. */
 export function remoteLabel(link: RemoteLink | undefined, wanted: boolean, running: boolean): string {
-  if (link?.state === "on") return "Remote Control actif";
-  if (link?.state === "connecting") return "Remote Control : connexion…";
-  if (link?.state === "pending") return "Remote Control à la fin de son tour";
-  if (link?.state === "error") return `Remote Control : ${link.error ?? "échec"}`;
-  if (wanted) return running ? "Remote Control demandé" : "Remote Control au prochain démarrage";
-  return "Remote Control";
+  const t = messages(fleetMessages).remote;
+  if (link?.state === "on") return t.on;
+  if (link?.state === "connecting") return t.connecting;
+  if (link?.state === "pending") return t.pending;
+  if (link?.state === "error") return t.error(link.error ?? t.failed);
+  if (wanted) return running ? t.requested : t.nextStart;
+  return t.label;
 }
 
 function run(nodeId: string, on: boolean) {
   void setRemoteControl(nodeId, on).then((result) => {
-    if (result && "error" in result) toast.error(`Remote Control : ${result.error}`);
+    if (result && "error" in result) toast.error(messages(fleetMessages).remote.error(result.error));
   });
 }
 
 /** Remote Control of one Claude session, in its header (spec maj §2). */
 export function RemoteButton({ nodeId, wanted, running }: { nodeId: string; wanted: boolean; running: boolean }) {
+  const t = useMessages(fleetMessages).remote;
   const link = useRemoteLink(nodeId);
   const label = remoteLabel(link, wanted, running);
   const url = link?.url;
@@ -52,17 +56,17 @@ export function RemoteButton({ nodeId, wanted, running }: { nodeId: string; want
       <DropdownMenuContent align="end">
         {wanted ? (
           <>
-            <DropdownMenuItem onSelect={() => run(nodeId, false)}>Couper Remote Control</DropdownMenuItem>
-            {link?.state === "error" && <DropdownMenuItem onSelect={() => run(nodeId, true)}>Réessayer</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={() => run(nodeId, false)}>{t.turnOff}</DropdownMenuItem>
+            {link?.state === "error" && <DropdownMenuItem onSelect={() => run(nodeId, true)}>{t.retry}</DropdownMenuItem>}
           </>
         ) : (
-          <DropdownMenuItem onSelect={() => run(nodeId, true)}>Activer Remote Control</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => run(nodeId, true)}>{t.turnOn}</DropdownMenuItem>
         )}
         {url && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(url).then(() => toast("Lien copié"))}>Copier le lien</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => void openUrl(url)}>Ouvrir dans le navigateur</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void navigator.clipboard.writeText(url).then(() => toast(t.linkCopied))}>{t.copyLink}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void openUrl(url)}>{t.openInBrowser}</DropdownMenuItem>
           </>
         )}
       </DropdownMenuContent>

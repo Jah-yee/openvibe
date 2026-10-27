@@ -1,20 +1,23 @@
+import { messages } from "@/i18n";
 import type { SceneFrame } from "@/canvas/groups";
 import type { AgentId } from "@/ipc/pty";
 import type { AgentActivity } from "@/store/agentActivity";
 import type { TerminalStatus } from "@/store/terminalStatus";
+import { fleetMessages } from "./messages";
 import { ROLES } from "./roles";
 
 /** What the fleet panel tells about an agent (spec habillage §5.5). */
 export type FleetState = "working" | "waiting" | "idle" | "stopped";
 export type FleetFilter = "all" | FleetState;
 
-export const FLEET_FILTERS: readonly { id: FleetFilter; label: string }[] = [
-  { id: "all", label: "Tous" },
-  { id: "working", label: "En cours" },
-  { id: "waiting", label: "Attend" },
-  { id: "idle", label: "Prêts" },
-  { id: "stopped", label: "Arrêtés" },
-];
+export const FLEET_FILTERS: readonly { id: FleetFilter; label: string }[] = (["all", "working", "waiting", "idle", "stopped"] as const).map(
+  (id) => ({
+    id,
+    get label() {
+      return messages(fleetMessages).filters[id];
+    },
+  }),
+);
 
 export interface FleetAgent {
   id: string;
@@ -58,7 +61,7 @@ export function fleetSections(
     }
   }
   const outside = shown.filter((a) => !inGroups.has(a.id));
-  if (outside.length > 0) sections.push({ id: null, name: "Hors groupe", color: null, agents: outside });
+  if (outside.length > 0) sections.push({ id: null, name: messages(fleetMessages).outsideGroup, color: null, agents: outside });
   return sections;
 }
 

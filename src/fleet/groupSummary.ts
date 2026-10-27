@@ -1,9 +1,12 @@
+import { messages } from "@/i18n";
+import { fleetMessages } from "./messages";
+
 /**
  * Counters of a group label (spec habillage §11.4): "4 · 2 en cours", or
  * "4 · inactif".
  */
 export function countsText(members: number, working: number): string {
-  return `${members} · ${working > 0 ? `${working} en cours` : "inactif"}`;
+  return messages(fleetMessages).summary.counts(members, working);
 }
 
 /** Names of the members still running, listed by the "Fermer le groupe" confirmation (spec §11.4). */
@@ -18,15 +21,15 @@ export function livingAgents(
 /** "· 1 attend", shown in amber after the counters; null when nobody waits. */
 export function waitingText(waiting: number): string | null {
   if (waiting <= 0) return null;
-  return `· ${waiting} ${waiting > 1 ? "attendent" : "attend"}`;
+  return messages(fleetMessages).summary.waiting(waiting);
 }
 
 /** "1 agent", "8 agents". */
 export function agentsText(count: number): string {
-  return count > 1 ? `${count} agents` : `${count} agent`;
+  return messages(fleetMessages).summary.agents(count);
 }
 
 /** "0 groupe", "2 groupes". */
 export function groupsText(count: number): string {
-  return count > 1 ? `${count} groupes` : `${count} groupe`;
+  return messages(fleetMessages).summary.groups(count);
 }

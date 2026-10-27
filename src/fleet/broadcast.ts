@@ -1,12 +1,14 @@
 import { toast } from "sonner";
 import { createStore } from "zustand";
 import { canvasStore } from "@/canvas/canvasStore";
+import { messages } from "@/i18n";
 import type { Activity } from "@/ipc/activity";
 import { ptyInterrupt, ptySendText, type AgentId } from "@/ipc/pty";
 import { agentActivityStore } from "@/store/agentActivity";
 import { nodesStore, terminalOf } from "@/store/nodes";
 import { statusOf, terminalStatusStore } from "@/store/terminalStatus";
 import { AGENTS } from "./catalog";
+import { fleetMessages } from "./messages";
 import { isSlashCommand, takesCommands } from "./slashCommands";
 
 /** "Tout reprendre" only restarts agents OpenVibe paused less than this ago (spec habillage §14). */
@@ -76,7 +78,7 @@ function factsOf(id: string): AgentFacts | null {
 
 function nameOf(id: string): string {
   const payload = terminalOf(nodesStore.getState().nodes[id]);
-  return payload ? payload.name || AGENTS[payload.agent].label : "Agent";
+  return payload ? payload.name || AGENTS[payload.agent].label : messages(fleetMessages).agentFallback;
 }
 
 /**
@@ -159,34 +161,25 @@ export async function resumeAgent(id: string): Promise<boolean> {
 
 /** "2 agents arrêtés ignorés : Thot, Anubis" (spec §12). */
 export function skippedText(names: readonly string[]): string | null {
-  if (names.length === 0) return null;
-  if (names.length === 1) return `1 agent arrêté ignoré : ${names[0]}`;
-  return `${names.length} agents arrêtés ignorés : ${names.join(", ")}`;
+  return names.length === 0 ? null : messages(fleetMessages).broadcast.skipped(names);
 }
 
 /** "1 agent en attente ignoré : Horus — réponds-lui dans son terminal" (spec §12). */
 export function waitingText(names: readonly string[]): string | null {
-  if (names.length === 0) return null;
-  if (names.length === 1) return `1 agent en attente ignoré : ${names[0]} — réponds-lui dans son terminal`;
-  return `${names.length} agents en attente ignorés : ${names.join(", ")} — réponds-leur dans leur terminal`;
+  return names.length === 0 ? null : messages(fleetMessages).broadcast.waiting(names);
 }
 
 /** "1 terminal sans agent ignoré : Thot — une commande / ne va qu'aux agents". */
 export function unsuitedText(names: readonly string[]): string | null {
-  if (names.length === 0) return null;
-  const why = "une commande / ne va qu'aux agents";
-  if (names.length === 1) return `1 terminal sans agent ignoré : ${names[0]} — ${why}`;
-  return `${names.length} terminaux sans agent ignorés : ${names.join(", ")} — ${why}`;
+  return names.length === 0 ? null : messages(fleetMessages).broadcast.unsuited(names);
 }
 
 export function pausedText(count: number): string {
-  if (count === 0) return "Aucun agent en cours à mettre en pause";
-  return count === 1 ? "1 agent mis en pause" : `${count} agents mis en pause`;
+  return messages(fleetMessages).broadcast.paused(count);
 }
 
 export function resumedText(count: number): string {
-  if (count === 0) return "Aucun agent mis en pause à reprendre";
-  return count === 1 ? "1 agent repris" : `${count} agents repris`;
+  return messages(fleetMessages).broadcast.resumed(count);
 }
 
 /** The command bar's and the orchestrator's send, with the toasts of ignored agents. */

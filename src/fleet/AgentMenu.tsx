@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Check, Layers, Network, SquareTerminal } from "lucide-react";
 import { toast } from "sonner";
 import { useUiRequest } from "@/commands/uiRequests";
+import { messages, useMessages } from "@/i18n";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AgentId } from "@/ipc/pty";
 import { uiStore } from "@/store/ui";
 import { agentsStore, useAgents } from "./agentsStore";
 import { AGENT_ORDER, agentInk, AGENTS, defaultAgent } from "./catalog";
 import { defaultLaunchOptions, launchAgent, type LaunchOptions } from "./launchAgent";
+import { fleetMessages } from "./messages";
 import { LaunchOptionsForm } from "./LaunchOptionsForm";
 import { OllamaPicker } from "./OllamaPicker";
 import { launchFour, newConsole, placeOrchestrator } from "./quickActions";
@@ -26,6 +28,7 @@ export function AgentMenu({
   /** The tool rail's menu answers the palette's « Lancer un agent personnalisé… » and « Lancer Ollama… ». */
   answersRequests?: boolean;
 }) {
+  const t = useMessages(fleetMessages);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>("agents");
   const [options, setOptions] = useState<LaunchOptions | null>(null);
@@ -62,7 +65,7 @@ export function AgentMenu({
   const place = (agent: AgentId, launch: LaunchOptions) => {
     setOpen(false);
     // « Autre agent… » of the radial menu: launched where the right click was (spec menu radial §4.1).
-    if (placeAt) void launchAgent(agent, launch, placeAt).catch((error: unknown) => toast.error(`Lancement impossible : ${String(error)}`));
+    if (placeAt) void launchAgent(agent, launch, placeAt).catch((error: unknown) => toast.error(messages(fleetMessages).launchFailed(String(error))));
     else uiStore.getState().setPlacing({ agent, options: launch });
   };
 
@@ -78,7 +81,7 @@ export function AgentMenu({
       <PopoverContent side={side} align="start" className="w-72 p-2">
         {view === "agents" && (
           <>
-            <p className="ov-label px-2 pb-1 pt-1">Lancer un agent</p>
+            <p className="ov-label px-2 pb-1 pt-1">{t.agentMenu.title}</p>
             <div className="flex flex-col">
               {AGENT_ORDER.map((id) => {
                 const meta = AGENTS[id];
@@ -88,7 +91,7 @@ export function AgentMenu({
                     key={id}
                     type="button"
                     disabled={!usable}
-                    title={usable ? undefined : `${meta.binary} introuvable dans le PATH`}
+                    title={usable ? undefined : t.agentMenu.notFound(meta.binary)}
                     onClick={() => pick(id)}
                     className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ov-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -117,7 +120,7 @@ export function AgentMenu({
                 <span className="grid size-7 place-items-center rounded-md bg-ov-field text-ov-text-2">
                   <SquareTerminal className="size-4" />
                 </span>
-                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">Nouvelle console</span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">{t.agentMenu.newConsole}</span>
               </button>
               <button
                 type="button"
@@ -130,7 +133,7 @@ export function AgentMenu({
                 <span className="grid size-7 place-items-center rounded-md bg-ov-field text-ov-text-2">
                   <Layers className="size-4" />
                 </span>
-                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">Lancer 4 agents</span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium text-ov-text">{t.agentMenu.launchFour}</span>
               </button>
               {/* Spec habillage §10.1: placed the same way as an agent. */}
               <button
@@ -146,15 +149,15 @@ export function AgentMenu({
                   <Network className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-ov-text">Orchestrateur</span>
-                  <span className="block text-[11px] text-ov-text-2">commande des groupes et des agents</span>
+                  <span className="block text-[13px] font-medium text-ov-text">{t.agentMenu.orchestrator}</span>
+                  <span className="block text-[11px] text-ov-text-2">{t.agentMenu.orchestratorHint}</span>
                 </span>
               </button>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-ov-line px-2 pt-2 text-[11px] text-ov-text-2">
-              <span>{placeAt ? "lancé là où tu as cliqué" : "puis clique sur le canvas pour le poser"}</span>
+              <span>{placeAt ? t.agentMenu.placedWhereClicked : t.agentMenu.thenClickCanvas}</span>
               <button type="button" className="text-ov-accent hover:underline" onClick={() => setView("options")}>
-                Options
+                {t.agentMenu.options}
               </button>
             </div>
           </>
@@ -172,7 +175,7 @@ export function AgentMenu({
                 onClick={() => place("custom", current)}
                 className="h-8 rounded-full bg-ov-accent text-xs font-semibold text-white disabled:opacity-40"
               >
-                Lancer la commande personnalisée
+                {t.agentMenu.launchCustom}
               </button>
             }
           />

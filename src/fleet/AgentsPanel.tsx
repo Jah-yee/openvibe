@@ -4,6 +4,7 @@ import { useStore } from "zustand";
 import { useCanvas } from "@/canvas/canvasStore";
 import { focusNode } from "@/canvas/focusNode";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useMessages } from "@/i18n";
 import { formatDuration } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { cn } from "@/lib/utils";
@@ -22,12 +23,14 @@ import { ComposeGroup } from "./ComposeGroup";
 import { FLEET_FILTERS, filterCounts, fleetSections, fleetStateOf, type FleetAgent } from "./fleetView";
 import { GroupMenu } from "./GroupMenu";
 import { countsText } from "./groupSummary";
+import { fleetMessages } from "./messages";
 import { launchFour, newConsole } from "./quickActions";
 
 const OUTSIDE = "outside";
 
 /** The agents of the workspace on screen, by group (spec identité §5.6); it replaces the fleet panel. */
 export function AgentsPanel() {
+  const t = useMessages(fleetMessages).panel;
   const filter = useAgentsPanel((s) => s.filter);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const now = useNow(15_000);
@@ -72,49 +75,49 @@ export function AgentsPanel() {
       style={{ top: TOP_ROW_HEIGHT + 14, maxHeight: `calc(100% - ${TOP_ROW_HEIGHT + 14 + BOTTOM_BAR_HEIGHT + 14}px)` }}
     >
       <header className="flex h-9 shrink-0 items-center border-b border-ov-line pl-3 pr-1.5">
-        <span className="ov-label">Agents</span>
+        <span className="ov-label">{t.title}</span>
         <div className="ml-auto flex items-center">
           <AgentMenu
             side="left"
             trigger={() => (
-              <IconButton label="Lancer un agent">
+              <IconButton label={t.launchAgent}>
                 <Plus />
               </IconButton>
             )}
           />
-          <IconButton label="Nouvelle console" onClick={() => newConsole()}>
+          <IconButton label={t.newConsole} onClick={() => newConsole()}>
             <SquareTerminal />
           </IconButton>
           <ComposeGroup
             side="left"
             answersRequests
             trigger={
-              <IconButton label="Composer un groupe">
+              <IconButton label={t.composeGroup}>
                 <Layers />
               </IconButton>
             }
           />
-          <IconButton label="Tout mettre en pause" onClick={() => void pauseAll(workspaceTerminalIds())}>
+          <IconButton label={t.pauseAll} onClick={() => void pauseAll(workspaceTerminalIds())}>
             <Pause />
           </IconButton>
-          <IconButton label="Tout reprendre" onClick={() => void resumeAll(workspaceTerminalIds())}>
+          <IconButton label={t.resumeAll} onClick={() => void resumeAll(workspaceTerminalIds())}>
             <Play />
           </IconButton>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <IconButton label="Plus d'actions">
+              <IconButton label={t.moreActions}>
                 <Ellipsis />
               </IconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => launchFour()}>Lancer 4 agents</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => launchFour()}>{t.launchFour}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setFolded(new Set([...sections.map((s) => keyOf(s.id)), "orchestrators"]))}>
-                Tout replier
+                {t.foldAll}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setFolded(new Set())}>Tout déplier</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setFolded(new Set())}>{t.unfoldAll}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <IconButton label="Fermer le panneau" onClick={() => setAgentsPanel(false)}>
+          <IconButton label={t.closePanel} onClick={() => setAgentsPanel(false)}>
             <X />
           </IconButton>
         </div>
@@ -140,7 +143,7 @@ export function AgentsPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
         {sections.length === 0 && orchestrators.length === 0 && (
           <p className="py-4 text-center text-xs text-ov-text-2">
-            {agents.length > 0 ? "Aucun agent dans ce filtre" : "Aucun agent"}
+            {agents.length > 0 ? t.noneInFilter : t.none}
           </p>
         )}
         {sections.map((section) => {
@@ -168,7 +171,7 @@ export function AgentsPanel() {
                     answersRequests
                     trigger={
                       <IconButton
-                        label="Menu du groupe"
+                        label={t.groupMenu}
                         className="size-[22px] opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
                       >
                         <Ellipsis />
@@ -204,7 +207,7 @@ export function AgentsPanel() {
               <ChevronDown
                 className={cn("size-3.5 text-ov-text-2 transition-transform", folded.has("orchestrators") && "-rotate-90")}
               />
-              <span className="font-semibold tracking-[0.03em] text-ov-text uppercase">Orchestrateurs</span>
+              <span className="font-semibold tracking-[0.03em] text-ov-text uppercase">{t.orchestrators}</span>
               <span className="ml-auto font-mono text-[10.5px] text-ov-text-2">{orchestrators.length}</span>
             </button>
             {!folded.has("orchestrators") &&

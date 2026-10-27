@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { useMessages } from "@/i18n";
 import { listOllamaModels, type OllamaLaunch, type OllamaMode } from "@/ipc/pty";
 import { cn } from "@/lib/utils";
+import { fleetMessages } from "./messages";
 
 type Models = { models: string[] } | { error: string } | null;
 
 /** Model and mode of an Ollama agent (spec habillage §8.1). */
 export function OllamaPicker(props: { aiderAvailable: boolean; onBack: () => void; onPick: (ollama: OllamaLaunch) => void }) {
   const { aiderAvailable, onBack, onPick } = props;
+  const t = useMessages(fleetMessages).ollama;
   const [models, setModels] = useState<Models>(null);
   const [mode, setMode] = useState<OllamaMode>(aiderAvailable ? "code" : "chat");
 
@@ -22,7 +25,7 @@ export function OllamaPicker(props: { aiderAvailable: boolean; onBack: () => voi
     <button
       type="button"
       disabled={disabled}
-      title={disabled ? "aider introuvable dans le PATH" : undefined}
+      title={disabled ? t.aiderNotFound : undefined}
       onClick={() => setMode(value)}
       className={cn(
         "flex-1 rounded-lg border border-transparent bg-ov-card py-1.5 text-xs disabled:opacity-40",
@@ -36,18 +39,18 @@ export function OllamaPicker(props: { aiderAvailable: boolean; onBack: () => voi
   return (
     <div className="grid gap-3 p-1">
       <button type="button" onClick={onBack} className="flex items-center gap-1.5 text-xs text-ov-text-2 hover:text-ov-text">
-        <ArrowLeft className="size-3.5" /> Ollama
+        <ArrowLeft className="size-3.5" /> {t.title}
       </button>
       <div className="flex gap-1.5">
-        {modeButton("code", "Agent de code", !aiderAvailable)}
-        {modeButton("chat", "Discussion")}
+        {modeButton("code", t.codeAgent, !aiderAvailable)}
+        {modeButton("chat", t.chat)}
       </div>
       <div className="grid max-h-56 gap-0.5 overflow-auto">
-        {models === null && <p className="px-2 py-1 text-xs text-ov-text-2">Lecture des modèles…</p>}
-        {models && "error" in models && <p className="px-2 py-1 text-xs text-ov-danger">Ollama ne répond pas : {models.error}</p>}
+        {models === null && <p className="px-2 py-1 text-xs text-ov-text-2">{t.reading}</p>}
+        {models && "error" in models && <p className="px-2 py-1 text-xs text-ov-danger">{t.unreachable(models.error)}</p>}
         {models && "models" in models && models.models.length === 0 && (
           <p className="px-2 py-1 text-xs text-ov-text-2">
-            Aucun modèle — lance <span className="font-mono">ollama pull &lt;modèle&gt;</span>
+            {t.noModelsBefore}<span className="font-mono">{t.pullCommand}</span>
           </p>
         )}
         {models &&

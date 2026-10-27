@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Crosshair, FileDiff, Pause, Play, Smartphone, X } from "lucide-react";
 import { focusNode } from "@/canvas/focusNode";
+import { useMessages } from "@/i18n";
 import { HeaderButton } from "@/nodes/terminal/TerminalHeader";
 import { openReview } from "@/review/reviewStore";
 import { StatusPill } from "@/nodes/terminal/StatusPill";
@@ -9,6 +10,7 @@ import { terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { canPause, canResume, pauseAgents, resumeAgent } from "./broadcast";
 import { agentInk, AGENTS, INDIGO } from "./catalog";
+import { fleetMessages } from "./messages";
 import { useRemoteLink } from "./remoteControl";
 import { requestClose } from "./terminals";
 
@@ -18,6 +20,7 @@ import { requestClose } from "./terminals";
  */
 export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: ReactNode; showCenter?: boolean }) {
   const { id, onOpen, trailing, showCenter = false } = props;
+  const t = useMessages(fleetMessages).agentRow;
   const payload = useNodes((s) => terminalOf(s.nodes[id]));
   const status = useTerminalStatus(id);
   const activity = useActivity(id);
@@ -40,7 +43,7 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
         </span>
       </button>
       {remote?.state === "on" && (
-        <span title="Remote Control actif" aria-label="Remote Control actif" className="text-ov-accent">
+        <span title={t.remoteOn} aria-label={t.remoteOn} className="text-ov-accent">
           <Smartphone className="size-3.5" />
         </span>
       )}
@@ -48,24 +51,24 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
       {trailing}
       <span className="hidden items-center gap-0.5 group-hover:flex">
         {showCenter && (
-          <HeaderButton label={`Centrer ${name}`} onClick={() => focusNode(id)}>
+          <HeaderButton label={t.center(name)} onClick={() => focusNode(id)}>
             <Crosshair />
           </HeaderButton>
         )}
-        <HeaderButton label={`Revue de ${name}`} onClick={() => openReview(id)}>
+        <HeaderButton label={t.review(name)} onClick={() => openReview(id)}>
           <FileDiff />
         </HeaderButton>
         {canPause(facts) && (
-          <HeaderButton label={`Mettre ${name} en pause`} onClick={() => void pauseAgents([id])}>
+          <HeaderButton label={t.pause(name)} onClick={() => void pauseAgents([id])}>
             <Pause />
           </HeaderButton>
         )}
         {canResume(facts) && (
-          <HeaderButton label={`Reprendre ${name}`} onClick={() => void resumeAgent(id)}>
+          <HeaderButton label={t.resume(name)} onClick={() => void resumeAgent(id)}>
             <Play />
           </HeaderButton>
         )}
-        <HeaderButton label={`Fermer ${name}`} onClick={() => requestClose(id)}>
+        <HeaderButton label={t.close(name)} onClick={() => requestClose(id)}>
           <X />
         </HeaderButton>
       </span>

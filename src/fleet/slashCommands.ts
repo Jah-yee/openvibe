@@ -1,4 +1,6 @@
+import { messages } from "@/i18n";
 import type { AgentId } from "@/ipc/pty";
+import { fleetMessages } from "./messages";
 
 /** A command of the agents' CLI, typed as is (Claude Code's `/effort`, `/model`…). */
 export interface SlashCommand {
@@ -7,17 +9,24 @@ export interface SlashCommand {
 }
 
 /** Claude Code's commands worth sending to several agents at once. */
-export const SLASH_COMMANDS: readonly SlashCommand[] = [
-  { name: "/effort", hint: "Effort : low, medium, high, xhigh, max, ultracode — devient aussi le défaut de Claude" },
-  { name: "/model", hint: "Modèle : haiku, sonnet, opus, fable" },
-  { name: "/remote-control", hint: "Suivre la session depuis claude.ai ou le téléphone" },
-  { name: "/compact", hint: "Résumer la conversation pour libérer le contexte" },
-  { name: "/clear", hint: "Repartir d'une conversation vide" },
-  { name: "/context", hint: "Occupation du contexte" },
-  { name: "/usage", hint: "Coût et limites d'usage" },
-  { name: "/fast", hint: "Mode rapide" },
-  { name: "/status", hint: "Version, modèle, compte" },
-];
+export const SLASH_COMMANDS: readonly SlashCommand[] = (
+  [
+    ["/effort", "effort"],
+    ["/model", "model"],
+    ["/remote-control", "remoteControl"],
+    ["/compact", "compact"],
+    ["/clear", "clear"],
+    ["/context", "context"],
+    ["/usage", "usage"],
+    ["/fast", "fast"],
+    ["/status", "status"],
+  ] as const
+).map(([name, key]) => ({
+  name,
+  get hint() {
+    return messages(fleetMessages).slashHints[key];
+  },
+}));
 
 /** "/effort ultracode": a command for the agents' CLI, not a request in words nor a path ("/usr/bin/make"). */
 export function isSlashCommand(text: string): boolean {

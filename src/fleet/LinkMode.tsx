@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { canvasStore, useCanvas } from "@/canvas/canvasStore";
+import { useMessages } from "@/i18n";
 import { TOP_ROW_HEIGHT } from "@/shell/layout";
 import { uiStore, useUi } from "@/store/ui";
+import { fleetMessages } from "./messages";
 import { linkOrchestrator } from "./orchestrators";
 import { clientRectOf, sceneOf } from "./placement";
 import type { Point } from "./terminals";
@@ -9,6 +11,7 @@ import { linkTargetAt } from "./wires";
 
 /** "Relier" (spec habillage §13): each click wires a group or a terminal; Escape or a click in the void ends it. */
 export function LinkMode() {
+  const t = useMessages(fleetMessages);
   const linking = useUi((s) => s.linking);
   const view = useCanvas((s) => s.view);
   const frames = useCanvas((s) => s.frames);
@@ -53,7 +56,7 @@ export function LinkMode() {
         className="ov-glass-strong pointer-events-none fixed left-1/2 -translate-x-1/2 rounded-[10px] px-3 py-1 text-xs text-ov-text-2"
         style={{ top: TOP_ROW_HEIGHT + 14 }}
       >
-        Clique sur un groupe ou un agent à relier · Échap pour terminer
+        {t.link.hint}
       </div>
     </div>
   );
