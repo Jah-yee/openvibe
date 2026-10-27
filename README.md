@@ -20,6 +20,8 @@ OpenVibe is a desktop app that puts your AI coding agents on an infinite canvas.
 
 Everything runs on your machine. OpenVibe adds no cloud service and no telemetry, and it never skips an agent's permission prompts.
 
+If you know Symvibe, OpenVibe covers the same ground (driving a fleet of CLI agents from an infinite canvas) as an independent, open-source project with its own design and features.
+
 > [!NOTE]
 > OpenVibe is an early preview. It is built and tested on **Windows 10/11**, and **its interface is in French** for now.
 
@@ -185,4 +187,4 @@ OpenVibe is released under the [MIT License](LICENSE).
 
 It builds on [Tauri](https://tauri.app/), [Excalidraw](https://github.com/excalidraw/excalidraw), [xterm.js](https://xtermjs.org/), [portable-pty](https://github.com/wezterm/wezterm/tree/main/pty) and [cmdk](https://cmdk.paco.me/). The bundled icon libraries come from the Excalidraw community, under the MIT License; their authors are listed in [`public/libraries/CREDITS.md`](public/libraries/CREDITS.md).
 
-OpenVibe is an independent project. It is not affiliated with Anthropic, OpenAI, Google or the makers of the other agents it launches; their names belong to their owners.
+OpenVibe is an independent project. It is not affiliated with Symvibe, Anthropic, OpenAI, Google or the makers of the other agents it launches; their names belong to their owners.
