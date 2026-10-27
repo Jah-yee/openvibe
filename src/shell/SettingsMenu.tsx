@@ -1,7 +1,8 @@
 import type { ReactElement } from "react";
-import { Download, FileText, ImageDown, Info, Upload } from "lucide-react";
+import { ArrowDownCircle, Download, FileText, ImageDown, Info, Upload } from "lucide-react";
 import { showAbout } from "@/app/about";
 import { openLogDir } from "@/app/logs";
+import { checkForUpdate, setAutoUpdates, useUpdates } from "@/app/updates";
 import { readThemeChoice, setThemeChoice, setTransparency, useThemeSettings } from "@/app/theme";
 import {
   DropdownMenu,
@@ -27,6 +28,7 @@ export function SettingsMenu({
   align?: "start" | "end";
 }) {
   const { choice, transparency } = useThemeSettings();
+  const autoUpdates = useUpdates((s) => s.auto);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
@@ -51,6 +53,12 @@ export function SettingsMenu({
           <ImageDown /> Exporter en PNG…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem checked={autoUpdates} onCheckedChange={(on) => void setAutoUpdates(on === true)}>
+          Rechercher les mises à jour automatiquement
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuItem onSelect={() => void checkForUpdate({ manual: true })}>
+          <ArrowDownCircle /> Rechercher les mises à jour
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => void showAbout()}
         >

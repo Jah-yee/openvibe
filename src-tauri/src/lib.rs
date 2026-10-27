@@ -28,6 +28,7 @@ pub fn run() {
         // First: the other plugins and the setup can already write to the log.
         .plugin(logging::plugin())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(PtyManager::default())
         .setup(|app| {
@@ -68,6 +69,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::app::open_log_dir,
+            commands::app::prepare_for_update,
             commands::pty::pty_spawn,
             commands::pty::pty_attach,
             commands::pty::pty_write,

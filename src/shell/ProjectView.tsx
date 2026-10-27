@@ -19,6 +19,7 @@ import { ProjectPicker } from "./ProjectPicker";
 import { SearchField } from "./SearchField";
 import { TitleBar } from "./TitleBar";
 import { ToolRail } from "./ToolRail";
+import { UpdateChip } from "./UpdateDialog";
 import { UsageMeter } from "./UsageMeter";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { ZoomControl } from "./ZoomControl";
@@ -96,6 +97,7 @@ export function ProjectView() {
           center={<SearchField />}
           trailing={
             <>
+              <UpdateChip />
               <ErrorBoundary scope="usage" fallback={() => null}>
                 <UsageMeter />
               </ErrorBoundary>

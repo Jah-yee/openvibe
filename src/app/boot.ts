@@ -16,6 +16,7 @@ import { projectsStore, setForgetWorkspaces } from "@/store/projects";
 import { saveBeforeClose } from "./close";
 import { forgetWorkspaces } from "./forget";
 import { loadThemeSettings } from "./theme";
+import { loadUpdateSettings, startUpdateChecks } from "./updates";
 import { syncWindowTitle } from "./windowTitle";
 
 let booting: Promise<void> | undefined;
@@ -28,6 +29,7 @@ let booting: Promise<void> | undefined;
 export function boot(): Promise<void> {
   booting ??= (async () => {
     await loadThemeSettings();
+    await loadUpdateSettings();
     await loadAgentsPanel();
     await onPtyExit(({ nodeId, exitCode }) => {
       terminalStatusStore.getState().set(nodeId, { state: "exited", code: exitCode });
@@ -48,6 +50,7 @@ export function boot(): Promise<void> {
     setForgetWorkspaces(forgetWorkspaces);
     syncWindowTitle();
     await projectsStore.getState().init();
+    startUpdateChecks();
   })();
   return booting;
 }

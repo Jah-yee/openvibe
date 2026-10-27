@@ -6,6 +6,7 @@ import { HomeScreen } from "@/home/HomeScreen";
 import { AppToaster } from "@/shell/AppToaster";
 import { ProjectView } from "@/shell/ProjectView";
 import { StatusScreen } from "@/shell/StatusScreen";
+import { UpdateDialog } from "@/shell/UpdateDialog";
 import { projectsStore, useProjects } from "@/store/projects";
 
 export default function App() {
@@ -28,6 +29,9 @@ export default function App() {
       {view === "error" && <StatusScreen message={`Impossible de charger les projets : ${error}`} />}
       <ErrorBoundary scope="palette" fallback={() => null}>
         <Palette />
+      </ErrorBoundary>
+      <ErrorBoundary scope="update dialog" fallback={() => null}>
+        <UpdateDialog />
       </ErrorBoundary>
       <AppToaster />
     </>
