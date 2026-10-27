@@ -30,3 +30,14 @@ it("forgets the mission of a closed orchestrator until an undo brings it back (s
   setOrchestratorClosed("chef", false);
   expect(memberOf("isis")?.orchestratorId).toBe("chef");
 });
+
+it("draws no budget bar for a closed orchestrator's mission (final review R3)", () => {
+  const member = { nodeId: "isis", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0 };
+  const nodes: Record<string, NodeRecord> = {
+    chef: { workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef", mission: { ...NEW_MISSION, state: "en_cours", members: [member] } } },
+  };
+  setOrchestratorClosed("chef", true);
+  expect(memberBudgets(nodes, 60 * 60_000)).toEqual({});
+  setOrchestratorClosed("chef", false);
+  expect(memberBudgets(nodes, 60 * 60_000)).toEqual({ isis: { spent: 60, budget: 10 } });
+});

@@ -71,10 +71,10 @@ export function report(nodeId: string, args: Record<string, unknown>): ToolResul
   if (status !== "termine" && status !== "bloque" && status !== "echec") return refused(`Statut inconnu : ${String(status)} (termine, bloque ou echec).`);
   // `fusionner` merges every « termine » branch again: a merged one stays so until then (final review H2).
   updateMember(found.orchestratorId, nodeId, { report: { summary, status, at: Date.now() } });
-  // Nobody would read it: the panel and `equipe` keep it (spec première version §5.4).
+  // Queued even when nobody listens: a relaunched or restored orchestrator hears it then (final review R3).
+  notify(found.orchestratorId, `${found.member.name} a rendu compte (${status}) : ${oneLine(summary)}`);
   if (isOrchestratorClosed(found.orchestratorId) || !isRunning(found.orchestratorId)) {
     return said("Compte rendu enregistré, mais l'orchestrateur est fermé : personne ne le lira pour l'instant.");
   }
-  notify(found.orchestratorId, `${found.member.name} a rendu compte (${status}) : ${oneLine(summary)}`);
   return said("Compte rendu transmis à l'orchestrateur.");
 }

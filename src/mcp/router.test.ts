@@ -206,7 +206,9 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       setOrchestratorClosed("chef", true);
       expect(textOf(await call("isis", "rendre_compte", { resume: "Fini encore", statut: "termine" }))).toBe(unheard);
       setOrchestratorClosed("chef", false);
-      expect(notify).not.toHaveBeenCalled();
+      // Queued all the same: it hears them when it runs again (final review R3).
+      expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Fini");
+      expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Fini encore");
     });
 
     it("keeps an agent's merged branch merged when it reports again (final review H2)", async () => {

@@ -81,9 +81,10 @@ export function agentState(nodeId: string): AgentState {
 /** The time and budget of each agent of a running mission, by node (spec §8.3). */
 export function memberBudgets(nodes: Record<string, NodeRecord>, now: number): Record<string, { spent: number; budget: number }> {
   const budgets: Record<string, { spent: number; budget: number }> = {};
-  for (const record of Object.values(nodes)) {
+  for (const [orchestratorId, record] of Object.entries(nodes)) {
     const mission = missionOf(record);
-    if (mission?.state !== "en_cours") continue;
+    // A closed orchestrator's mission draws no bar (final review R3).
+    if (mission?.state !== "en_cours" || closedOrchestrators.has(orchestratorId)) continue;
     for (const m of mission.members) {
       if (m.sentAt !== undefined && !m.handedTo) budgets[m.nodeId] = { spent: spentMin(m, now), budget: budgetOf(m) };
     }
