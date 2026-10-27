@@ -29,6 +29,12 @@ struct PtyExitEvent {
     exit_code: Option<u32>,
 }
 
+/// Re-reads Windows' PATH so an agent installed meanwhile is found.
+#[tauri::command]
+pub async fn refresh_path() {
+    crate::pty::env_path::refresh();
+}
+
 #[tauri::command]
 pub async fn pty_spawn(
     app: AppHandle,

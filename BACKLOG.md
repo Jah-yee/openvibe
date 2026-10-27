@@ -325,3 +325,12 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - `step` répond `echec` sans accent en français (l'identifiant interne transparaît).
 - Un orchestrateur relancé (`--resume`) reçoit ses consignes dans la langue courante, qui peut différer de celle de son historique.
 - La fenêtre d'erreur de base de données montre le français puis l'anglais ; l'erreur elle-même y est en français dans les deux moitiés.
+
+## Constats du jalon R5d (accueil et dépannage)
+
+- Copier-coller (ou Ctrl+D) un orchestrateur ne vérifie pas que Claude Code est installé : la copie est créée puis échoue au lancement avec l'erreur brute au lieu du message « Claude Code n'est pas installé ».
+- Si `list_agents` échoue sur l'accueil, l'encart « Bien démarrer » n'apparaît jamais et rien ne dit pourquoi : un toast serait utile.
+- L'état « fait » d'une étape de « Bien démarrer » n'est annoncé qu'en couleur et en barré : `aria-label` est posé sur un `<span>` sans rôle, ignoré par les lecteurs d'écran.
+- Un refus du presse-papiers (copie de la commande d'installation ou du diagnostic) ne donne aucun message.
+- Le bouton de fermeture des dialogues shadcn a un libellé caché « Close » en anglais, même en français.
+- Une valeur du PATH entre guillemets (`"C:\Program Files\x"`) n'est pas débarrassée de ses guillemets à la fusion.

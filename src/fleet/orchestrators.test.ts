@@ -1,21 +1,26 @@
 // @vitest-environment happy-dom
 import { beforeEach, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
+import { toast } from "sonner";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import { nodesStore, sessionOf } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
+import { agentsStore } from "./agentsStore";
 import { addOrchestrator, requestCloseOrchestrator } from "./orchestrators";
 import { adoptCopies } from "./terminals";
 
 vi.mock("@excalidraw/excalidraw", () => ({ CaptureUpdateAction: { IMMEDIATELY: "i", NEVER: "n" }, newElementWith: (e: object, patch: object) => ({ ...e, ...patch }) }));
 vi.mock("@/nodes/terminal/registry", () => ({ markForAutostart: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 
 let scene: { id: string; isDeleted?: boolean; link?: string; customData?: object; type?: string; frameId?: string | null }[] = [];
 beforeEach(() => {
   mockIPC(() => undefined);
+  vi.clearAllMocks();
+  agentsStore.setState({ agents: [{ id: "claude", available: true }], shells: [], loaded: true });
   scene = [];
   const api = {
     getSceneElementsIncludingDeleted: () => scene,
@@ -32,6 +37,24 @@ it("places an orchestrator with its Claude session, started when shown (spec orc
   const id = scene[0].id;
   expect(sessionOf(nodesStore.getState().nodes[id])).toMatchObject({ agent: "claude", role: "orchestrator", name: "Orchestrateur" });
   expect(markForAutostart).toHaveBeenCalledWith(id);
+});
+
+it("refuses an orchestrator without Claude Code, and creates nothing (spec première version §7.2)", async () => {
+  agentsStore.setState({ agents: [{ id: "claude", available: false }], shells: [], loaded: true });
+  await addOrchestrator("w1", { x: 0, y: 0 });
+  expect(scene).toEqual([]);
+  expect(markForAutostart).not.toHaveBeenCalled();
+  expect(toast.error).toHaveBeenCalledWith(
+    "Claude Code n'est pas installé : l'orchestrateur en a besoin. Installe-le (voir « Bien démarrer » sur l'accueil), puis réessaie.",
+  );
+});
+
+it("looks for the agents first when they were never listed", async () => {
+  agentsStore.setState({ agents: [], shells: [], loaded: false });
+  mockIPC((cmd) => (cmd === "list_agents" ? [{ id: "claude", available: false }] : cmd === "list_shells" ? [] : undefined));
+  await addOrchestrator("w1", { x: 0, y: 0 });
+  expect(scene).toEqual([]);
+  expect(toast.error).toHaveBeenCalled();
 });
 
 it("gives a copied orchestrator a session of its own, created when shown", async () => {

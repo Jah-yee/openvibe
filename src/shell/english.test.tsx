@@ -80,6 +80,7 @@ it("the settings menu offers the language, applies a choice, and its labels are 
     "Check for updates",
     "About OpenVibe",
     "Open the logs folder",
+    "Troubleshooting…",
   ]);
   expect(document.body.textContent).toContain("Language");
   expect(items[4].getAttribute("aria-checked")).toBe("true");

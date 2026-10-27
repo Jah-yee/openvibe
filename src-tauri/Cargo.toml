@@ -48,3 +48,6 @@ tempfile = "3"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "~2.13"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.56"

@@ -4,6 +4,7 @@ import { checkForUpdate } from "@/app/updates";
 import { addProject } from "@/home/addProject";
 import { setLanguage } from "@/i18n/settings";
 import { closeWindow, minimizeWindow, toggleMaximizeWindow, windowStore } from "@/shell/windowState";
+import { showTroubleshooting } from "@/shell/troubleshoot";
 import { projectsStore } from "@/store/projects";
 import type { Command } from "../command";
 import { command, sectionNamed } from "./define";
@@ -28,6 +29,7 @@ export const APP: readonly Command[] = [
   command("app.about", { section: help, available: always, run: () => showAbout() }),
   command("app.updates", { section: help, available: always, run: () => checkForUpdate({ manual: true }) }),
   command("app.logs", { section: help, available: always, run: () => openLogDir() }),
+  command("app.troubleshoot", { section: help, available: always, run: () => showTroubleshooting() }),
   // Three lines rather than one cycling « Langue » line: each is found by its own words and does one thing.
   command("language.fr", { section: help, available: always, run: () => setLanguage("fr") }),
   command("language.en", { section: help, available: always, run: () => setLanguage("en") }),

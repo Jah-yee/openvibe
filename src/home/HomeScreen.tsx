@@ -1,12 +1,15 @@
 import { useEffect } from "react";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, LifeBuoy } from "lucide-react";
+import { agentsStore } from "@/fleet/agentsStore";
 import { useMessages } from "@/i18n";
 import { AccentButton } from "@/shell/buttons";
 import { SearchField } from "@/shell/SearchField";
 import { TitleBar } from "@/shell/TitleBar";
+import { showTroubleshooting } from "@/shell/troubleshoot";
 import { UpdateChip } from "@/shell/UpdateDialog";
 import { projectsStore, useProjects } from "@/store/projects";
 import { addProject } from "./addProject";
+import { GettingStarted } from "./GettingStarted";
 import { homeMessages } from "./messages";
 import { ProjectCard } from "./ProjectCard";
 
@@ -17,6 +20,7 @@ export function HomeScreen() {
 
   useEffect(() => {
     void projectsStore.getState().refresh();
+    void agentsStore.getState().load();
   }, []);
 
   return (
@@ -31,6 +35,7 @@ export function HomeScreen() {
               <FolderPlus /> {t.add}
             </AccentButton>
           </header>
+          <GettingStarted hasProject={projects.length > 0} />
           {projects.length === 0 ? (
             <div className="mt-24 grid place-items-center gap-3 text-center">
               <p className="text-lg font-semibold text-ov-text">{t.none}</p>
@@ -45,6 +50,13 @@ export function HomeScreen() {
               ))}
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => void showTroubleshooting()}
+            className="mx-auto mt-10 flex items-center gap-1.5 text-xs text-ov-text-2 hover:text-ov-text [&_svg]:size-3.5"
+          >
+            <LifeBuoy /> {t.troubleshoot}
+          </button>
         </div>
       </div>
     </div>

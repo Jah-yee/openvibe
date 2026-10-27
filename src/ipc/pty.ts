@@ -110,6 +110,8 @@ export const ptyList = () => call<string[]>("pty_list");
 export const listAgents = () => call<AgentInfo[]>("list_agents");
 export const listOllamaModels = () => call<string[]>("list_ollama_models");
 export const listShells = () => call<ShellKind[]>("list_shells");
+/** Reads Windows' PATH again from the registry: an agent installed since the start is found (spec première version §7.2). */
+export const refreshPath = () => call<void>("refresh_path");
 
 export async function getScrollback(nodeId: string): Promise<Uint8Array> {
   return toBytes(await call<ArrayBuffer | number[]>("get_scrollback", { nodeId }));

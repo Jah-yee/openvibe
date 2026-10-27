@@ -63,6 +63,7 @@ pub fn run() {
                 }
             };
             app.manage(db);
+            pty::env_path::refresh();
             spawn_scrollback_flusher(app.handle().clone());
             commands::agents::setup(app.handle())?;
             Ok(())
@@ -70,6 +71,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::ping,
             commands::app::open_log_dir,
+            commands::app::open_data_dir,
+            commands::app::diagnostics,
             i18n::set_language,
             commands::app::prepare_for_update,
             commands::pty::pty_spawn,
@@ -81,6 +84,7 @@ pub fn run() {
             commands::pty::pty_kill,
             commands::pty::pty_list,
             commands::pty::get_scrollback,
+            commands::pty::refresh_path,
             commands::pty::list_agents,
             commands::pty::list_ollama_models,
             commands::pty::list_shells,

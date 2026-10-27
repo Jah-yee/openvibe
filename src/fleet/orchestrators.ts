@@ -1,4 +1,5 @@
 import { CaptureUpdateAction, newElementWith } from "@excalidraw/excalidraw";
+import { toast } from "sonner";
 import { canvasStore } from "@/canvas/canvasStore";
 import { isGroup } from "@/canvas/groups";
 import { createNodeElement } from "@/canvas/nodeElement";
@@ -11,8 +12,10 @@ import { nodesStore } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
 import { uiStore } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
+import { claudeInstalled } from "./agentsStore";
 import { orchestratorSpot } from "./groupLayout";
 import { defaultLaunchOptions } from "./launchAgent";
+import { fleetMessages } from "./messages";
 import type { Point } from "./terminals";
 import { withWire } from "./wires";
 
@@ -25,12 +28,19 @@ async function createOrchestrator(id: string, workspaceId: string) {
   markForAutostart(id);
 }
 
+/** An orchestrator runs Claude Code: without it, nothing is created (spec première version §7.2). */
+async function refusedWithoutClaude(): Promise<boolean> {
+  if (await claudeInstalled()) return false;
+  toast.error(messages(fleetMessages).noClaude);
+  return true;
+}
+
 /** "Relier un orchestrateur" of the group menu: a new orchestrator left of the group, wired to it, in one undo step. */
 export async function orchestrateGroup(groupId: string) {
   const api = canvasStore.getState().api;
   const workspaceId = workspacesStore.getState().activeId;
   const group = canvasStore.getState().frames.find((f) => f.id === groupId);
-  if (!api || !workspaceId || !group || !isGroup(group)) return;
+  if (!api || !workspaceId || !group || !isGroup(group) || (await refusedWithoutClaude())) return;
   const element = createNodeElement("orchestrator", orchestratorSpot(group));
   await createOrchestrator(element.id, workspaceId);
   api.updateScene({
@@ -42,7 +52,7 @@ export async function orchestrateGroup(groupId: string) {
 /** The menu's "Orchestrateur", placed with a click like an agent (spec habillage §10.1). */
 export async function addOrchestrator(workspaceId: string, center: Point) {
   const api = canvasStore.getState().api;
-  if (!api) return;
+  if (!api || (await refusedWithoutClaude())) return;
   const element = createNodeElement("orchestrator", center);
   await createOrchestrator(element.id, workspaceId);
   api.updateScene({

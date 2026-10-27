@@ -6,6 +6,9 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 
 ### Added
 - The interface in English and French. It follows Windows' language (English unless Windows is in French); the settings menu and the command palette switch it at once.
+- A guided first launch: while no project exists or no coding agent is installed, the home screen shows three steps. Without any agent, it gives Claude Code's official install command to copy and the other agents' official pages.
+- **Check again** reads Windows' `PATH` from the registry: an agent installed while OpenVibe runs is found without restarting it, and new terminals see it too.
+- A **Troubleshooting** dialog (command palette, settings menu, home screen): the agents found and where, Git, Git Bash, the local server, the logs and data folders, diagnostics to copy (no token, the home folder as `~`), the [troubleshooting guide](docs/troubleshooting.md) and a bug report with the version filled in.
 - A log file (`%LOCALAPPDATA%\dev.openvibe.app\logs\openvibe.log`), opened from the command palette or the settings menu, to attach to a bug report. It never holds a token, a terminal's text or an instruction.
 - Before upgrading its database, OpenVibe keeps a copy of it (`openvibe.v<N>-backup.db`).
 - An orchestrator that cannot get OpenVibe's tools does not start, and its node says why.
@@ -16,6 +19,7 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 - What OpenVibe says to agents (role prompts, sub-tasks, budget warnings, tool answers, review remarks) follows the interface's language.
 - An orchestrator may no longer run shell commands, and only gets OpenVibe's own MCP tools.
 - Closing a working orchestrator asks for confirmation first.
+- An orchestrator is refused when Claude Code is not installed, with a message that says so.
 
 ### Fixed
 - Resuming a Claude session that never had a conversation starts a new one instead of dropping back to the shell.
