@@ -299,3 +299,9 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 - Tant qu'un nœud n'est pas activé, le canvas d'Excalidraw recouvre ses boutons : le premier clic sur le × d'un orchestrateur ou d'un terminal le sélectionne, le second agit.
 - Fermer un orchestrateur en mission laisse ses worktrees et branches ; le dialogue ne le dit pas, et le panneau ne peut plus les nettoyer une fois la ligne purgée.
+
+## Constats du jalon R4 (installeur et mises à jour)
+
+- Le dialogue de mise à jour montre les notes en Markdown brut (`### Fixed`) : les mettre en forme.
+- Le redémarrage d'OpenVibe après l'installation repose sur l'installeur NSIS en mode mise à jour : à vérifier sur la première mise à jour réelle (bêta 1 → bêta 2).
+- Le build de release n'a pas encore tourné en CI : le lancer à la main (Actions → Release) une fois les secrets de signature posés, et vérifier qu'une version à suffixe (`1.0.0-beta.1`) passe dans l'installeur.
