@@ -1,6 +1,7 @@
 //! What an agent changed, for the review panel (spec maj §5): its files
 //! against a base, each file's diff, and the files of its folder, read-only.
 
+use crate::tr;
 use std::collections::{BTreeSet, HashMap};
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
@@ -65,7 +66,7 @@ fn command(dir: &Path, args: &[&str]) -> Command {
 fn run(dir: &Path, args: &[&str], codes: &[i32]) -> Result<String, String> {
     let output = command(dir, args)
         .output()
-        .map_err(|err| format!("git introuvable : {err}"))?;
+        .map_err(|err| tr!("git introuvable : {err}", "git not found: {err}"))?;
     if output
         .status
         .code()
@@ -87,7 +88,7 @@ fn diff_output(dir: &Path, args: &[&str], codes: &[i32]) -> Result<String, Strin
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|err| format!("git introuvable : {err}"))?;
+        .map_err(|err| tr!("git introuvable : {err}", "git not found: {err}"))?;
     let mut bytes = Vec::new();
     if let Some(stdout) = child.stdout.take() {
         stdout
@@ -128,7 +129,7 @@ fn relative(path: &str) -> Result<&Path, String> {
         || rel.is_absolute()
         || rel.components().any(|c| !matches!(c, Component::Normal(_)))
     {
-        return Err(format!("chemin refusé : {path}"));
+        return Err(tr!("chemin refusé : {path}", "path refused: {path}"));
     }
     Ok(rel)
 }
@@ -138,9 +139,9 @@ fn inside(root: &Path, path: &str) -> Result<PathBuf, String> {
     let rel = relative(path)?;
     let base = std::fs::canonicalize(root).map_err(|err| err.to_string())?;
     let real = std::fs::canonicalize(base.join(rel))
-        .map_err(|_| format!("fichier introuvable : {path}"))?;
+        .map_err(|_| tr!("fichier introuvable : {path}", "file not found: {path}"))?;
     if !real.starts_with(&base) {
-        return Err(format!("chemin refusé : {path}"));
+        return Err(tr!("chemin refusé : {path}", "path refused: {path}"));
     }
     Ok(real)
 }
@@ -160,7 +161,7 @@ fn checked_ref(name: &str) -> Result<&str, String> {
         || name.starts_with('-')
         || name.chars().any(|c| c.is_whitespace() || c.is_control())
     {
-        return Err(format!("base invalide : {name}"));
+        return Err(tr!("base invalide : {name}", "invalid base: {name}"));
     }
     Ok(name)
 }
@@ -172,7 +173,7 @@ fn compared(dir: &Path, base: Option<&str>) -> Result<String, String> {
         let base = checked_ref(base)?;
         return git(dir, &["merge-base", base, "HEAD"])
             .map(|sha| sha.trim().to_string())
-            .map_err(|_| format!("base introuvable : {base}"));
+            .map_err(|_| tr!("base introuvable : {base}", "base not found: {base}"));
     }
     if git(dir, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_ok() {
         Ok("HEAD".into())

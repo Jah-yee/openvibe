@@ -2,6 +2,7 @@
 //! OpenVibe works beside the user's folder, never in their branch: no push,
 //! no force.
 
+use crate::tr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -90,7 +91,7 @@ pub fn slug(name: &str) -> String {
 fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
     let output = hide_window(Command::new("git").arg("-C").arg(dir).args(args))
         .output()
-        .map_err(|err| format!("git introuvable : {err}"))?;
+        .map_err(|err| tr!("git introuvable : {err}", "git not found: {err}"))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
@@ -100,8 +101,12 @@ fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
 
 /// The repository's root, and the folder of its worktrees: `<parent>/<folder>.worktrees`.
 fn locate(project: &Path) -> Result<(PathBuf, PathBuf), String> {
-    let root = git(project, &["rev-parse", "--show-toplevel"])
-        .map_err(|_| "Le dossier du projet n'est pas un dépôt git.".to_string())?;
+    let root = git(project, &["rev-parse", "--show-toplevel"]).map_err(|_| {
+        tr!(
+            "Le dossier du projet n'est pas un dépôt git.",
+            "The project folder is not a git repository."
+        )
+    })?;
     // git answers with forward slashes, even on Windows.
     let root = PathBuf::from(if cfg!(windows) {
         root.replace('/', "\\")
@@ -110,10 +115,20 @@ fn locate(project: &Path) -> Result<(PathBuf, PathBuf), String> {
     });
     let name = root
         .file_name()
-        .ok_or("Le dépôt n'a pas de nom de dossier.")?
+        .ok_or_else(|| {
+            tr!(
+                "Le dépôt n'a pas de nom de dossier.",
+                "The repository has no folder name."
+            )
+        })?
         .to_string_lossy()
         .into_owned();
-    let parent = root.parent().ok_or("Le dépôt n'a pas de dossier parent.")?;
+    let parent = root.parent().ok_or_else(|| {
+        tr!(
+            "Le dépôt n'a pas de dossier parent.",
+            "The repository has no parent folder."
+        )
+    })?;
     let dir = parent.join(format!("{name}.worktrees"));
     Ok((root, dir))
 }
@@ -131,11 +146,18 @@ fn add_worktree(root: &Path, dir: &Path, slug: &str, from: &str) -> Result<Workt
     )
     .is_ok()
     {
-        return Err(format!("La branche {branch} existe déjà."));
+        return Err(tr!(
+            "La branche {branch} existe déjà.",
+            "The branch {branch} already exists."
+        ));
     }
     let path = dir.join(slug);
     if path.exists() {
-        return Err(format!("Le dossier {} existe déjà.", path.display()));
+        let shown = path.display();
+        return Err(tr!(
+            "Le dossier {shown} existe déjà.",
+            "The folder {shown} already exists."
+        ));
     }
     let shown = path.to_string_lossy().into_owned();
     git(root, &["worktree", "add", "-b", &branch, &shown, from])?;
@@ -146,15 +168,19 @@ fn add_worktree(root: &Path, dir: &Path, slug: &str, from: &str) -> Result<Workt
     })
 }
 
-const NO_COMMIT: &str =
-    "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission.";
+fn no_commit() -> String {
+    tr!(
+        "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission.",
+        "The repository has no commit yet: make a first commit, then launch the mission again."
+    )
+}
 
 /// The mission's branch, from the project's current commit, and its worktree (where merges happen).
 pub fn prepare(project: &Path, name: &str) -> Result<Worktree, String> {
     let (root, dir) = locate(project)?;
     // Without a commit, git only says « invalid reference: HEAD » (final review H2).
     if git(&root, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_err() {
-        return Err(NO_COMMIT.into());
+        return Err(no_commit());
     }
     add_worktree(&root, &dir, &slug(name), "HEAD")
 }
@@ -197,8 +223,9 @@ pub fn merge_agent(mission: &Path, agent: &Path, branch: &str) -> Result<MergeRe
                 // the next merges would all fail on it (final review H2).
                 if git(mission, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_ok() {
                     let _ = git(mission, &["merge", "--abort"]);
-                    return Err(format!(
-                        "La fusion de {branch} a échoué et a été annulée : {err}"
+                    return Err(tr!(
+                        "La fusion de {branch} a échoué et a été annulée : {err}",
+                        "Merging {branch} failed and was cancelled: {err}"
                     ));
                 }
                 return Err(err);
@@ -216,7 +243,10 @@ pub fn merge_agent(mission: &Path, agent: &Path, branch: &str) -> Result<MergeRe
 fn remove_worktree(root: &Path, name: String, path: &Path, done: &mut Cleanup) {
     match git(root, &["worktree", "remove", &path.to_string_lossy()]) {
         Ok(_) => done.removed.push(name),
-        Err(_) => done.kept.push(format!("{name} (changements non commités)")),
+        Err(_) => done.kept.push(tr!(
+            "{name} (changements non commités)",
+            "{name} (uncommitted changes)"
+        )),
     }
 }
 
@@ -230,15 +260,22 @@ pub fn discard(project: &Path, trees: &[Worktree]) -> Result<Cleanup, String> {
         if Path::new(&tree.path).exists()
             && git(&root, &["worktree", "remove", &tree.path]).is_err()
         {
-            done.kept
-                .push(format!("{} (changements non commités)", tree.slug));
+            let slug = &tree.slug;
+            done.kept.push(tr!(
+                "{slug} (changements non commités)",
+                "{slug} (uncommitted changes)"
+            ));
             continue;
         }
         match git(&root, &["branch", "-d", &tree.branch]) {
             Ok(_) => done.removed.push(tree.slug.clone()),
-            Err(_) => done
-                .kept
-                .push(format!("{} (branche non fusionnée)", tree.branch)),
+            Err(_) => {
+                let branch = &tree.branch;
+                done.kept.push(tr!(
+                    "{branch} (branche non fusionnée)",
+                    "{branch} (branch not merged)"
+                ));
+            }
         }
     }
     Ok(done)
@@ -268,7 +305,10 @@ pub fn cleanup(project: &Path, mission: &str, agents: &[String]) -> Result<Clean
         if merged.contains(&format!("openvibe/{name}").as_str()) {
             remove_worktree(&root, name, &path, &mut done);
         } else {
-            done.kept.push(format!("{name} (branche non fusionnée)"));
+            done.kept.push(tr!(
+                "{name} (branche non fusionnée)",
+                "{name} (branch not merged)"
+            ));
         }
     }
     let path = dir.join(mission);

@@ -3,6 +3,7 @@ pub mod scrollback;
 pub mod session;
 pub mod shell;
 
+use crate::tr;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -51,8 +52,9 @@ impl PtyManager {
     ) -> AppResult<Option<u32>> {
         let mut sessions = lock(&self.sessions);
         if sessions.contains_key(node_id) {
-            return Err(AppError::InvalidInput(format!(
-                "le terminal {node_id} tourne déjà"
+            return Err(AppError::InvalidInput(tr!(
+                "le terminal {node_id} tourne déjà",
+                "terminal {node_id} is already running"
             )));
         }
         let Started {
@@ -194,8 +196,12 @@ impl PtyManager {
     }
 
     fn require(&self, node_id: &str) -> AppResult<Arc<Session>> {
-        self.get(node_id)
-            .ok_or_else(|| AppError::NotFound(format!("aucun terminal actif pour {node_id}")))
+        self.get(node_id).ok_or_else(|| {
+            AppError::NotFound(tr!(
+                "aucun terminal actif pour {node_id}",
+                "no active terminal for {node_id}"
+            ))
+        })
     }
 }
 

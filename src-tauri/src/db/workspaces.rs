@@ -1,3 +1,4 @@
+use crate::tr;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
@@ -101,7 +102,10 @@ pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
 pub fn set_pantheon(conn: &Connection, id: &str, pantheon: &str) -> AppResult<()> {
     let pantheon = pantheon.trim();
     if pantheon.is_empty() {
-        return Err(AppError::InvalidInput("panthéon vide".into()));
+        return Err(AppError::InvalidInput(tr!(
+            "panthéon vide",
+            "empty pantheon"
+        )));
     }
     let changed = conn.execute(
         "UPDATE workspaces SET pantheon = ?2 WHERE id = ?1",
@@ -124,7 +128,10 @@ fn valid_name(name: &str) -> AppResult<String> {
 }
 
 fn not_found(id: &str) -> AppError {
-    AppError::NotFound(format!("workspace introuvable : {id}"))
+    AppError::NotFound(tr!(
+        "workspace introuvable : {id}",
+        "workspace not found: {id}"
+    ))
 }
 
 #[cfg(test)]
