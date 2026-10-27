@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { AppCrash } from "./shell/CrashNotice";
 import { installLogging } from "./app/log";
 import { startTheme } from "./app/theme";
 import { trackTerminalFocus } from "./canvas/keyboardFocus";
@@ -18,6 +20,8 @@ installRadial(window);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary scope="app" fallback={(error) => <AppCrash error={error} />}>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

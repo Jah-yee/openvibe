@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Canvas } from "@/canvas/Canvas";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AgentsPanel } from "@/fleet/AgentsPanel";
 import { useAgentsPanel } from "@/fleet/agentsPanelState";
 import { agentsStore } from "@/fleet/agentsStore";
@@ -13,6 +14,7 @@ import { AgentCounts } from "./AgentCounts";
 import { CloseAgentDialog } from "./CloseAgentDialog";
 import { CloseGroupDialog } from "./CloseGroupDialog";
 import { CommandBar, CommandHint } from "./CommandBar";
+import { CrashNotice } from "./CrashNotice";
 import { GitChip } from "./GitChip";
 import { ProjectPicker } from "./ProjectPicker";
 import { SearchField } from "./SearchField";
@@ -21,6 +23,15 @@ import { ToolRail } from "./ToolRail";
 import { UsageMeter } from "./UsageMeter";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { ZoomControl } from "./ZoomControl";
+
+/** A floating panel's error, where the panels open. */
+function panelCrash(error: Error, retry: () => void) {
+  return (
+    <div className="absolute right-3 top-[104px] z-40 w-80">
+      <CrashNotice error={error} retry={retry} compact />
+    </div>
+  );
+}
 
 /**
  * The open project (spec identité §5): the canvas fills the window, under the
@@ -40,10 +51,24 @@ export function ProjectView() {
     <div className="ov-ambient relative h-screen w-screen overflow-hidden">
       {status === "ready" && activeId ? (
         <>
-          <Canvas key={activeId} workspaceId={activeId} />
+          <ErrorBoundary
+            key={activeId}
+            scope="canvas"
+            fallback={(error, retry) => (
+              <div className="absolute inset-0 px-6 pb-6 pt-[104px]">
+                <CrashNotice error={error} retry={retry} />
+              </div>
+            )}
+          >
+            <Canvas workspaceId={activeId} />
+          </ErrorBoundary>
           <ToolRail />
           <ActivityRail />
-          {panelOpen && <AgentsPanel />}
+          {panelOpen && (
+            <ErrorBoundary scope="agents panel" fallback={panelCrash}>
+              <AgentsPanel />
+            </ErrorBoundary>
+          )}
           <div className="absolute bottom-[14px] left-3 z-30">
             <GitChip />
           </div>
@@ -57,7 +82,9 @@ export function ProjectView() {
           <PlacementGhost />
           <LinkMode />
           <RadialMenu />
-          <ReviewPanel />
+          <ErrorBoundary scope="review" fallback={panelCrash}>
+            <ReviewPanel />
+          </ErrorBoundary>
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">
@@ -70,7 +97,9 @@ export function ProjectView() {
           center={<SearchField />}
           trailing={
             <>
-              <UsageMeter />
+              <ErrorBoundary scope="usage" fallback={() => null}>
+                <UsageMeter />
+              </ErrorBoundary>
               <AgentCounts />
             </>
           }

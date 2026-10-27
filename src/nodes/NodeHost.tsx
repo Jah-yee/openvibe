@@ -1,11 +1,24 @@
 import { memo } from "react";
 import type { NonDeleted, ExcalidrawEmbeddableElement } from "@excalidraw/excalidraw/element/types";
 import { nodeKindOf } from "@/canvas/nodeElement";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CrashNotice } from "@/shell/CrashNotice";
 import { OrchestratorNode } from "./orchestrator/OrchestratorNode";
 import { TerminalNode } from "./terminal/TerminalNode";
 
-/** Renders the OpenVibe node behind an Excalidraw embeddable, chosen by its kind. */
+/**
+ * Renders the OpenVibe node behind an Excalidraw embeddable, chosen by its kind.
+ * A render error stays in the node's frame; its process keeps running.
+ */
 export const NodeHost = memo(function NodeHost({ element }: { element: NonDeleted<ExcalidrawEmbeddableElement> }) {
+  return (
+    <ErrorBoundary scope="node" fallback={(error, retry) => <CrashNotice error={error} retry={retry} compact />}>
+      <NodeOfKind element={element} />
+    </ErrorBoundary>
+  );
+}, (prev, next) => prev.element.id === next.element.id);
+
+function NodeOfKind({ element }: { element: NonDeleted<ExcalidrawEmbeddableElement> }) {
   switch (nodeKindOf(element)) {
     case "terminal":
       return <TerminalNode nodeId={element.id} />;
@@ -14,4 +27,4 @@ export const NodeHost = memo(function NodeHost({ element }: { element: NonDelete
     default:
       return <div className="grid h-full place-items-center rounded-md border bg-card text-muted-foreground">Nœud inconnu</div>;
   }
-}, (prev, next) => prev.element.id === next.element.id);
+}
