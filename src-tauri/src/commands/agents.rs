@@ -49,6 +49,14 @@ struct SubagentsEvent {
     running: u32,
 }
 
+/// What a Claude session's status line was given (spec maj §6).
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StatusEvent {
+    node_id: String,
+    status: Value,
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityEvent {
@@ -156,6 +164,16 @@ impl HookSink for AppSink {
         self.0.try_state::<AgentState>()?.mcp_tokens.node(token)
     }
 
+    fn status(&self, node_id: &str, status: Value) {
+        let _ = self.0.emit(
+            "claude-status",
+            StatusEvent {
+                node_id: node_id.into(),
+                status,
+            },
+        );
+    }
+
     fn mcp_call(&self, node_id: &str, method: &str, params: Value) -> Result<Value, String> {
         let state = self
             .0
@@ -209,18 +227,34 @@ fn on_hook(app: &AppHandle, hit: HookHit) {
 
 /// The hooks a new process gets: Claude's settings file, Codex's notify URL.
 /// Without a server, Claude starts without `--settings`.
-pub fn hooks_for(app: &AppHandle, node_id: &str, agent: Agent, role: Role) -> AgentHooks {
+pub fn hooks_for(
+    app: &AppHandle,
+    node_id: &str,
+    agent: Agent,
+    role: Role,
+    cwd: &std::path::Path,
+) -> AgentHooks {
     let state = app.state::<AgentState>();
     let Some(server) = &state.hooks else {
         return AgentHooks::default();
     };
     match agent {
         Agent::Claude => {
+            // The user's own status line goes on showing, after OpenVibe has read the usage (spec maj §6).
+            let status = claude_settings::StatusLine {
+                script: state.hooks_dir.join("statusline.sh"),
+                url: server.status_url(node_id),
+                user: claude_settings::status_line_for(
+                    cwd,
+                    claude_settings::user_settings_file().as_deref(),
+                ),
+            };
             let settings = claude_settings::write(
                 &state.hooks_dir,
                 node_id,
                 &server.url(HookSource::Claude, node_id),
                 role,
+                Some(&status),
             );
             let Ok(settings) =
                 settings.inspect_err(|err| eprintln!("hooks of {node_id} not written: {err}"))

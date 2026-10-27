@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in OpenVibe does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! You can write in English or in French.
+        For a security problem, do not open an issue: follow SECURITY.md instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Launch a group of 4 Claude agents
+        2. Send "@frontend /context"
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpenVibe version or commit
+      placeholder: 0.1.0, or the commit you built
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent CLI and version, if relevant
+      placeholder: Claude Code 2.1.304, Codex 0.x, …
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, logs or anything else
+      description: Please remove any secret, token or private path before you paste terminal output.

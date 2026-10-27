@@ -52,6 +52,16 @@ describe("an orchestrator's session (spec orchestrateur §6)", () => {
     expect(readTerminalPayload(session)?.role).toBe("orchestrator");
   });
 
+  it("keeps the model the router chose (spec maj §3)", () => {
+    expect(readTerminalPayload({ ...session, model: "claude-haiku-5-5" })?.model).toBe("claude-haiku-5-5");
+    expect(readTerminalPayload({ ...session, model: 4 })?.model).toBeUndefined();
+  });
+
+  it("keeps Remote Control on (spec maj §2)", () => {
+    expect(readTerminalPayload({ ...session, remoteControl: true })?.remoteControl).toBe(true);
+    expect(readTerminalPayload({ ...session, remoteControl: "oui" })?.remoteControl).toBeUndefined();
+  });
+
   it("drops a session that is not Claude's or cannot launch", () => {
     expect(readOrchestratorPayload({ name: "Chef", session: { ...session, agent: "shell" } })).toEqual({ name: "Chef" });
     expect(readOrchestratorPayload({ name: "Chef", session: 3 })).toEqual({ name: "Chef" });

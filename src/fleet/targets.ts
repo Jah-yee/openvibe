@@ -84,6 +84,21 @@ export function mentionAt(text: string, caret: number): { start: number; query: 
   return match ? { start: caret - match[2].length - 1, query: match[2] } : null;
 }
 
+/** The names of a slashed mention ("thot/ze"): those already typed, and the one being completed. */
+export function mentionParts(query: string): { typed: string[]; query: string } {
+  const names = query.split("/");
+  const last = names.pop() ?? "";
+  return { typed: names.filter(Boolean), query: last };
+}
+
+/** The typed names that match exactly one option, as targets. */
+export function partTargets(names: readonly string[], options: readonly TargetOption[]): Target[] {
+  return names.flatMap((name) => {
+    const found = options.filter((o) => o.label === `@${slug(name)}`);
+    return found.length === 1 ? [found[0].target] : [];
+  });
+}
+
 /**
  * Escape closes the `@` list of the mention starting at `dismissedAt`; it
  * stays closed while that mention is typed, and opens again for any other.
@@ -100,7 +115,8 @@ export function withoutMention(text: string, start: number, end: number): { text
 /**
  * Typed `@names` that match exactly one option become targets and leave the
  * text ("@tous lance les tests", "@tous, lancez…") with the punctuation and
- * the space that follow them; ambiguous or unknown ones stay as typed. The
+ * the space that follow them; ambiguous or unknown ones stay as typed.
+ * `@athena/zeus/héra` targets the three of them, when each is known. The
  * rest of the command keeps its spaces (indented code, tabs).
  */
 export function extractMentions(text: string, options: readonly TargetOption[]): { targets: Target[]; text: string } {
@@ -108,8 +124,14 @@ export function extractMentions(text: string, options: readonly TargetOption[]):
   const mention = /(^|\s)@([^\s@,;:.!?…]+)[,;:.!?…]*(?=\s|$) ?/g;
   const rest = text.replace(mention, (whole: string, before: string, word: string) => {
     const found = options.filter((o) => o.label === `@${slug(word)}`);
-    if (found.length !== 1) return whole;
-    targets.push(found[0].target);
+    if (found.length === 1) {
+      targets.push(found[0].target);
+      return before;
+    }
+    const names = word.split("/");
+    const parts = names.length > 1 ? partTargets(names, options) : [];
+    if (parts.length < 2 || parts.length !== names.length) return whole;
+    targets.push(...parts);
     return before;
   });
   return { targets, text: rest.trim() };

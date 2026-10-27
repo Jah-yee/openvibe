@@ -6,11 +6,14 @@ import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
 import { cn } from "@/lib/utils";
 import { sendCommand } from "./broadcast";
 import { browseHistory, historyStore } from "./history";
+import { commandAt, isKnownCommand, isSlashCommand, matchCommands } from "./slashCommands";
 import {
   extractMentions,
   keptDismissal,
   matchOptions,
   mentionAt,
+  mentionParts,
+  partTargets,
   resolveTargets,
   targetKey,
   targetOptions,
@@ -18,15 +21,29 @@ import {
   withoutMention,
   type Target,
   type TargetAgent,
-  type TargetOption,
 } from "./targets";
 
 const MENU_SIZE = 8;
 const MAX_HEIGHT_PX = 120;
 
+/** A line of the list above the field: a target, or a command of the agents' CLI. */
+interface Suggestion {
+  key: string;
+  label: string;
+  detail: string;
+  pick: () => void;
+}
+
+/** Escape keeps the list closed while the same `@` mention or `/command` is typed. */
+function keptClosed(dismissedAt: number | null, text: string, caret: number): number | null {
+  if (dismissedAt === null) return null;
+  return keptDismissal(dismissedAt, text, caret) ?? (commandAt(text, caret)?.start === dismissedAt ? dismissedAt : null);
+}
+
 /**
  * The field of the command bar and of an orchestrator (spec habillage §12, §13):
- * `@` targets in chips, Enter sends to them (or to `fallback`), ↑ ↓ recall.
+ * `@` targets in chips (`@athena/zeus` for several), `/` the agents' commands,
+ * Enter sends to them (or to `fallback`), ↑ ↓ recall.
  */
 export function CommandInput(props: {
   agents: readonly TargetAgent[];
@@ -53,11 +70,32 @@ export function CommandInput(props: {
   const labels = new Map(options.map((o) => [targetKey(o.target), o.label]));
   const chips = targets.filter((t) => labels.has(targetKey(t)));
   const mention = mentionAt(text, caret);
-  const matches = mention && mention.start !== dismissedAt ? matchOptions(options, mention.query).slice(0, MENU_SIZE) : [];
+  const parts = mention ? mentionParts(mention.query) : null;
+  const command = mention ? null : commandAt(text, caret);
+  const menuStart = mention?.start ?? command?.start ?? null;
+  // A recalled command keeps its list closed: ↑ goes on through the history.
+  const shown = menuStart !== null && menuStart !== dismissedAt && browsing === null;
+  const fullCommand = command !== null && isKnownCommand(`/${command.query}`);
+  const suggestions: Suggestion[] = !shown
+    ? []
+    : parts
+      ? matchOptions(options, parts.query)
+          .slice(0, MENU_SIZE)
+          .map((option, i) => ({
+            key: `${targetKey(option.target)}-${i}`,
+            label: option.label,
+            detail: option.detail,
+            pick: () => insertTargets([...partTargets(parts.typed, options), option.target]),
+          }))
+      : matchCommands(command?.query ?? "")
+          .slice(0, MENU_SIZE)
+          .map((found) => ({ key: found.name, label: found.name, detail: found.hint, pick: () => insertCommand(found.name) }));
   const typed = extractMentions(text, options);
   const allTargets = uniqueTargets([...chips, ...typed.targets]);
   const ids = resolveTargets(allTargets, { all: agents.map((a) => a.id), groups }, fallback);
-  const canSend = typed.text.length > 0 && ids.length > 0;
+  // A command for a mistyped target must not go to the selection instead.
+  const unknown = isSlashCommand(typed.text) ? /(?:^|\s)(@[^\s@,;:.!?…]+)/.exec(typed.text)?.[1] : undefined;
+  const canSend = typed.text.length > 0 && ids.length > 0 && unknown === undefined;
   const nothingTargeted = allTargets.length === 0 && fallback.length === 0;
 
   useLayoutEffect(() => {
@@ -72,15 +110,25 @@ export function CommandInput(props: {
     setCaret(at);
     setActive(0);
     setBrowsing(null);
-    setDismissedAt((dismissed) => keptDismissal(dismissed, value, at));
+    setDismissedAt((dismissed) => keptClosed(dismissed, value, at));
   };
 
-  const insert = (option: TargetOption) => {
+  const moveCaret = (at: number) => requestAnimationFrame(() => field.current?.setSelectionRange(at, at));
+
+  const insertTargets = (picked: readonly Target[]) => {
     if (!mention) return;
-    setTargets(uniqueTargets([...chips, option.target]));
+    setTargets(uniqueTargets([...chips, ...picked]));
     const next = withoutMention(text, mention.start, caret);
     edit(next.text, next.caret);
-    requestAnimationFrame(() => field.current?.setSelectionRange(next.caret, next.caret));
+    moveCaret(next.caret);
+  };
+
+  const insertCommand = (name: string) => {
+    if (!command) return;
+    const value = `${text.slice(0, command.start)}${name} ${text.slice(caret)}`;
+    const at = command.start + name.length + 1;
+    edit(value, at);
+    moveCaret(at);
   };
 
   const send = () => {
@@ -101,21 +149,21 @@ export function CommandInput(props: {
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (matches.length > 0 && mention) {
+    if (suggestions.length > 0 && menuStart !== null) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        const step = e.key === "ArrowDown" ? 1 : matches.length - 1;
-        setActive((i) => (i + step) % matches.length);
+        const step = e.key === "ArrowDown" ? 1 : suggestions.length - 1;
+        setActive((i) => (i + step) % suggestions.length);
         return;
       }
-      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !fullCommand)) {
         e.preventDefault();
-        insert(matches[Math.min(active, matches.length - 1)]);
+        suggestions[Math.min(active, suggestions.length - 1)].pick();
         return;
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setDismissedAt(mention.start);
+        setDismissedAt(menuStart);
         return;
       }
     }
@@ -138,33 +186,38 @@ export function CommandInput(props: {
 
   return (
     <div className="relative flex min-w-0 flex-1 items-end gap-2">
-      {matches.length > 0 && (
+      {suggestions.length > 0 && (
         <ul
           role="listbox"
-          className="absolute bottom-full left-0 z-10 mb-2 w-64 overflow-hidden rounded-xl border border-ov-line bg-ov-surface-2 py-1 shadow-ov"
+          className={cn(
+            "absolute bottom-full left-0 z-10 mb-2 overflow-hidden rounded-xl border border-ov-line bg-ov-surface-2 py-1 shadow-ov",
+            parts ? "w-64" : "w-96 max-w-full",
+          )}
         >
-          {matches.map((option, i) => (
+          {suggestions.map((suggestion, i) => (
             <li
-              key={`${targetKey(option.target)}-${i}`}
+              key={suggestion.key}
               role="option"
               aria-selected={i === active}
+              title={suggestion.detail}
               onMouseDown={(e) => {
                 e.preventDefault();
-                insert(option);
+                suggestion.pick();
               }}
               className={cn(
                 "flex cursor-pointer items-center gap-2 px-3 py-1 text-xs",
                 i === active ? "bg-ov-hover text-ov-text" : "text-ov-text-2",
               )}
             >
-              <span className="font-mono text-ov-text">{option.label}</span>
-              <span className="ml-auto truncate">{option.detail}</span>
+              <span className="shrink-0 font-mono text-ov-text">{suggestion.label}</span>
+              <span className="ml-auto truncate">{suggestion.detail}</span>
             </li>
           ))}
         </ul>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {text.trim() && nothingTargeted && <p className="text-[11px] text-ov-text-2">{emptyHint}</p>}
+        {unknown && <p className="text-[11px] text-ov-text-2">Cible inconnue : {unknown}</p>}
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           {chips.map((target) => (
             <span

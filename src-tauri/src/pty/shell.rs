@@ -73,6 +73,12 @@ pub struct ClaudeLaunch {
     /// Interfaces of before the orchestrator send none: an agent.
     #[serde(default)]
     pub role: Role,
+    /// Remote Control from the start, under this name (`--remote-control`).
+    #[serde(default)]
+    pub remote_control: Option<String>,
+    /// The model the orchestrator's router chose (`--model`).
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 /// What the frontend asks for when it starts a terminal (spec §9).
@@ -332,8 +338,20 @@ fn claude_command(
             ));
         }
     }
+    if let Some(model) = launch.model.as_deref() {
+        // Typed into a shell: a model's name, or an alias like `sonnet[1m]`, nothing else.
+        let valid = !model.is_empty()
+            && model
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '.' | '_' | '[' | ']'));
+        if !valid {
+            return Err(AppError::InvalidInput(format!("modèle invalide : {model}")));
+        }
+        claude.push_str(&format!(" --model {}", quote(syntax, model)));
+    }
+    let remote = remote_flag(launch, syntax);
     if launch.mode == ClaudeMode::Continue {
-        return Ok(format!("{claude} --continue"));
+        return Ok(format!("{claude} --continue{remote}"));
     }
     // Parsing guarantees the id is a bare UUID, so it never needs quoting.
     let session = uuid::Uuid::parse_str(&launch.session_id).map_err(|_| {
@@ -344,20 +362,30 @@ fn claude_command(
     })?;
     let title = clean_title(&launch.title);
     Ok(match launch.mode {
-        ClaudeMode::Resume => format!("{claude} --resume {session}"),
-        _ if title.is_empty() => format!("{claude} --session-id {session}"),
+        ClaudeMode::Resume => format!("{claude} --resume {session}{remote}"),
+        _ if title.is_empty() => format!("{claude} --session-id {session}{remote}"),
         // Git Bash rewrites arguments that look like paths ("/fix" → "C:/Program Files/Git/fix").
         _ if syntax == ShellSyntax::Posix => {
             format!(
-                "MSYS_NO_PATHCONV=1 {claude} --session-id {session} -n {}",
+                "MSYS_NO_PATHCONV=1 {claude} --session-id {session} -n {}{remote}",
                 quote(syntax, &title)
             )
         }
         _ => format!(
-            "{claude} --session-id {session} -n {}",
+            "{claude} --session-id {session} -n {}{remote}",
             quote(syntax, &title)
         ),
     })
+}
+
+/// `--remote-control [name]` comes last: its name is optional, and the flag
+/// must not take the next argument of the command for one.
+fn remote_flag(launch: &ClaudeLaunch, syntax: ShellSyntax) -> String {
+    match launch.remote_control.as_deref().map(clean_title) {
+        None => String::new(),
+        Some(name) if name.is_empty() => " --remote-control".into(),
+        Some(name) => format!(" --remote-control {}", quote(syntax, &name)),
+    }
 }
 
 /// `notify` is given as TOML literal strings: PowerShell 5.1 drops the
@@ -444,6 +472,8 @@ mod tests {
             session_id: SESSION.into(),
             title: title.into(),
             role: Role::Agent,
+            remote_control: None,
+            model: None,
         })
     }
 
@@ -586,6 +616,8 @@ mod tests {
             session_id: "x; rm -rf /".into(),
             title: String::new(),
             role: Role::Agent,
+            remote_control: None,
+            model: None,
         });
         let err = agent_command(
             &spec(Agent::Claude, launch),
@@ -823,6 +855,83 @@ mod tests {
         let s: SpawnSpec = serde_json::from_value(json).unwrap();
         assert_eq!(s.shell, ShellKind::GitBash);
         assert_eq!(s.claude.unwrap().mode, ClaudeMode::Resume);
+    }
+
+    #[test]
+    fn starts_remote_control_last_under_the_agent_s_name() {
+        let with_remote = |mode, title: &str, name: &str| {
+            let mut launch = claude(mode, title);
+            launch.as_mut().unwrap().remote_control = Some(name.into());
+            agent_command(
+                &spec(Agent::Claude, launch),
+                ShellSyntax::PowerShell,
+                &AgentHooks::default(),
+            )
+            .unwrap()
+            .unwrap()
+        };
+        assert_eq!(
+            with_remote(ClaudeMode::New, "Mon agent", "Isis"),
+            format!("claude --session-id {SESSION} -n 'Mon agent' --remote-control 'Isis'")
+        );
+        assert_eq!(
+            with_remote(ClaudeMode::Resume, "", "Isis"),
+            format!("claude --resume {SESSION} --remote-control 'Isis'")
+        );
+        // Without a name, the flag ends the line: it takes no argument of the command for one.
+        assert_eq!(
+            with_remote(ClaudeMode::Continue, "", " \"\n"),
+            "claude --continue --remote-control"
+        );
+    }
+
+    #[test]
+    fn starts_claude_on_the_model_the_router_chose() {
+        let with_model = |mode, model: &str| {
+            let mut launch = claude(mode, "");
+            launch.as_mut().unwrap().model = Some(model.into());
+            agent_command(
+                &spec(Agent::Claude, launch),
+                ShellSyntax::PowerShell,
+                &AgentHooks::default(),
+            )
+        };
+        assert_eq!(
+            with_model(ClaudeMode::New, "claude-haiku-5-5")
+                .unwrap()
+                .unwrap(),
+            format!("claude --model 'claude-haiku-5-5' --session-id {SESSION}")
+        );
+        assert_eq!(
+            with_model(ClaudeMode::Continue, "sonnet[1m]")
+                .unwrap()
+                .unwrap(),
+            "claude --model 'sonnet[1m]' --continue"
+        );
+        // Typed into a shell: anything but a model's name is refused.
+        assert_eq!(
+            with_model(ClaudeMode::New, "opus; rm -rf /")
+                .unwrap_err()
+                .kind(),
+            "invalidInput"
+        );
+    }
+
+    #[test]
+    fn reads_remote_control_of_a_claude_session_off_by_default() {
+        let launch =
+            |claude: serde_json::Value| -> ClaudeLaunch { serde_json::from_value(claude).unwrap() };
+        assert_eq!(
+            launch(serde_json::json!({ "mode": "new", "sessionId": SESSION, "title": "t", "remoteControl": "Isis" }))
+                .remote_control
+                .as_deref(),
+            Some("Isis")
+        );
+        assert_eq!(
+            launch(serde_json::json!({ "mode": "new", "sessionId": SESSION, "title": "t" }))
+                .remote_control,
+            None
+        );
     }
 
     #[test]

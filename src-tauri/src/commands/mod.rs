@@ -3,6 +3,7 @@ pub mod git;
 pub mod mission;
 pub mod project;
 pub mod pty;
+pub mod review;
 #[cfg(all(test, windows))]
 mod test_support;
 pub mod workspace;

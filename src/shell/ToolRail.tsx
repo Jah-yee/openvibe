@@ -3,6 +3,7 @@ import { canvasStore, useCanvas } from "@/canvas/canvasStore";
 import { fitScene } from "@/canvas/viewActions";
 import { AgentMenu } from "@/fleet/AgentMenu";
 import { ToolButton } from "./buttons";
+import { IconsMenu } from "./IconsMenu";
 import { PenMenu } from "./PenMenu";
 import { ShapesMenu } from "./ShapesMenu";
 import { railToolOf, type ShapeTool } from "./tools";
@@ -39,6 +40,7 @@ export function ToolRail() {
       <ToolButton label="Image" active={active === "image"} onClick={() => setTool("image")}>
         <ImageIcon />
       </ToolButton>
+      <IconsMenu />
       <Separator />
       <AgentMenu
         answersRequests

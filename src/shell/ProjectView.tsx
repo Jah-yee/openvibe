@@ -5,6 +5,7 @@ import { useAgentsPanel } from "@/fleet/agentsPanelState";
 import { agentsStore } from "@/fleet/agentsStore";
 import { LinkMode } from "@/fleet/LinkMode";
 import { RadialMenu } from "@/radial/RadialMenu";
+import { ReviewPanel } from "@/review/ReviewPanel";
 import { PlacementGhost } from "@/fleet/PlacementGhost";
 import { useWorkspaces } from "@/store/workspaces";
 import { ActivityRail } from "./ActivityRail";
@@ -17,6 +18,7 @@ import { ProjectPicker } from "./ProjectPicker";
 import { SearchField } from "./SearchField";
 import { TitleBar } from "./TitleBar";
 import { ToolRail } from "./ToolRail";
+import { UsageMeter } from "./UsageMeter";
 import { WorkspaceTabs } from "./WorkspaceTabs";
 import { ZoomControl } from "./ZoomControl";
 
@@ -55,6 +57,7 @@ export function ProjectView() {
           <PlacementGhost />
           <LinkMode />
           <RadialMenu />
+          <ReviewPanel />
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">
@@ -62,7 +65,16 @@ export function ProjectView() {
         </div>
       )}
       <div className="absolute inset-x-0 top-0 z-30">
-        <TitleBar leading={<ProjectPicker />} center={<SearchField />} trailing={<AgentCounts />} />
+        <TitleBar
+          leading={<ProjectPicker />}
+          center={<SearchField />}
+          trailing={
+            <>
+              <UsageMeter />
+              <AgentCounts />
+            </>
+          }
+        />
         <WorkspaceTabs />
       </div>
       <CloseAgentDialog />

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ChevronDown, RotateCw } from "lucide-react";
+import { ChevronDown, FileDiff, RotateCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,9 @@ import { useUiRequest } from "@/commands/uiRequests";
 import { useCanvas } from "@/canvas/canvasStore";
 import { groupOf } from "@/canvas/groups";
 import { agentInk, AGENTS, AGENTS_WITHOUT_OPTIONS, INDIGO } from "@/fleet/catalog";
+import { RemoteButton } from "@/fleet/RemoteButton";
+import { modelLabel } from "@/mission/router";
+import { openReview } from "@/review/reviewStore";
 import { ROLES } from "@/fleet/roles";
 import type { AgentId } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
@@ -80,6 +83,29 @@ function RelaunchMenu(props: { nodeId: string; payload: TerminalPayload; running
             </DropdownMenuItem>
           </>
         )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** The model a mission's router chose; it stays after the mission until cleared (final review maj §3). */
+function ModelChip({ nodeId, model }: { nodeId: string; model: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-model={model}
+          title={`Modèle choisi par le routeur : ${model}`}
+          className="rounded px-1 font-mono text-[10px] text-ov-text-2 hover:bg-ov-card hover:text-ov-text"
+        >
+          {modelLabel(model)}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={() => nodesStore.getState().update(nodeId, { model: undefined })}>
+          Modèle par défaut au prochain démarrage
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -163,6 +189,11 @@ export function TerminalHeader(props: {
       )}
       <div className="ml-auto flex shrink-0 items-center gap-0.5">
         <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
+        {payload.model && <ModelChip nodeId={nodeId} model={payload.model} />}
+        {payload.agent === "claude" && <RemoteButton nodeId={nodeId} wanted={payload.remoteControl === true} running={status.state === "running"} />}
+        <HeaderButton label="Revue des changements" onClick={() => openReview(nodeId)}>
+          <FileDiff />
+        </HeaderButton>
         <RelaunchMenu nodeId={nodeId} payload={payload} running={status.state === "running"} />
         {actions}
       </div>

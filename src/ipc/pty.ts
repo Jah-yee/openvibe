@@ -10,6 +10,10 @@ export interface ClaudeLaunch {
   sessionId: string;
   title: string;
   role: "agent" | "orchestrator";
+  /** Started with Remote Control, under this name (spec maj §2). */
+  remoteControl?: string;
+  /** `--model`, chosen by a mission's router (spec maj §3). */
+  model?: string;
 }
 
 /** Agents of the launch menu (spec habillage §8), in menu order. */

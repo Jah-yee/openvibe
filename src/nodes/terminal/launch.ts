@@ -58,6 +58,8 @@ export function buildSpawnSpec(payload: TerminalPayload, mode: LaunchMode): Spaw
   const spec: SpawnSpec = { cwd: payload.cwd, shell: payload.shell, agent: payload.agent, command: payload.command };
   if (payload.agent === "claude") {
     spec.claude = { mode, sessionId: payload.claudeSessionId ?? crypto.randomUUID(), title: payload.title, role: payload.role ?? "agent" };
+    if (payload.remoteControl) spec.claude.remoteControl = payload.name || payload.title;
+    if (payload.model) spec.claude.model = payload.model;
   }
   if (payload.agent === "ollama" && payload.ollama) spec.ollama = payload.ollama;
   return spec;

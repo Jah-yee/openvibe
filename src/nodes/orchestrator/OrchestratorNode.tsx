@@ -6,9 +6,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { pauseAll, resumeAll } from "@/fleet/broadcast";
+import { RemoteButton } from "@/fleet/RemoteButton";
+import { setRemoteControlAll } from "@/fleet/remoteControl";
 import { defaultLaunchOptions } from "@/fleet/launchAgent";
 import { removeOrchestrator, renameOrchestrator } from "@/fleet/orchestrators";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
@@ -72,6 +75,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
           {clock && <span title="Temps passé / budget global">{clock}</span>}
           <span>{sessionLabel(status.state, activity?.activity)}</span>
         </span>
+        {session && <RemoteButton nodeId={nodeId} wanted={session.remoteControl === true} running={status.state === "running"} />}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -82,9 +86,13 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
               <ChevronDown className="size-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onSelect={() => void pauseAll(linked.agentIds)}>Tout mettre en pause</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void resumeAll(linked.agentIds)}>Tout reprendre</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {/* Spec maj §2: the orchestrator and its team, followed from the phone. */}
+            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], true)}>Remote Control pour l'équipe</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], false)}>Couper Remote Control</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <HeaderButton label="Fermer l'orchestrateur" onClick={() => removeOrchestrator(nodeId)}>

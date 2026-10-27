@@ -20,6 +20,10 @@ export interface TerminalPayload {
   steps?: Step[];
   /** An orchestrator's session (spec orchestrateur §4.2); absent for an agent. */
   role?: "orchestrator";
+  /** Claude starts with Remote Control (spec maj §2). */
+  remoteControl?: boolean;
+  /** Claude's model, chosen by a mission's router (spec maj §3). */
+  model?: string;
 }
 
 /** Content of an orchestrator node (spec habillage §13, spec orchestrateur §6). */
@@ -76,5 +80,7 @@ export function readTerminalPayload(raw: unknown): TerminalPayload | null {
   const steps = readSteps(r.steps);
   if (steps) payload.steps = steps;
   if (r.role === "orchestrator") payload.role = "orchestrator";
+  if (r.remoteControl === true) payload.remoteControl = true;
+  if (typeof r.model === "string" && r.model) payload.model = r.model;
   return payload;
 }

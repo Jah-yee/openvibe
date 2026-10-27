@@ -36,6 +36,8 @@ pub trait HookSink: Send + Sync + 'static {
     fn mcp_node(&self, token: &str) -> Option<String>;
     /// `tools/list` or `tools/call` for a node, answered by the interface.
     fn mcp_call(&self, node_id: &str, method: &str, params: Value) -> Result<Value, String>;
+    /// What a Claude session's status line was given: its usage (spec maj §6).
+    fn status(&self, _node_id: &str, _status: Value) {}
 }
 
 pub struct HookServer {
@@ -52,6 +54,14 @@ impl HookServer {
         };
         format!(
             "http://127.0.0.1:{}/hook/{kind}/{node_id}?t={}",
+            self.port, self.token
+        )
+    }
+
+    /// The URL a Claude session's status line posts its JSON to (spec maj §6).
+    pub fn status_url(&self, node_id: &str) -> String {
+        format!(
+            "http://127.0.0.1:{}/status/{node_id}?t={}",
             self.port, self.token
         )
     }
@@ -82,7 +92,11 @@ pub fn start(sink: impl HookSink) -> std::io::Result<HookServer> {
                 std::thread::spawn(move || answer_mcp(request, &*sink));
                 continue;
             }
-            let status = status_of(&mut request, &expected, &*sink);
+            let status = if request.url().starts_with("/status/") {
+                status_line_of(&mut request, &expected, &*sink)
+            } else {
+                status_of(&mut request, &expected, &*sink)
+            };
             let _ = request.respond(Response::empty(status));
         }
     });
@@ -117,6 +131,60 @@ pub fn parse_route(url: &str, token: &str) -> Result<(HookSource, String), u16> 
             Ok((HookSource::Codex, node_id.to_string()))
         }
         _ => Err(404),
+    }
+}
+
+/// `/status/<nodeId>?t=<token>`, the token checked first as for hooks.
+pub fn parse_status_route(url: &str, token: &str) -> Result<String, u16> {
+    let (path, query) = url.split_once('?').unwrap_or((url, ""));
+    if !query
+        .split('&')
+        .any(|pair| pair.strip_prefix("t=") == Some(token))
+    {
+        return Err(403);
+    }
+    match path
+        .trim_start_matches('/')
+        .split('/')
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["status", node_id] if valid_node_id(node_id) => Ok(node_id.to_string()),
+        _ => Err(404),
+    }
+}
+
+/// A body of at most `MAX_BODY` bytes, as JSON.
+fn json_body(request: &mut Request) -> Result<Value, u16> {
+    let mut body = Vec::new();
+    if request
+        .as_reader()
+        .take(MAX_BODY as u64 + 1)
+        .read_to_end(&mut body)
+        .is_err()
+    {
+        return Err(400);
+    }
+    if body.len() > MAX_BODY {
+        return Err(413);
+    }
+    serde_json::from_slice(&body).map_err(|_| 400)
+}
+
+fn status_line_of(request: &mut Request, token: &str, sink: &dyn HookSink) -> u16 {
+    let node_id = match parse_status_route(request.url(), token) {
+        Ok(node_id) => node_id,
+        Err(status) => return status,
+    };
+    if *request.method() != Method::Post {
+        return 405;
+    }
+    match json_body(request) {
+        Ok(json) => {
+            sink.status(&node_id, json);
+            204
+        }
+        Err(status) => status,
     }
 }
 
@@ -255,6 +323,23 @@ mod tests {
     }
 
     #[test]
+    fn routes_a_status_line_to_its_terminal() {
+        assert_eq!(
+            parse_status_route(&format!("/status/n1?t={TOKEN}"), TOKEN),
+            Ok("n1".into())
+        );
+        assert_eq!(parse_status_route("/status/n1?t=nope", TOKEN), Err(403));
+        assert_eq!(
+            parse_status_route(&format!("/status/..?t={TOKEN}"), TOKEN),
+            Err(404)
+        );
+        assert_eq!(
+            parse_status_route(&format!("/status/a/b?t={TOKEN}"), TOKEN),
+            Err(404)
+        );
+    }
+
+    #[test]
     fn refuses_a_missing_or_wrong_token_before_anything_else() {
         assert_eq!(parse_route("/hook/claude/node-1", TOKEN), Err(403));
         assert_eq!(parse_route("/hook/claude/node-1?t=nope", TOKEN), Err(403));
@@ -285,6 +370,7 @@ mod tests {
     struct TestSink {
         hits: Mutex<mpsc::Sender<HookHit>>,
         subagents: Mutex<Vec<(String, bool)>>,
+        statuses: Mutex<Vec<(String, serde_json::Value)>>,
     }
 
     impl TestSink {
@@ -292,6 +378,7 @@ mod tests {
             Self {
                 hits: Mutex::new(hits),
                 subagents: Mutex::new(Vec::new()),
+                statuses: Mutex::new(Vec::new()),
             }
         }
     }
@@ -308,6 +395,12 @@ mod tests {
         }
         fn mcp_node(&self, token: &str) -> Option<String> {
             token.strip_prefix("tok-").map(str::to_string)
+        }
+        fn status(&self, node_id: &str, status: serde_json::Value) {
+            self.statuses
+                .lock()
+                .unwrap()
+                .push((node_id.to_string(), status));
         }
         fn mcp_call(
             &self,
@@ -406,6 +499,29 @@ mod tests {
                 activity: Activity::Idle,
                 session_ended: false,
             }
+        );
+    }
+
+    #[test]
+    fn passes_a_status_line_s_json_to_its_terminal() {
+        let (tx, _rx) = mpsc::channel();
+        let sink = Arc::new(TestSink::new(tx));
+        let server = start(Arc::clone(&sink)).unwrap();
+        let url = server.status_url("n1");
+        let path = url
+            .trim_start_matches(&format!("http://127.0.0.1:{}", server.port))
+            .to_string();
+        let body = br#"{"session_id":"s1","rate_limits":{}}"#;
+        assert_eq!(send(server.port, "POST", &path, body), 204);
+        assert_eq!(send(server.port, "GET", &path, b""), 405);
+        assert_eq!(send(server.port, "POST", &path, b"{"), 400);
+        assert_eq!(send(server.port, "POST", "/status/n1?t=wrong", b"{}"), 403);
+        assert_eq!(
+            *sink.statuses.lock().unwrap(),
+            vec![(
+                "n1".to_string(),
+                serde_json::json!({ "session_id": "s1", "rate_limits": {} })
+            )]
         );
     }
 

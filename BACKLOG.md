@@ -240,3 +240,60 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - L'horloge ne voit que les missions des espaces chargés depuis le démarrage.
 - Le panneau n'affiche pas les sous-tâches déjà finies par un agent qui en a repris une autre (`done`, lu par `equipe`).
 
+## Constats de la mise à jour du 27 octobre (relectures)
+
+### Commandes groupées
+- Un nom qui contient `/` (groupe « Front/Back ») se complète mal : `@front/ba` + Tab ajoute aussi l'agent Front. Essayer d'abord le nom entier, puis seulement le découpage.
+- `@nobody/ze` + Tab ne garde que Zeus : le nom inconnu disparaît, alors qu'à l'envoi la mention entière resterait du texte.
+- Échap sur la liste `@` garde aussi fermée la liste `/` qui commence au même endroit (et l'inverse) : retenir le genre de liste fermée.
+- Compléter une commande au milieu du texte laisse un double espace (`/ef lance` → `/effort  lance`).
+- La ligne surlignée n'est pas remise à zéro quand le curseur bouge : si la liste rétrécit, Entrée prend la dernière ligne.
+- `@thot/ /clear`, liste fermée : aucune cible, la commande part à la sélection comme une consigne.
+- Une commande `/…` ne va pas aux terminaux « Personnalisé », même quand ils lancent un agent (Claude avec des options) : à trancher.
+
+### Remote Control
+- Après 60 s sans lien lu au démarrage, le téléphone passe à « actif » sans confirmation : afficher plutôt une erreur.
+- Après un « Couper » en échec, le menu ne propose plus que « Activer » alors que Remote Control est peut-être encore actif : proposer « Couper » et « Réessayer » tant que l'état est en erreur.
+- Le lien d'un nœud supprimé n'est jamais effacé du store (le statut d'un nœud supprimé ne change plus).
+- Le toast d'un groupe dit « activé » pour une session arrêtée, quand l'outil dit « au prochain démarrage ».
+- `/remote-control` est ajouté au brouillon à moitié tapé dans l'invite de Claude, et le tout part ensemble (comme une consigne).
+- Une ligne `[OpenVibe]` de l'orchestrateur ou un `ecrire` peut arriver pendant que le menu Remote Control est ouvert : retenir la file d'écriture pendant toute l'opération.
+- `remote_control` : un prénom en double (agent relié et membre de la mission) prend le premier ; « tous » oublie sans le dire les agents reliés quand l'espace de l'orchestrateur n'est pas affiché.
+- Juste après un démarrage, Claude dessine encore son écran : OpenVibe le croit au travail ~1,5 s et répond « à la fin de son tour ». La demande est appliquée dès qu'il se calme.
+
+### Routeur de modèles
+- « Nettoyer la mission » garde le budget et le nombre d'agents mais pas le routeur : la mission suivante part sans, case décochée.
+- Côté Rust, un nom de modèle qui commence par un tiret (`--model '--…'`) est accepté : exiger un premier caractère alphanumérique et une longueur maximale (les valeurs viennent de la table du routeur, c'est une précaution).
+- `mission()` donne le modèle prévu par le niveau de la sous-tâche, même quand `reattribuer` l'a confiée à un agent qui garde le sien (`equipe` donne le bon).
+- Supprimer un orchestrateur en pleine mission laisse ses agents reliés dans leur worktree, avec le modèle du routeur (la puce de l'en-tête permet de revenir au modèle par défaut).
+- Tests absents : `withModel` de `launchGroup`, le modèle d'un agent « nouveau » de `reattribuer`, les guillemets de `--model` sous cmd et Git Bash.
+
+### Icônes Excalidraw
+- Messages du panneau : « Icônes introuvables » reste affiché pour toute catégorie après un seul échec, et une recherche dit « Aucune icône » pendant que le gros fichier AWS se charge encore. Tenir un état de chargement par catégorie.
+- Le cache des vignettes garde jusqu'à 1 252 SVG (626 icônes × 2 thèmes) et retient un échec de dessin jusqu'au redémarrage.
+- Le centrage ignore la rotation : 56 icônes ont des formes tournées et tombent à quelques pixels du centre (Excalidraw utilise `getCommonBounds`).
+- Rien ne filtre ce qu'une bibliothèque apporterait de plus lors d'un prochain téléchargement : retirer embeddable, iframe, frame, image et `customData`/`link` dans `readLibrary`. Les fichiers actuels sont propres. « Auto Scaling group » (AWS) contient des éléments verrouillés.
+- Sans canvas, le clic ne pose rien mais ferme quand même le panneau ; le panneau se vide pendant l'animation de fermeture ; chaque copie d'une icône garde les mêmes graines de dessin.
+- Une icône posée sur un groupe d'agents ne rejoint pas son cadre (Excalidraw l'y ajouterait).
+
+### Revue des changements
+- Le code 1 de `git diff --no-index` masque ses erreurs : un dépôt imbriqué non suivi (`nested/`) s'affiche « +0 −0 » et son diff dit « mode ou renommage seul ». Traiter un stderr sans stdout comme une erreur, et sauter les chemins finissant par `/`.
+- Les remarques ne retiennent que le numéro de ligne : après « Rafraîchir » ou de nouvelles modifications de l'agent, elles se placent sur une autre ligne. Garder aussi le texte de la ligne, et dire dans le message si la ligne supprimée est comptée depuis HEAD ou depuis la base.
+- « Rafraîchir » revient au premier fichier ; rafraîchir ou cliquer une autre ligne perd le texte d'une remarque en cours de saisie.
+- Le panneau couvre le rail d'activité et le panneau Agents (ouvrir une revue depuis une ligne du panneau Agents le cache), et un toast peut couvrir « Envoyer ».
+- Une erreur de lecture reste affichée si le dossier de l'agent change (les clés des onglets n'incluent pas le dossier).
+- Une liste de plus de 5 000 changements est coupée sans le dire.
+
+### Usage dans la barre du haut
+- Le `curl` du script passe avant ta ligne d'état : ~100-150 ms de plus à chaque rafraîchissement, jusqu'à ~1 s si le serveur local ne répond pas. Le lancer en arrière-plan.
+- `input=$(cat)` retire les sauts de ligne finaux du JSON : une ligne d'état qui lit avec `read -r` sous `set -e` pourrait s'arrêter.
+- `CLAUDE_CONFIG_DIR` est lu dans l'environnement d'OpenVibe, pas dans celui du terminal ; la ligne d'état de l'utilisateur est lue au démarrage de chaque session seulement.
+- Le jeton du serveur local apparaît dans la ligne de commande de `bash` et `curl` (visible dans la liste des processus) : quelqu'un sur la machine pourrait envoyer de faux usages ou états.
+- Une remise à zéro hebdomadaire au même jour de la semaine suivante s'affiche « mar. 09:00 », comme aujourd'hui : ajouter la date au-delà de 6 jours. Une limite propre à un modèle, seule, ne s'affiche pas dans la barre.
+- `--resume` garde le même identifiant de session : le coût cumulé que Claude restaure peut compter des dépenses d'avant l'ouverture d'OpenVibe.
+- Tests absents : la réponse 413 de `/status`, l'exécution réelle du script.
+
+### Vus en filmant le README (27 octobre)
+- Détail de l'usage : la section « Cache de prompt » garde les sessions des agents fermés. Après trois relances d'un groupe Athéna/Hermès/Apollon, chaque prénom y figure trois fois. N'y montrer que les sessions vivantes, ou griser et dater les autres.
+- Après « Lancer 4 agents », la vue s'ajuste à 40 % : les terminaux sont illisibles tant qu'on ne zoome pas. Plafonner l'ajustement plus haut, quitte à ne montrer que le début du groupe.
+

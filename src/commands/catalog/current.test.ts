@@ -15,6 +15,7 @@ import { nodesStore } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { labelOf, sectionOf, type CommandContext } from "../command";
 import { pendingUiRequest } from "../uiRequests";
+import { reviewStore } from "@/review/reviewStore";
 import { CURRENT } from "./current";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
@@ -67,6 +68,7 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
     expect(CURRENT.map((c) => labelOf(c, ctx("isis")))).toEqual([
       "Renommer",
       "Dupliquer",
+      "Revue des changements",
       "Relancer",
       "Arrêter le processus",
       "Mettre en pause",
@@ -91,6 +93,7 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
     expect(ids(ctx("isis"))).toEqual([
       "terminal.rename",
       "terminal.duplicate",
+      "terminal.review",
       "terminal.relaunch",
       "terminal.stop",
       "terminal.pause",
@@ -107,7 +110,7 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
       "group.frame",
     ]);
     // Thot is stopped and outside any group.
-    expect(ids(ctx("thot"))).toEqual(["terminal.rename", "terminal.duplicate", "terminal.relaunch", "terminal.close", "terminal.copy", "terminal.paste"]);
+    expect(ids(ctx("thot"))).toEqual(["terminal.rename", "terminal.duplicate", "terminal.review", "terminal.relaunch", "terminal.close", "terminal.copy", "terminal.paste"]);
   });
 
   it("acts on the terminal of the moment, as its header and the panel's row do", async () => {
@@ -171,3 +174,9 @@ describe("Terminal · <prénom> and Groupe · <nom> (spec fenêtre §7.3)", () =
     expect(find("group.pause").available({ ...ctx("thot"), groupId: "gone" })).toBe(false);
   });
 });
+
+it("opens the review of the terminal of the moment (spec maj §5)", async () => {
+  await find("terminal.review").run(ctx("thot"));
+  expect(reviewStore.getState().nodeId).toBe("thot");
+});
+

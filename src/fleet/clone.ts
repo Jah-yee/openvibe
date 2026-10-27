@@ -6,6 +6,9 @@ export function cloneTerminalPayload(source: TerminalPayload, name: string): Ter
   delete copy.claudeSessionId;
   // Its steps belong to the source's conversation (spec orchestrateur §5).
   delete copy.steps;
+  // A mission's model and Remote Control were asked for the source only (final review maj §3).
+  delete copy.model;
+  delete copy.remoteControl;
   if (copy.agent === "claude") copy.claudeSessionId = crypto.randomUUID();
   return copy;
 }

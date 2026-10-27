@@ -7,9 +7,11 @@ import { useNow } from "@/lib/useNow";
 import { useActivities } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
+import { openReview } from "@/review/reviewStore";
 import { uiStore, useUi } from "@/store/ui";
 import { cleanMission, launchMission } from "./launch";
 import { budgetBar, budgetOf, MAX_AGENTS, spentMin, type Member, type Mission, type MissionState } from "./mission";
+import { LEVELS, modelLabel } from "./router";
 import { agentState, missionOf, setMission } from "./store";
 
 const STATE_LABEL: Record<MissionState, string> = {
@@ -83,6 +85,19 @@ function Settings({ nodeId, mission }: { nodeId: string; mission: Mission }) {
           className="w-12 rounded bg-ov-field px-1 py-0.5 text-ov-text outline-none"
         />
       </label>
+      <label
+        className="flex items-center gap-1"
+        title="Chaque agent prend le modèle du niveau de sa sous-tâche : faible Haiku 5.5, moyen Sonnet 5.5, élevé Opus 5.5, extrême Fable 5.1"
+      >
+        <input
+          type="checkbox"
+          aria-label="Routeur de modèles"
+          checked={mission.router === true}
+          onChange={(e) => setMission(nodeId, { router: e.target.checked || undefined })}
+          className="accent-[var(--ov-accent)]"
+        />
+        Routeur de modèles
+      </label>
       <span className="ml-auto">
         {claude} Claude relié{claude > 1 ? "s" : ""}
       </span>
@@ -109,6 +124,12 @@ function Plan({ nodeId, mission }: { nodeId: string; mission: Mission }) {
           <li key={i} className="rounded bg-ov-card px-2 py-1">
             <div className="flex items-center gap-2 text-ov-text">
               <span className="font-medium">{task.title}</span>
+              {task.level && (
+                <span className="shrink-0 rounded-full bg-ov-field px-1.5 text-[11px] text-ov-text-2">
+                  {LEVELS[task.level].label}
+                  {mission.router ? ` · ${LEVELS[task.level].modelLabel}` : ""}
+                </span>
+              )}
               <span className="ml-auto shrink-0 font-mono text-[11px] text-ov-text-2">
                 {task.agent} · {task.budgetMin} min
               </span>
@@ -149,6 +170,7 @@ function Team({ members }: { members: readonly Member[] }) {
           <li key={member.nodeId || member.name} data-member={member.name} className="flex items-center gap-2 rounded bg-ov-card px-2 py-1">
             <span className="font-medium text-ov-text">{member.name}</span>
             <span className="min-w-0 truncate">{member.task}</span>
+            {member.model && <span className="shrink-0 font-mono text-[11px]">{modelLabel(member.model)}</span>}
             <span className="ml-auto shrink-0">{agentState(member.nodeId)}</span>
             {steps.length > 0 && (
               <span className="shrink-0 font-mono text-[11px]">
@@ -160,6 +182,15 @@ function Team({ members }: { members: readonly Member[] }) {
             ) : member.sentAt !== undefined ? (
               <BudgetTime spent={spentMin(member, now)} budget={budgetOf(member)} />
             ) : null}
+            <button
+              type="button"
+              title={`Revue du travail de ${member.name}`}
+              aria-label={`Revue de ${member.name}`}
+              onClick={() => openReview(member.nodeId)}
+              className="shrink-0 rounded px-1 text-[11px] text-ov-text-2 hover:bg-ov-field hover:text-ov-text"
+            >
+              diff
+            </button>
             {member.report && (
               <span title={member.report.summary} className="shrink-0 rounded-full bg-ov-field px-1.5 text-[11px] text-ov-text">
                 {REPORT_LABEL[member.report.status]}

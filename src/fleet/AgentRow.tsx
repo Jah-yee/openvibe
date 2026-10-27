@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
-import { Crosshair, Pause, Play, X } from "lucide-react";
+import { Crosshair, FileDiff, Pause, Play, Smartphone, X } from "lucide-react";
 import { focusNode } from "@/canvas/focusNode";
 import { HeaderButton } from "@/nodes/terminal/TerminalHeader";
+import { openReview } from "@/review/reviewStore";
 import { StatusPill } from "@/nodes/terminal/StatusPill";
 import { useActivity } from "@/store/agentActivity";
 import { terminalOf, useNodes } from "@/store/nodes";
 import { useTerminalStatus } from "@/store/terminalStatus";
 import { canPause, canResume, pauseAgents, resumeAgent } from "./broadcast";
 import { agentInk, AGENTS, INDIGO } from "./catalog";
+import { useRemoteLink } from "./remoteControl";
 import { requestClose } from "./terminals";
 
 /**
@@ -19,6 +21,7 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
   const payload = useNodes((s) => terminalOf(s.nodes[id]));
   const status = useTerminalStatus(id);
   const activity = useActivity(id);
+  const remote = useRemoteLink(id);
   if (!payload) return null;
   const meta = AGENTS[payload.agent];
   const name = payload.name || meta.label;
@@ -36,6 +39,11 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
           {name} <span className="text-ov-text-2">{meta.label}</span>
         </span>
       </button>
+      {remote?.state === "on" && (
+        <span title="Remote Control actif" aria-label="Remote Control actif" className="text-ov-accent">
+          <Smartphone className="size-3.5" />
+        </span>
+      )}
       <StatusPill status={status} activity={activity} indigo={meta.tint === INDIGO} />
       {trailing}
       <span className="hidden items-center gap-0.5 group-hover:flex">
@@ -44,6 +52,9 @@ export function AgentRow(props: { id: string; onOpen?: () => void; trailing?: Re
             <Crosshair />
           </HeaderButton>
         )}
+        <HeaderButton label={`Revue de ${name}`} onClick={() => openReview(id)}>
+          <FileDiff />
+        </HeaderButton>
         {canPause(facts) && (
           <HeaderButton label={`Mettre ${name} en pause`} onClick={() => void pauseAgents([id])}>
             <Pause />
