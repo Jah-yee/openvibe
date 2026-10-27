@@ -18,7 +18,7 @@
 
 OpenVibe est une application de bureau qui place vos agents de code sur un canvas infini. Chaque agent tourne dans un **vrai terminal** (Claude Code, Codex, Gemini CLI et d'autres). Vous les réunissez en équipes, vous briefez toute une équipe en une ligne, vous relisez leurs changements, et vous confiez une grosse tâche à un **orchestrateur** qui la découpe, la distribue et surveille le temps.
 
-Tout tourne sur votre machine. OpenVibe n'ajoute aucun service en ligne ni aucune télémétrie, et ne contourne jamais les demandes d'autorisation des agents.
+Tout tourne sur votre machine. OpenVibe n'ajoute aucun service en ligne ni aucune télémétrie, et ne contourne jamais les demandes d'autorisation des agents. Sa seule requête à lui est la recherche de mises à jour, que vous pouvez couper.
 
 Si vous connaissez Symvibe : OpenVibe couvre le même terrain (piloter une flotte d'agents en ligne de commande depuis un canvas infini), en projet indépendant et open source, avec son propre design et ses propres fonctions.
 
@@ -143,7 +143,16 @@ Les touches d'Excalidraw (`V`, `H`, `R`, `O`, `A`, `T`, `P`, `E`, `Ctrl+Z`…) f
 
 ## Installation
 
-Il n'y a pas encore de version précompilée : pour l'instant, on compile OpenVibe depuis les sources.
+Téléchargez `OpenVibe_<version>_x64-setup.exe` depuis la [dernière version publiée](https://github.com/Mideky-hub/openvibe/releases/latest) et lancez-le (Windows 10/11). Il s'installe pour votre seul compte, sans droits d'administrateur.
+
+Il vous faut aussi au moins une CLI d'agent, par exemple [Claude Code](https://docs.claude.com/en/docs/claude-code/overview), et [Git](https://git-scm.com/) : Git Bash fournit le `bash` dont le compteur d'usage a besoin.
+
+> [!IMPORTANT]
+> Les bêtas ne sont pas encore signées. Si Windows SmartScreen bloque l'installeur, choisissez **Informations complémentaires**, puis **Exécuter quand même**.
+
+**Mises à jour.** OpenVibe cherche une nouvelle version sur GitHub 10 secondes après son démarrage, puis toutes les 6 heures, et propose de l'installer. Avant que l'installeur le relance, OpenVibe enregistre votre canvas et l'historique des terminaux ; les conversations Claude se reprennent ensuite. Les mises à jour sont signées : une signature qui ne correspond pas est refusée. Cette recherche est la seule requête qu'OpenVibe fait de lui-même. Pour la couper, ouvrez le menu des réglages (la roue dentée) et décochez **Rechercher les mises à jour automatiquement**.
+
+### Compiler depuis les sources
 
 **Prérequis** (Windows 10/11) :
 

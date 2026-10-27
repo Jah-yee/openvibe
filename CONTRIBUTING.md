@@ -58,6 +58,7 @@ The front-end tests live next to the code (`*.test.ts`, `*.test.tsx`); those tha
 - **Check it in the app too.** For anything visible, try the change in the development build (with the separate profile above) and, when it helps, attach a screenshot or a short GIF to the pull request.
 - **Specs for big features.** Larger features start with a written design in [`docs/superpowers/specs/`](docs/superpowers/specs/), then an implementation plan in [`docs/superpowers/plans/`](docs/superpowers/plans/). These documents are in French; you can discuss them in English.
   - Read the relevant spec before you change a feature: comments in the code often cite its sections, for example `spec habillage §10.3`.
+- **User-visible changes go to the changelog.** Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), in words a user understands. Releases are cut as [docs/RELEASING.md](docs/RELEASING.md) describes.
 - **Findings go to the backlog.** Issues you notice but don't fix belong in [BACKLOG.md](BACKLOG.md), not in a comment in the code.
 
 ### Code style

@@ -1,0 +1,73 @@
+name: Release
+
+# A tag v<version> (from scripts/release.mjs) builds the installer and drafts
+# its release with the updater files; docs/RELEASING.md says how to publish it.
+# Run by hand, it only builds the installer, as an artifact.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    # The update signing key is given to the build steps only: never to the
+    # dependencies' install scripts or the tests.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.12.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: Interface tests
+        run: pnpm test
+
+      - name: Release notes
+        id: notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          {
+            echo 'body<<END_OF_NOTES'
+            node scripts/release-notes.mjs "$GITHUB_REF_NAME"
+            echo 'END_OF_NOTES'
+          } >> "$GITHUB_OUTPUT"
+      - name: Build and draft the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: OpenVibe __VERSION__
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          # A pre-release would not be "latest", and the updater reads latest.json from the latest release.
+          prerelease: false
+          updaterJsonPreferNsis: true
+
+      - name: Build only
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: tauri-apps/tauri-action@v1
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Keep the installer
+        if: "!startsWith(github.ref, 'refs/tags/v')"
+        uses: actions/upload-artifact@v7
+        with:
+          name: openvibe-windows
+          path: src-tauri/target/release/bundle/nsis/*

@@ -28,3 +28,6 @@ dist-ssr
 
 # Excalidraw fonts, copied by scripts/copy-excalidraw-fonts.mjs
 public/fonts/
+
+# Working notes of the development process (plans in progress, review packages)
+.superpowers/

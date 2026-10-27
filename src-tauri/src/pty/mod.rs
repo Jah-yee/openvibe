@@ -4,7 +4,9 @@ pub mod session;
 pub mod shell;
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 pub use portable_pty::PtySize;
 
@@ -24,6 +26,8 @@ pub struct ExitInfo {
 #[derive(Default)]
 pub struct PtyManager {
     sessions: Arc<Mutex<HashMap<String, Arc<Session>>>>,
+    /// Processes whose exit is not fully handled yet (final save included).
+    exiting: Arc<AtomicUsize>,
 }
 
 pub fn pty_size(cols: u16, rows: u16) -> PtySize {
@@ -61,6 +65,8 @@ impl PtyManager {
 
         let pid = session.pid;
         let sessions = self.sessions.clone();
+        let exiting = self.exiting.clone();
+        exiting.fetch_add(1, Ordering::SeqCst);
         let node_id = node_id.to_string();
         std::thread::spawn(move || {
             let code = child.wait().ok().map(|status| status.exit_code());
@@ -72,6 +78,7 @@ impl PtyManager {
                 code,
                 scrollback: session.capture(),
             });
+            exiting.fetch_sub(1, Ordering::SeqCst);
         });
         Ok(pid)
     }
@@ -122,6 +129,21 @@ impl PtyManager {
         if let Some(session) = self.get(node_id) {
             session.kill();
         }
+    }
+
+    /// Stops every terminal and waits until each exit was handled, its final
+    /// output saved: an update's installer closes OpenVibe right after (spec
+    /// première version §6.4). False if some were still exiting at `timeout`.
+    pub fn stop_all(&self, timeout: Duration) -> bool {
+        self.kill_all();
+        let deadline = Instant::now() + timeout;
+        while self.exiting.load(Ordering::SeqCst) > 0 {
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        true
     }
 
     pub fn kill_all(&self) {
@@ -354,6 +376,37 @@ mod windows_tests {
         mgr.kill("c");
         wait_exit(&exited);
         assert!(!mgr.attach("c", Box::new(VecSink::default())));
+    }
+
+    #[test]
+    fn stop_all_returns_once_every_exit_was_handled() {
+        let mgr = PtyManager::default();
+        let (tx, rx) = mpsc::channel();
+        for id in ["a", "b"] {
+            let sink = VecSink::default();
+            let tx = tx.clone();
+            mgr.spawn(
+                id,
+                cmd_plan(&[], None),
+                pty_size(80, 24),
+                Box::new(sink.clone()),
+                Box::new(|| {}),
+                move |_| {
+                    // A slow final save, as SQLite can be.
+                    std::thread::sleep(Duration::from_millis(300));
+                    let _ = tx.send(());
+                },
+            )
+            .unwrap();
+            wait_until("cursor position query", || sink.text().contains("\x1b[6n"));
+            mgr.write(id, b"\x1b[1;1R").unwrap();
+        }
+        assert!(mgr.stop_all(Duration::from_secs(10)));
+        assert!(mgr.list().is_empty());
+        assert!(
+            rx.try_recv().is_ok() && rx.try_recv().is_ok(),
+            "both exits were handled"
+        );
     }
 
     #[test]

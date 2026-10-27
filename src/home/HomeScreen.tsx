@@ -3,6 +3,7 @@ import { FolderPlus } from "lucide-react";
 import { AccentButton } from "@/shell/buttons";
 import { SearchField } from "@/shell/SearchField";
 import { TitleBar } from "@/shell/TitleBar";
+import { UpdateChip } from "@/shell/UpdateDialog";
 import { projectsStore, useProjects } from "@/store/projects";
 import { addProject } from "./addProject";
 import { ProjectCard } from "./ProjectCard";
@@ -17,7 +18,7 @@ export function HomeScreen() {
 
   return (
     <div className="ov-ambient flex h-screen w-screen flex-col">
-      <TitleBar leading={<span className="text-[13px] font-semibold text-ov-text">OpenVibe</span>} center={<SearchField />} />
+      <TitleBar leading={<span className="text-[13px] font-semibold text-ov-text">OpenVibe</span>} center={<SearchField />} trailing={<UpdateChip />} />
       {/* The scroller starts below the title bar: scrolled cards never slide under it. */}
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-8">

@@ -1,5 +1,6 @@
 import { showAbout } from "@/app/about";
 import { openLogDir } from "@/app/logs";
+import { checkForUpdate } from "@/app/updates";
 import { addProject } from "@/home/addProject";
 import { closeWindow, minimizeWindow, toggleMaximizeWindow, windowStore } from "@/shell/windowState";
 import { projectsStore } from "@/store/projects";
@@ -28,6 +29,14 @@ export const APP: readonly Command[] = [
   },
   { id: "window.close", label: "Fermer OpenVibe", section: "Fenêtre", keywords: ["fenêtre", "fermer", "quitter"], available: always, run: () => closeWindow() },
   { id: "app.about", label: "À propos d'OpenVibe", section: "Aide", keywords: ["version", "aide", "à propos"], available: always, run: () => showAbout() },
+  {
+    id: "app.updates",
+    label: "Rechercher les mises à jour",
+    section: "Aide",
+    keywords: ["mise à jour", "version", "nouvelle", "update", "aide"],
+    available: always,
+    run: () => checkForUpdate({ manual: true }),
+  },
   {
     id: "app.logs",
     label: "Ouvrir le dossier des journaux",

@@ -18,7 +18,7 @@
 
 OpenVibe is a desktop app that puts your AI coding agents on an infinite canvas. Each agent runs in a **real terminal** (Claude Code, Codex, Gemini CLI and more). You group agents into teams, brief a whole team in one line, review their changes, and hand a large task to an **orchestrator** that splits it, staffs it and keeps time.
 
-Everything runs on your machine. OpenVibe adds no cloud service and no telemetry, and it never skips an agent's permission prompts.
+Everything runs on your machine. OpenVibe adds no cloud service and no telemetry, and it never skips an agent's permission prompts. Its only request of its own is a check for updates, which you can turn off.
 
 If you know Symvibe, OpenVibe covers the same ground (driving a fleet of CLI agents from an infinite canvas) as an independent, open-source project with its own design and features.
 
@@ -143,7 +143,16 @@ Excalidraw's own keys (`V`, `H`, `R`, `O`, `A`, `T`, `P`, `E`, `Ctrl+Z`…) work
 
 ## Install
 
-There are no prebuilt releases yet, so for now you build OpenVibe from source.
+Download `OpenVibe_<version>_x64-setup.exe` from the [latest release](https://github.com/Mideky-hub/openvibe/releases/latest) and run it (Windows 10/11). It installs for your user only and needs no administrator rights.
+
+You also need at least one agent CLI, for example [Claude Code](https://docs.claude.com/en/docs/claude-code/overview), and [Git](https://git-scm.com/): Git Bash provides the `bash` that the usage meter needs.
+
+> [!IMPORTANT]
+> Betas are not code-signed yet. If Windows SmartScreen stops the installer, choose **More info**, then **Run anyway**.
+
+**Updates.** OpenVibe looks for a new release on GitHub 10 seconds after it starts, then every 6 hours, and offers to install it. Before the installer restarts it, OpenVibe saves your canvas and the terminals' history; Claude conversations can be resumed afterwards. Updates are signed: one whose signature does not match is refused. This check is the only request OpenVibe makes on its own. To turn it off, open the settings menu (the gear) and untick **Rechercher les mises à jour automatiquement**.
+
+### Build from source
 
 **Prerequisites** (Windows 10/11):
 
