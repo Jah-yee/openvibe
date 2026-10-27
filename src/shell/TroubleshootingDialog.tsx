@@ -14,14 +14,14 @@ import { shellMessages } from "./messages";
 import { checkAgain, troubleshootStore, useTroubleshoot } from "./troubleshoot";
 
 /** One check of the dialog: its state, what was found, and why it matters when missing. */
-function Check({ id, ok, label, value, hint }: { id: string; ok: boolean; label: string; value: ReactNode; hint?: string }) {
+function Check({ id, ok, label, value, hint, plain = false }: { id: string; ok: boolean; label: string; value: ReactNode; hint?: string; plain?: boolean }) {
   const Icon = ok ? CircleCheck : CircleAlert;
   return (
     <div data-check={id} className="flex items-start gap-2">
       <Icon className={cn("mt-0.5 size-3.5 shrink-0", ok ? "text-ov-ok" : "text-ov-wait")} />
       <div className="min-w-0">
         <p className="text-ov-text">
-          {label} · <span className="font-mono text-[11px] text-ov-text-2">{value}</span>
+          {label} · <span className={plain ? "text-ov-text-2" : "font-mono text-[11px] text-ov-text-2"}>{value}</span>
         </p>
         {hint && <p className="text-xs text-ov-text-2">{hint}</p>}
       </div>
@@ -79,7 +79,7 @@ export function TroubleshootingDialog() {
             </div>
             <Check id="git" ok={d.git !== null} label="Git" value={d.git ?? t.notFound} hint={d.git ? undefined : t.gitMissing} />
             <Check id="gitBash" ok={d.gitBash !== null} label="Git Bash" value={d.gitBash ?? t.notFound} hint={d.gitBash ? undefined : t.gitBashMissing} />
-            <Check id="server" ok={d.server} label={t.server} value={d.server ? t.running : t.stopped} hint={d.server ? undefined : t.serverDown} />
+            <Check id="server" plain ok={d.server} label={t.server} value={d.server ? t.running : t.stopped} hint={d.server ? undefined : t.serverDown} />
           </div>
         )}
         <div className="flex flex-wrap gap-2">
