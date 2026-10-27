@@ -146,9 +146,16 @@ fn add_worktree(root: &Path, dir: &Path, slug: &str, from: &str) -> Result<Workt
     })
 }
 
+const NO_COMMIT: &str =
+    "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission.";
+
 /// The mission's branch, from the project's current commit, and its worktree (where merges happen).
 pub fn prepare(project: &Path, name: &str) -> Result<Worktree, String> {
     let (root, dir) = locate(project)?;
+    // Without a commit, git only says « invalid reference: HEAD » (final review H2).
+    if git(&root, &["rev-parse", "--verify", "--quiet", "HEAD"]).is_err() {
+        return Err(NO_COMMIT.into());
+    }
     add_worktree(&root, &dir, &slug(name), "HEAD")
 }
 
@@ -186,6 +193,14 @@ pub fn merge_agent(mission: &Path, agent: &Path, branch: &str) -> Result<MergeRe
                 .map(str::to_string)
                 .collect();
             if files.is_empty() {
+                // A hook that refused the commit leaves the merge half done:
+                // the next merges would all fail on it (final review H2).
+                if git(mission, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_ok() {
+                    let _ = git(mission, &["merge", "--abort"]);
+                    return Err(format!(
+                        "La fusion de {branch} a échoué et a été annulée : {err}"
+                    ));
+                }
                 return Err(err);
             }
             let _ = git(mission, &["merge", "--abort"]);
@@ -311,6 +326,29 @@ mod tests {
         Some((parent, proj))
     }
 
+    /// `project()` before its first commit.
+    fn repo_without_commit() -> Option<(tempfile::TempDir, PathBuf)> {
+        if Command::new("git").arg("--version").output().is_err() {
+            return None;
+        }
+        let parent = tempfile::tempdir().unwrap();
+        let proj = parent.path().join("proj");
+        std::fs::create_dir(&proj).unwrap();
+        run(&proj, &["init", "-q", "-b", "main"]);
+        Some((parent, proj))
+    }
+
+    #[test]
+    fn a_repository_without_a_commit_is_told_so() {
+        let Some((_parent, proj)) = repo_without_commit() else {
+            return;
+        };
+        assert_eq!(
+            prepare(&proj, "auth").unwrap_err(),
+            "Le dépôt n'a pas encore de commit : fais un premier commit, puis relance la mission."
+        );
+    }
+
     fn same(a: impl AsRef<Path>, b: impl AsRef<Path>) -> bool {
         std::fs::canonicalize(a).unwrap() == std::fs::canonicalize(b).unwrap()
     }
@@ -412,6 +450,32 @@ mod tests {
                 uncommitted: true
             }
         );
+    }
+
+    #[test]
+    fn a_merge_refused_by_a_hook_is_undone() {
+        let Some((parent, proj)) = project() else {
+            return;
+        };
+        let mission = prepare(&proj, "auth").unwrap();
+        let athena = add_agent(&proj, &mission.slug, "Athéna").unwrap();
+        commit(Path::new(&athena.path), "login.txt", "login\n", "login");
+        // Worktrees share the repository's config, so its hooks.
+        let hooks = parent.path().join("hooks");
+        std::fs::create_dir(&hooks).unwrap();
+        std::fs::write(hooks.join("pre-merge-commit"), "#!/bin/sh\nexit 1\n").unwrap();
+        run(
+            &proj,
+            &["config", "core.hooksPath", &hooks.to_string_lossy()],
+        );
+        let m = Path::new(&mission.path);
+        let err = merge_agent(m, Path::new(&athena.path), &athena.branch).unwrap_err();
+        assert!(err.contains("annulée"), "{err}");
+        assert!(git(m, &["rev-parse", "-q", "--verify", "MERGE_HEAD"]).is_err());
+        assert_eq!(run(m, &["status", "--porcelain"]), "");
+        std::fs::remove_file(hooks.join("pre-merge-commit")).unwrap();
+        let again = merge_agent(m, Path::new(&athena.path), &athena.branch).unwrap();
+        assert_eq!(again.merge, Merge::Merged);
     }
 
     #[test]

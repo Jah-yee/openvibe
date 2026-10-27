@@ -67,6 +67,8 @@ export interface Mission {
   error?: string;
   /** The go-ahead: the global budget runs from then (spec §8.1). */
   startedAt?: number;
+  /** « terminer »: the members' times stop there (spec première version §5.3). */
+  endedAt?: number;
   /** The end of the global budget was told (spec §8.2). */
   globalOverdue?: boolean;
   /** Each agent gets the model of its sub-task's level (spec maj §3). */
@@ -145,6 +147,7 @@ export function readMission(raw: unknown): Mission | undefined {
   }
   if (Array.isArray(r.plan)) mission.plan = r.plan.filter(isSubTask).map(readSubTask);
   if (typeof r.startedAt === "number") mission.startedAt = r.startedAt;
+  if (typeof r.endedAt === "number") mission.endedAt = r.endedAt;
   if (r.globalOverdue === true) mission.globalOverdue = true;
   if (r.router === true) mission.router = true;
   return mission;
@@ -199,6 +202,16 @@ export const budgetOf = (member: Member) => member.budgetMin + (member.extraMin 
 export function spentMin(member: Member, now: number): number {
   if (member.sentAt === undefined) return 0;
   return Math.max(0, ((member.report?.at ?? now) - member.sentAt) / MINUTE);
+}
+
+/**
+ * A member's time as shown: it stops at its report, else at the mission's end
+ * (spec première version §5.3). Unknown for a mission ended before end times
+ * were kept: its members without a report would count on forever.
+ */
+export function memberTime(mission: Mission, member: Member, now: number): number | undefined {
+  if (member.report || mission.state !== "terminee") return spentMin(member, now);
+  return mission.endedAt === undefined ? undefined : spentMin(member, mission.endedAt);
 }
 
 export interface Overrun {

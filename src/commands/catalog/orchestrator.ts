@@ -1,5 +1,5 @@
 import { arrive, showNode } from "@/canvas/arrive";
-import { removeOrchestrator } from "@/fleet/orchestrators";
+import { requestCloseOrchestrator } from "@/fleet/orchestrators";
 import { pasteIntoTerminal } from "@/nodes/terminal/registry";
 import { readClipboardText } from "@/radial/bridges";
 import { nodesStore } from "@/store/nodes";
@@ -51,5 +51,5 @@ export const ORCHESTRATOR: readonly Command[] = [
       pasteIntoTerminal(id(ctx), text);
     },
   },
-  { id: "orchestrator.remove", label: "Supprimer", section, keywords: ["supprimer", "orchestrateur"], available: hasOrchestrator, run: (ctx) => removeOrchestrator(id(ctx)) },
+  { id: "orchestrator.remove", label: "Supprimer", section, keywords: ["supprimer", "orchestrateur"], available: hasOrchestrator, run: (ctx) => requestCloseOrchestrator(id(ctx)) },
 ];

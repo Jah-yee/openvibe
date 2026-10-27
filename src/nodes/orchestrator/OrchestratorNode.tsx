@@ -13,7 +13,7 @@ import { pauseAll, resumeAll } from "@/fleet/broadcast";
 import { RemoteButton } from "@/fleet/RemoteButton";
 import { setRemoteControlAll } from "@/fleet/remoteControl";
 import { defaultLaunchOptions } from "@/fleet/launchAgent";
-import { removeOrchestrator, renameOrchestrator } from "@/fleet/orchestrators";
+import { renameOrchestrator, requestCloseOrchestrator } from "@/fleet/orchestrators";
 import { linkedAgents, NO_LINKS } from "@/fleet/wires";
 import type { Activity } from "@/ipc/activity";
 import { useNativeKeyDown } from "@/lib/useNativeKeyDown";
@@ -96,7 +96,7 @@ export function OrchestratorNode({ nodeId }: { nodeId: string }) {
             <DropdownMenuItem onSelect={() => void setRemoteControlAll([nodeId, ...linked.agentIds], false)}>Couper Remote Control</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <HeaderButton label="Fermer l'orchestrateur" onClick={() => removeOrchestrator(nodeId)}>
+        <HeaderButton label="Fermer l'orchestrateur" onClick={() => requestCloseOrchestrator(nodeId)}>
           <X />
         </HeaderButton>
       </header>

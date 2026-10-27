@@ -62,3 +62,16 @@ it("keeps them when cancelled", async () => {
   expect(removeNodes).not.toHaveBeenCalled();
   expect(uiStore.getState().closing).toBeNull();
 });
+
+it("tells what closing an orchestrator in mission leaves behind (spec première version §5.4)", async () => {
+  await nodesStore.getState().create("chef", {
+    workspaceId: "w1",
+    kind: "orchestrator",
+    payload: { name: "Chef", mission: { state: "en_cours", maxAgents: 4, members: [] } },
+  });
+  await act(async () => uiStore.getState().setClosing({ agents: ["chef"], remove: ["chef", "fil"] }));
+  const dialog = document.querySelector('[role="dialog"]')!;
+  expect(dialog.textContent).toContain("Chef mène une mission en cours. Le fermer arrête sa session ; ses agents continuent, mais personne ne lira leurs comptes rendus.");
+  await act(async () => button("Fermer l'orchestrateur").click());
+  expect(removeNodes).toHaveBeenLastCalledWith(["chef", "fil"]);
+});

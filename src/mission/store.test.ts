@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
-import type { NodeRecord } from "@/store/nodes";
+import { nodesStore, type NodeRecord } from "@/store/nodes";
 import { NEW_MISSION } from "./mission";
-import { memberBudgets } from "./store";
+import { memberBudgets, memberOf, setOrchestratorClosed } from "./store";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 
@@ -16,4 +16,28 @@ it("gives each agent of a running mission its time and budget, for the bars (spe
     fini: { workspaceId: "w1", kind: "orchestrator", payload: { name: "Fini", mission: { ...NEW_MISSION, state: "terminee", members: [{ ...member, nodeId: "thot", sentAt: 0 }] } } },
   };
   expect(memberBudgets(nodes, 6 * 60_000)).toEqual({ isis: { spent: 6, budget: 15 } });
+});
+
+it("forgets the mission of a closed orchestrator until an undo brings it back (spec première version §5.4)", () => {
+  const member = { nodeId: "isis", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0 };
+  nodesStore.setState({
+    nodes: { chef: { workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef", mission: { ...NEW_MISSION, state: "en_cours", members: [member] } } } },
+  });
+  expect(memberOf("isis")?.orchestratorId).toBe("chef");
+  setOrchestratorClosed("chef", true);
+  expect(memberOf("isis")).toBeNull();
+  expect(memberOf("isis", { evenClosed: true })?.orchestratorId).toBe("chef");
+  setOrchestratorClosed("chef", false);
+  expect(memberOf("isis")?.orchestratorId).toBe("chef");
+});
+
+it("draws no budget bar for a closed orchestrator's mission (final review R3)", () => {
+  const member = { nodeId: "isis", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0 };
+  const nodes: Record<string, NodeRecord> = {
+    chef: { workspaceId: "w1", kind: "orchestrator", payload: { name: "Chef", mission: { ...NEW_MISSION, state: "en_cours", members: [member] } } },
+  };
+  setOrchestratorClosed("chef", true);
+  expect(memberBudgets(nodes, 60 * 60_000)).toEqual({});
+  setOrchestratorClosed("chef", false);
+  expect(memberBudgets(nodes, 60 * 60_000)).toEqual({ isis: { spent: 60, budget: 10 } });
 });

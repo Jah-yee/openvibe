@@ -193,7 +193,7 @@ export function endMission(orchestratorId: string, summary: string) {
   const mission = missionOf(nodesStore.getState().nodes[orchestratorId]);
   if (mission?.state !== "en_cours") return;
   // Ended first: the agents stopping now are no events.
-  setMission(orchestratorId, { state: "terminee", summary });
+  setMission(orchestratorId, { state: "terminee", summary, endedAt: Date.now() });
   for (const member of mission.members) if (member.linked && mission.project) void restartIn(member.nodeId, mission.project);
   if (orchestratorShown(orchestratorId)) {
     if (mission.frameId) closeGroup(mission.frameId);

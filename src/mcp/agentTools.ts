@@ -1,8 +1,9 @@
 import { declaredSteps, markedSteps, MAX_STEPS } from "@/nodes/steps";
 import { notify } from "@/mission/events";
 import { oneLine } from "@/mission/mission";
-import { memberOf, updateMember } from "@/mission/store";
+import { isOrchestratorClosed, memberOf, updateMember } from "@/mission/store";
 import { nodesStore, terminalOf } from "@/store/nodes";
+import { isRunning } from "@/store/terminalStatus";
 
 /** What a tool answers: MCP text content, an error the agent can read. */
 export interface ToolResult {
@@ -62,7 +63,7 @@ export function markStep(nodeId: string, args: Record<string, unknown>): ToolRes
 
 /** `rendre_compte`: outside a mission there is no one to tell; inside, its orchestrator hears it (spec §7.5). */
 export function report(nodeId: string, args: Record<string, unknown>): ToolResult {
-  const found = memberOf(nodeId);
+  const found = memberOf(nodeId, { evenClosed: true });
   if (!found) return said("Pas de mission en cours : rien à transmettre.");
   const summary = typeof args.resume === "string" ? args.resume.trim() : "";
   const status = args.statut;
@@ -70,6 +71,10 @@ export function report(nodeId: string, args: Record<string, unknown>): ToolResul
   if (status !== "termine" && status !== "bloque" && status !== "echec") return refused(`Statut inconnu : ${String(status)} (termine, bloque ou echec).`);
   // `fusionner` merges every « termine » branch again: a merged one stays so until then (final review H2).
   updateMember(found.orchestratorId, nodeId, { report: { summary, status, at: Date.now() } });
+  // Queued even when nobody listens: a relaunched or restored orchestrator hears it then (final review R3).
   notify(found.orchestratorId, `${found.member.name} a rendu compte (${status}) : ${oneLine(summary)}`);
+  if (isOrchestratorClosed(found.orchestratorId) || !isRunning(found.orchestratorId)) {
+    return said("Compte rendu enregistré, mais l'orchestrateur est fermé : personne ne le lira pour l'instant.");
+  }
   return said("Compte rendu transmis à l'orchestrateur.");
 }

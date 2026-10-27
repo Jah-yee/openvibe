@@ -10,7 +10,7 @@ import { terminalStatusStore } from "@/store/terminalStatus";
 import { openReview } from "@/review/reviewStore";
 import { uiStore, useUi } from "@/store/ui";
 import { cleanMission, launchMission } from "./launch";
-import { budgetBar, budgetOf, MAX_AGENTS, spentMin, type Member, type Mission, type MissionState } from "./mission";
+import { budgetBar, budgetOf, MAX_AGENTS, memberTime, type Mission, type MissionState } from "./mission";
 import { LEVELS, modelLabel } from "./router";
 import { agentState, missionOf, setMission } from "./store";
 
@@ -43,7 +43,7 @@ export function MissionPanel({ nodeId }: { nodeId: string }) {
           {mission.error}
         </p>
       )}
-      {(mission.state === "en_cours" || mission.state === "terminee") && <Team members={mission.members} />}
+      {(mission.state === "en_cours" || mission.state === "terminee") && <Team mission={mission} />}
       {mission.state === "terminee" && <Summary nodeId={nodeId} summary={mission.summary ?? ""} />}
     </section>
   );
@@ -155,7 +155,8 @@ function Plan({ nodeId, mission }: { nodeId: string; mission: Mission }) {
   );
 }
 
-function Team({ members }: { members: readonly Member[] }) {
+function Team({ mission }: { mission: Mission }) {
+  const members = mission.members;
   // The agents' states follow their activity and their processes; their times, the clock.
   useActivities();
   const now = useNow(15_000);
@@ -180,7 +181,7 @@ function Team({ members }: { members: readonly Member[] }) {
             {member.handedTo ? (
               <span className="shrink-0">→ {member.handedTo}</span>
             ) : member.sentAt !== undefined ? (
-              <BudgetTime spent={spentMin(member, now)} budget={budgetOf(member)} />
+              <MemberTime spent={memberTime(mission, member, now)} budget={budgetOf(member)} />
             ) : null}
             <button
               type="button"
@@ -205,6 +206,11 @@ function Team({ members }: { members: readonly Member[] }) {
 }
 
 /** « 6 / 20 min », coloured like its bar (spec §8.3). */
+/** A member's time, unless it cannot be told (a mission ended before end times were kept). */
+function MemberTime({ spent, budget }: { spent: number | undefined; budget: number }) {
+  return spent === undefined ? null : <BudgetTime spent={spent} budget={budget} />;
+}
+
 function BudgetTime({ spent, budget }: { spent: number; budget: number }) {
   return (
     <span className="shrink-0 font-mono text-[11px]" style={{ color: BUDGET_COLOR[budgetBar(spent, budget).tone] }}>

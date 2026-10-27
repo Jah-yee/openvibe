@@ -204,8 +204,10 @@ describe("launchMission (spec §7.3)", () => {
 
 it("ends the mission: created agents closed, linked ones back in the project in a new conversation (spec §7.7)", async () => {
   await setup({ state: "en_cours", project: "C:/code/proj", frameId: "f1", members: [member("isis", "Isis", true), member("n1", "Horus", false)] });
+  vi.spyOn(Date, "now").mockReturnValue(1_234_567);
   endMission("chef", "Tout est fait.");
-  expect(missionNow()).toMatchObject({ state: "terminee", summary: "Tout est fait." });
+  vi.mocked(Date.now).mockRestore();
+  expect(missionNow()).toMatchObject({ state: "terminee", summary: "Tout est fait.", endedAt: 1_234_567 });
   expect(relaunchTerminal).toHaveBeenCalledWith("isis", expect.objectContaining({ cwd: "C:/code/proj" }), "new");
   expect(closeGroup).toHaveBeenCalledWith("f1");
 });

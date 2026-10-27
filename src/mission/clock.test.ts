@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { nodesStore } from "@/store/nodes";
 import { checkBudgets } from "./clock";
 import { notify } from "./events";
-import { missionOf } from "./store";
+import { missionOf, setMission, setOrchestratorClosed } from "./store";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("sonner", () => ({ toast: { warning: vi.fn() } }));
@@ -50,4 +50,18 @@ it("tells the orchestrator once when a budget runs out, warns the user at 200 % 
   expect(notify).toHaveBeenCalledTimes(2);
   expect(toast.warning).toHaveBeenLastCalledWith("Budget global de la mission Auth écoulé (30 min).");
   expect(missionOf(nodesStore.getState().nodes.chef)?.globalOverdue).toBe(true);
+});
+
+it("says nothing about the mission of a closed orchestrator (spec première version §5.4)", () => {
+  const fresh = { nodeId: "isis", name: "Isis", task: "Login", budgetMin: 10, linked: false, branch: "b", worktree: "w", sentAt: 0 };
+  setMission("chef", { members: [fresh], globalOverdue: undefined });
+  vi.mocked(notify).mockClear();
+  vi.mocked(toast.warning).mockClear();
+  setOrchestratorClosed("chef", true);
+  checkBudgets(100 * min);
+  expect(notify).not.toHaveBeenCalled();
+  expect(toast.warning).not.toHaveBeenCalled();
+  setOrchestratorClosed("chef", false);
+  checkBudgets(100 * min);
+  expect(notify).toHaveBeenCalled();
 });

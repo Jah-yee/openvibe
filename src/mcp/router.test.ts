@@ -9,7 +9,7 @@ import { ptySendText } from "@/ipc/pty";
 import { terminalText } from "@/nodes/terminal/registry";
 import { notify } from "@/mission/events";
 import { endMission, reassignTask } from "@/mission/launch";
-import { missionOf, setMission, updateMember } from "@/mission/store";
+import { missionOf, setMission, setOrchestratorClosed, updateMember } from "@/mission/store";
 import { workspacesStore } from "@/store/workspaces";
 import { agentActivityStore } from "@/store/agentActivity";
 import { terminalStatusStore } from "@/store/terminalStatus";
@@ -194,6 +194,21 @@ describe("the orchestrator's tools (spec orchestrateur §7.2)", () => {
       expect(textOf(await call("isis", "rendre_compte", { resume: "Login fait", statut: "termine" }))).toBe("Compte rendu transmis à l'orchestrateur.");
       expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].report).toMatchObject({ summary: "Login fait", status: "termine" });
       expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Login fait");
+    });
+
+    it("records a report no orchestrator hears, and says so (spec première version §5.4)", async () => {
+      const unheard = "Compte rendu enregistré, mais l'orchestrateur est fermé : personne ne le lira pour l'instant.";
+      vi.mocked(notify).mockClear();
+      terminalStatusStore.getState().set("chef", { state: "stopped" });
+      expect(textOf(await call("isis", "rendre_compte", { resume: "Fini", statut: "termine" }))).toBe(unheard);
+      expect(missionOf(nodesStore.getState().nodes.chef)?.members[0].report).toMatchObject({ summary: "Fini" });
+      terminalStatusStore.getState().set("chef", { state: "running" });
+      setOrchestratorClosed("chef", true);
+      expect(textOf(await call("isis", "rendre_compte", { resume: "Fini encore", statut: "termine" }))).toBe(unheard);
+      setOrchestratorClosed("chef", false);
+      // Queued all the same: it hears them when it runs again (final review R3).
+      expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Fini");
+      expect(notify).toHaveBeenCalledWith("chef", "Isis a rendu compte (termine) : Fini encore");
     });
 
     it("keeps an agent's merged branch merged when it reports again (final review H2)", async () => {

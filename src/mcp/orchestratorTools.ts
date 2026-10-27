@@ -2,7 +2,7 @@ import { pauseAgents } from "@/fleet/broadcast";
 import { setRemoteControl } from "@/fleet/remoteControl";
 import { ptySendText } from "@/ipc/pty";
 import { endMission, mergeMission, reassignTask } from "@/mission/launch";
-import { budgetOf, NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
+import { budgetOf, memberTime, NEW_AGENT, oneLine, proposedPlan, remainingGlobal, sameName, spentMin, type Member, type Mission } from "@/mission/mission";
 import { LEVELS, modelLabel } from "@/mission/router";
 import { agentState, linkedClaudeAgents, missionOf, orchestratorShown, setMission, updateMember } from "@/mission/store";
 import { terminalText } from "@/nodes/terminal/registry";
@@ -164,6 +164,8 @@ function proposePlan(orchestratorId: string, mission: Mission, args: Record<stri
   return said(`Plan proposé : ${n} sous-tâche${n > 1 ? "s" : ""}. Il attend le feu vert de l'utilisateur (« Lancer la mission » dans le panneau de l'orchestrateur).`);
 }
 
+const timeText = (spent: number | undefined, budget: number) => (spent === undefined ? `? / ${budget} min` : `${Math.floor(spent)} / ${budget} min`);
+
 function describeTeam(mission: Mission): ToolResult {
   if (!formed(mission)) return refused("L'équipe n'est pas encore formée.");
   const nodes = nodesStore.getState().nodes;
@@ -174,7 +176,7 @@ function describeTeam(mission: Mission): ToolResult {
       sous_tache: m.task,
       etat: agentState(m.nodeId),
       etapes: terminalOf(nodes[m.nodeId])?.steps?.map((s) => `${s.title} : ${s.state}`) ?? [],
-      temps: `${Math.floor(spentMin(m, now))} / ${budgetOf(m)} min`,
+      temps: timeText(memberTime(mission, m, now), budgetOf(m)),
       depassement: m.overdue ?? 0,
       passe_a: m.handedTo ?? null,
       finies: m.done ?? [],
