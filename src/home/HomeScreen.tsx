@@ -1,15 +1,18 @@
 import { useEffect } from "react";
 import { FolderPlus } from "lucide-react";
+import { useMessages } from "@/i18n";
 import { AccentButton } from "@/shell/buttons";
 import { SearchField } from "@/shell/SearchField";
 import { TitleBar } from "@/shell/TitleBar";
 import { UpdateChip } from "@/shell/UpdateDialog";
 import { projectsStore, useProjects } from "@/store/projects";
 import { addProject } from "./addProject";
+import { homeMessages } from "./messages";
 import { ProjectCard } from "./ProjectCard";
 
 /** Projects as glass cards under the title bar; a click opens one on its last workspace (spec identité §5.9). */
 export function HomeScreen() {
+  const t = useMessages(homeMessages);
   const projects = useProjects((s) => s.projects);
 
   useEffect(() => {
@@ -23,16 +26,16 @@ export function HomeScreen() {
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="relative mx-auto max-w-5xl px-8 pb-12 pt-8">
           <header className="mb-6 flex items-center justify-between">
-            <h1 className="text-xl font-semibold text-ov-text">Projets</h1>
+            <h1 className="text-xl font-semibold text-ov-text">{t.title}</h1>
             <AccentButton onClick={() => void addProject()}>
-              <FolderPlus /> Ajouter un projet
+              <FolderPlus /> {t.add}
             </AccentButton>
           </header>
           {projects.length === 0 ? (
             <div className="mt-24 grid place-items-center gap-3 text-center">
-              <p className="text-lg font-semibold text-ov-text">Aucun projet</p>
+              <p className="text-lg font-semibold text-ov-text">{t.none}</p>
               <p className="max-w-sm text-sm text-ov-text-2">
-                Un projet est un dossier de dépôt : tes agents y démarrent et la puce git le suit.
+                {t.noneHint}
               </p>
             </div>
           ) : (

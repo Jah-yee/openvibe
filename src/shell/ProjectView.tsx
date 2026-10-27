@@ -3,6 +3,7 @@ import { Canvas } from "@/canvas/Canvas";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AgentsPanel } from "@/fleet/AgentsPanel";
 import { useAgentsPanel } from "@/fleet/agentsPanelState";
+import { useMessages } from "@/i18n";
 import { agentsStore } from "@/fleet/agentsStore";
 import { LinkMode } from "@/fleet/LinkMode";
 import { RadialMenu } from "@/radial/RadialMenu";
@@ -22,6 +23,7 @@ import { ToolRail } from "./ToolRail";
 import { UpdateChip } from "./UpdateDialog";
 import { UsageMeter } from "./UsageMeter";
 import { WorkspaceTabs } from "./WorkspaceTabs";
+import { shellMessages } from "./messages";
 import { ZoomControl } from "./ZoomControl";
 
 /** A floating panel's error, where the panels open. */
@@ -38,6 +40,7 @@ function panelCrash(error: Error, retry: () => void) {
  * glass bars; everything else floats on it.
  */
 export function ProjectView() {
+  const t = useMessages(shellMessages);
   const status = useWorkspaces((s) => s.status);
   const error = useWorkspaces((s) => s.error);
   const activeId = useWorkspaces((s) => s.activeId);
@@ -88,7 +91,7 @@ export function ProjectView() {
         </>
       ) : (
         <div className="grid h-full place-items-center text-sm text-ov-text-2">
-          {status === "error" ? `Impossible de charger les workspaces : ${error}` : "Chargement…"}
+          {status === "error" ? t.projectView.loadFailed(String(error)) : t.loading}
         </div>
       )}
       <div className="absolute inset-x-0 top-0 z-30">

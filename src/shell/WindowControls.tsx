@@ -1,7 +1,9 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Copy, Minus, Square, X } from "lucide-react";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { shellMessages } from "./messages";
 import { closeWindow, minimizeWindow, toggleMaximizeWindow, windowStore } from "./windowState";
 
 /** Whether the window is maximized, read again after every resize: the button, a double-click on the strip, Win+Up, snapping. */
@@ -47,20 +49,21 @@ function WindowButton({ label, danger, className, ...props }: ComponentProps<"bu
 
 /** Réduire, Agrandir / Restaurer, Fermer OpenVibe, Windows-style in the title bar's corner (spec identité §5.1). */
 export function WindowControls() {
+  const t = useMessages(shellMessages).window;
   const maximized = useMaximized();
   return (
     <div className="flex shrink-0 items-stretch">
-      <WindowButton label="Réduire" onClick={minimizeWindow}>
+      <WindowButton label={t.minimize} onClick={minimizeWindow}>
         <Minus />
       </WindowButton>
       <WindowButton
-        label={maximized ? "Restaurer" : "Agrandir"}
+        label={maximized ? t.restore : t.maximize}
         onClick={toggleMaximizeWindow}
       >
         {maximized ? <Copy /> : <Square />}
       </WindowButton>
       {/* close, not destroy: onCloseRequested saves first (src/app/close.ts). */}
-      <WindowButton label="Fermer OpenVibe" danger onClick={closeWindow}>
+      <WindowButton label={t.close} danger onClick={closeWindow}>
         <X />
       </WindowButton>
     </div>

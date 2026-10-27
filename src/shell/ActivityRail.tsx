@@ -1,16 +1,19 @@
 import { Settings, Users } from "lucide-react";
 import { useWorkspaceAgentCounts } from "@/fleet/agentCounts";
 import { setAgentsPanel, useAgentsPanel } from "@/fleet/agentsPanelState";
+import { useMessages } from "@/i18n";
 import { ToolButton } from "./buttons";
+import { shellMessages } from "./messages";
 import { SettingsMenu } from "./SettingsMenu";
 
 /** The rail on the right: the activities (spec identité §5.5). "Fonctions" comes with J8. */
 export function ActivityRail() {
+  const t = useMessages(shellMessages).activityRail;
   const open = useAgentsPanel((s) => s.open);
   const { waiting } = useWorkspaceAgentCounts();
   return (
     <nav className="ov-glass absolute right-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-0.5 rounded-[14px] p-[5px]">
-      <ToolButton label="Agents" active={open} onClick={() => setAgentsPanel(!open)}>
+      <ToolButton label={t.agents} active={open} onClick={() => setAgentsPanel(!open)}>
         <Users />
         {waiting > 0 && (
           <span
@@ -26,7 +29,7 @@ export function ActivityRail() {
         side="left"
         align="start"
         trigger={
-          <ToolButton label="Réglages">
+          <ToolButton label={t.settings}>
             <Settings />
           </ToolButton>
         }

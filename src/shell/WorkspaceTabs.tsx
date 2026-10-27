@@ -9,18 +9,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useUiRequest } from "@/commands/uiRequests";
-import { plural } from "@/lib/format";
+import { messages, useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { useRunningCount } from "@/store/running";
 import { useWorkspaces, workspacesStore, type Workspace } from "@/store/workspaces";
 import { IconButton } from "./buttons";
 import { TABS_HEIGHT } from "./layout";
+import { shellMessages } from "./messages";
 import { removeWorkspace } from "./workspaceActions";
 
-const fail = (what: string) => (error: unknown) => toast.error(`${what} : ${String(error)}`);
+type Failure = "renameFailed" | "deleteFailed" | "createFailed";
+
+const fail = (what: Failure) => (error: unknown) => {
+  const t = messages(shellMessages);
+  toast.error(t.failed(t.tabs[what], String(error)));
+};
 
 function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove: boolean }) {
   const { workspace, active, canRemove } = props;
+  const t = useMessages(shellMessages).tabs;
   const [editing, setEditing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const running = useRunningCount([workspace.id]);
@@ -38,7 +45,7 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
         defaultValue={workspace.name}
         className="mb-0.5 h-[28px] w-40 rounded-[6px]"
         onBlur={(e) => {
-          void workspacesStore.getState().rename(workspace.id, e.currentTarget.value).catch(fail("Renommage impossible"));
+          void workspacesStore.getState().rename(workspace.id, e.currentTarget.value).catch(fail("renameFailed"));
           setEditing(false);
         }}
         onKeyDown={(e) => {
@@ -75,7 +82,7 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
         {(active || running > 0) && (
           <span
             data-badge
-            title={plural(running, "agent actif", "agents actifs")}
+            title={t.activeAgents(running)}
             className={cn(
               "ml-2 rounded-full px-1.5 font-mono text-[10px]",
               active ? "bg-ov-accent-soft text-ov-accent" : "bg-ov-field text-ov-text-2",
@@ -88,9 +95,9 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
       {canRemove && (
         <button
           type="button"
-          aria-label="Supprimer le workspace"
-          title="Supprimer le workspace"
-          onClick={() => void removeWorkspace(workspace, running).catch(fail("Suppression impossible"))}
+          aria-label={t.deleteWorkspace}
+          title={t.deleteWorkspace}
+          onClick={() => void removeWorkspace(workspace, running).catch(fail("deleteFailed"))}
           className="ml-1 grid size-5 place-items-center rounded-[4px] text-ov-text-2 opacity-0 group-hover:opacity-100 hover:bg-ov-hover hover:text-ov-text focus-visible:opacity-100"
         >
           <X className="size-3.5" />
@@ -102,13 +109,13 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
           <span aria-hidden className="pointer-events-none absolute inset-0" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem onSelect={() => setEditing(true)}>Renommer</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setEditing(true)}>{t.rename}</DropdownMenuItem>
           <DropdownMenuItem
             disabled={!canRemove}
             variant="destructive"
-            onSelect={() => void removeWorkspace(workspace, running).catch(fail("Suppression impossible"))}
+            onSelect={() => void removeWorkspace(workspace, running).catch(fail("deleteFailed"))}
           >
-            Supprimer
+            {t.delete}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -123,6 +130,7 @@ function WorkspaceTab(props: { workspace: Workspace; active: boolean; canRemove:
  * move the window instead of scrolling.
  */
 export function WorkspaceTabs() {
+  const t = useMessages(shellMessages).tabs;
   const workspaces = useWorkspaces((s) => s.workspaces);
   const activeId = useWorkspaces((s) => s.activeId);
   return (
@@ -142,9 +150,9 @@ export function WorkspaceTabs() {
         />
       ))}
       <IconButton
-        label="Nouveau workspace"
+        label={t.newWorkspace}
         className="mb-0.5 size-[28px]"
-        onClick={() => void workspacesStore.getState().create().catch(fail("Création impossible"))}
+        onClick={() => void workspacesStore.getState().create().catch(fail("createFailed"))}
       >
         <Plus />
       </IconButton>

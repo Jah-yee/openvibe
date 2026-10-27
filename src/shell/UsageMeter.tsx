@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 import { BUDGET_COLOR } from "@/canvas/overlay/timeline";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AGENTS } from "@/fleet/catalog";
+import { useMessages } from "@/i18n";
 import { formatClock, formatDecimal } from "@/i18n/format";
 import { formatDuration } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { sessionOf, useNodes } from "@/store/nodes";
 import { currentLimit, formatUsd, limitTone, totals, type Limit, type Limits } from "@/usage/usage";
 import { useUsage } from "@/usage/usageStore";
+import { shellMessages } from "./messages";
 
 /** « 67,8 k », « 1,2 M » tokens. */
 function formatTokens(count: number): string {
@@ -43,6 +45,8 @@ function useCurrentLimits(): Limits | null {
 }
 
 export function UsageMeter() {
+  const t = useMessages(shellMessages);
+  const u = t.usage;
   const limits = useCurrentLimits();
   return (
     <Popover>
@@ -50,26 +54,26 @@ export function UsageMeter() {
         <button
           type="button"
           data-usage
-          title={limits ? "Usage de ton abonnement Claude · clic pour le détail" : "L'usage s'affiche après la première réponse d'un agent Claude lancé par OpenVibe"}
+          title={limits ? u.titleWithLimits : u.titleWithoutLimits}
           className="flex h-6 items-center gap-2 rounded-[6px] px-1.5 font-mono text-[11.5px] text-ov-text-2 hover:bg-ov-hover hover:text-ov-text"
         >
           {!limits?.fiveHour && !limits?.sevenDay ? (
-            "Usage"
+            u.title
           ) : (
             <>
               {limits.fiveHour && (
                 <span className="flex items-center gap-1">
-                  Session {Math.round(limits.fiveHour.usedPercent)} %<Bar limit={limits.fiveHour} />
+                  {u.session} {t.percent(Math.round(limits.fiveHour.usedPercent))}<Bar limit={limits.fiveHour} />
                 </span>
               )}
               {limits.sevenDay && (
                 <span className="flex items-center gap-1">
-                  Semaine {Math.round(limits.sevenDay.usedPercent)} %<Bar limit={limits.sevenDay} />
+                  {u.week} {t.percent(Math.round(limits.sevenDay.usedPercent))}<Bar limit={limits.sevenDay} />
                 </span>
               )}
               {limits.models.map((m) => (
                 <span key={m.key} className="flex items-center gap-1">
-                  {m.label} {Math.round(m.limit.usedPercent)} %<Bar limit={m.limit} />
+                  {m.label} {t.percent(Math.round(m.limit.usedPercent))}<Bar limit={m.limit} />
                 </span>
               ))}
             </>
@@ -102,10 +106,12 @@ function Row({ label, children }: { label: ReactNode; children: ReactNode }) {
 }
 
 function LimitRow({ label, limit, now }: { label: string; limit: Limit; now: number }) {
+  const t = useMessages(shellMessages);
   return (
     <div className="flex flex-col gap-1">
       <Row label={label}>
-        {Math.round(limit.usedPercent)} %{limit.resetsAt ? ` · repart à ${formatClock(limit.resetsAt, now)}` : ""}
+        {t.percent(Math.round(limit.usedPercent))}
+        {limit.resetsAt ? t.usage.resumes(formatClock(limit.resetsAt, now)) : ""}
       </Row>
       <Bar limit={limit} wide />
     </div>
@@ -113,6 +119,8 @@ function LimitRow({ label, limit, now }: { label: string; limit: Limit; now: num
 }
 
 function UsageDetail() {
+  const t = useMessages(shellMessages);
+  const u = t.usage;
   const limits = useCurrentLimits();
   const sessions = useUsage((s) => s.sessions);
   const nodes = useNodes((s) => s.nodes);
@@ -122,62 +130,62 @@ function UsageDetail() {
   const fable = limits?.models.find((m) => m.label === "Fable");
   const nameOf = (nodeId: string) => {
     const session = sessionOf(nodes[nodeId]);
-    return session ? session.name || AGENTS[session.agent].label : "Session fermée";
+    return session ? session.name || AGENTS[session.agent].label : u.closedSession;
   };
   return (
     <div data-usage-detail className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
-      <Section title="Limites de l'abonnement">
-        {limits?.fiveHour ? <LimitRow label="Session (5 h)" limit={limits.fiveHour} now={now} /> : <Row label="Session (5 h)">—</Row>}
-        {limits?.sevenDay ? <LimitRow label="Semaine (tous modèles)" limit={limits.sevenDay} now={now} /> : <Row label="Semaine (tous modèles)">—</Row>}
+      <Section title={u.limitsTitle}>
+        {limits?.fiveHour ? <LimitRow label={u.session5h} limit={limits.fiveHour} now={now} /> : <Row label={u.session5h}>—</Row>}
+        {limits?.sevenDay ? <LimitRow label={u.weekAll} limit={limits.sevenDay} now={now} /> : <Row label={u.weekAll}>—</Row>}
         {fable ? (
-          <LimitRow label="Semaine (Fable)" limit={fable.limit} now={now} />
+          <LimitRow label={u.weekFable} limit={fable.limit} now={now} />
         ) : (
-          <Row label="Semaine (Fable)">
-            <span className="font-sans text-ov-text-3" title="Claude Code ne la donne pas aux lignes d'état ; /usage l'affiche dans un terminal Claude.">
-              non transmise
+          <Row label={u.weekFable}>
+            <span className="font-sans text-ov-text-3" title={u.notSentHint}>
+              {u.notSent}
             </span>
           </Row>
         )}
         {limits?.models
           .filter((m) => m.label !== "Fable")
           .map((m) => (
-            <LimitRow key={m.key} label={`Semaine (${m.label})`} limit={m.limit} now={now} />
+            <LimitRow key={m.key} label={u.weekModel(m.label)} limit={m.limit} now={now} />
           ))}
       </Section>
-      <Section title={`Sessions d'OpenVibe depuis son ouverture · ${sum.sessions}`}>
-        <Row label="Coût total">{formatUsd(sum.costUsd)}</Row>
-        <Row label="Durée API">{formatDuration(sum.apiMs)}</Row>
-        <Row label="Durée réelle">{formatDuration(sum.wallMs)}</Row>
-        <Row label="Code">
+      <Section title={u.sessionsTitle(sum.sessions)}>
+        <Row label={u.totalCost}>{formatUsd(sum.costUsd)}</Row>
+        <Row label={u.apiTime}>{formatDuration(sum.apiMs)}</Row>
+        <Row label={u.wallTime}>{formatDuration(sum.wallMs)}</Row>
+        <Row label={u.code}>
           <span style={{ color: "var(--ov-ok)" }}>+{sum.linesAdded}</span> <span style={{ color: "var(--ov-danger)" }}>−{sum.linesRemoved}</span>
         </Row>
-        <Row label={<span title="Estimation : facteurs de claude-carbon (Jegham et al. 2025), ordre de grandeur">CO₂ (estimation)</span>}>
+        <Row label={<span title={u.co2Hint}>{u.co2}</span>}>
           {sum.co2Grams < 10 ? formatDecimal(sum.co2Grams, 1) : Math.round(sum.co2Grams)} g
         </Row>
       </Section>
       {sum.byModel.length > 0 && (
-        <Section title="Par modèle">
+        <Section title={u.byModel}>
           {sum.byModel.map((m) => (
             <Row key={m.name} label={m.name}>
-              {formatUsd(m.costUsd)} · {formatTokens(m.inputTokens)} entrée · {formatTokens(m.outputTokens)} sortie
+              {formatUsd(m.costUsd)} · {u.tokens(formatTokens(m.inputTokens), formatTokens(m.outputTokens))}
             </Row>
           ))}
         </Section>
       )}
       {list.some((s) => s.cache) && (
-        <Section title="Cache de prompt">
+        <Section title={u.cache}>
           {list
             .filter((s) => s.cache)
             .map((s) => (
               <Row key={s.sessionId} label={`${nameOf(s.nodeId)} · ${s.model?.name ?? ""}`}>
                 {s.cache!.warm && (s.cache!.expiresAt === null || s.cache!.expiresAt > now)
-                  ? `chaud${s.cache!.hitRatio !== null ? ` · ${Math.round(s.cache!.hitRatio * 100)} %` : ""}${s.cache!.expiresAt ? ` · jusqu'à ${formatClock(s.cache!.expiresAt, now)}` : ""}`
-                  : "froid"}
+                  ? u.warm(s.cache!.hitRatio !== null ? Math.round(s.cache!.hitRatio * 100) : null, s.cache!.expiresAt ? formatClock(s.cache!.expiresAt, now) : null)
+                  : u.cold}
               </Row>
             ))}
         </Section>
       )}
-      <p className="text-[10.5px] text-ov-text-3">Lu dans la ligne d'état de chaque session Claude lancée par OpenVibe ; ta propre ligne d'état s'affiche toujours.</p>
+      <p className="text-[10.5px] text-ov-text-3">{u.footnote}</p>
     </div>
   );
 }

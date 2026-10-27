@@ -1,34 +1,37 @@
 import { useState } from "react";
 import { Circle, Diamond, Frame, Minus, MoveUpRight, Shapes, Square, type LucideIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { ShapeTool } from "./tools";
 import { ToolButton } from "./buttons";
+import { shellMessages } from "./messages";
 
-const SHAPES: { tool: ShapeTool; label: string; Icon: LucideIcon }[] = [
-  { tool: "rectangle", label: "Rectangle", Icon: Square },
-  { tool: "ellipse", label: "Ellipse", Icon: Circle },
-  { tool: "diamond", label: "Losange", Icon: Diamond },
-  { tool: "line", label: "Ligne", Icon: Minus },
-  { tool: "arrow", label: "Flèche", Icon: MoveUpRight },
-  { tool: "frame", label: "Cadre", Icon: Frame },
+const SHAPES: { tool: ShapeTool; Icon: LucideIcon }[] = [
+  { tool: "rectangle", Icon: Square },
+  { tool: "ellipse", Icon: Circle },
+  { tool: "diamond", Icon: Diamond },
+  { tool: "line", Icon: Minus },
+  { tool: "arrow", Icon: MoveUpRight },
+  { tool: "frame", Icon: Frame },
 ];
 
 /** The SHAPES menu of the rail; `current` is Excalidraw's active tool. */
 export function ShapesMenu(props: { active: boolean; current: string; onPick: (tool: ShapeTool) => void }) {
   const { active, current, onPick } = props;
+  const t = useMessages(shellMessages).shapes;
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <ToolButton label="Formes" active={active}>
+        <ToolButton label={t.title} active={active}>
           <Shapes />
         </ToolButton>
       </PopoverTrigger>
       <PopoverContent side="right" className="w-60">
-        <p className="ov-label mb-2">Formes</p>
+        <p className="ov-label mb-2">{t.title}</p>
         <div className="grid grid-cols-3 gap-1.5">
-          {SHAPES.map(({ tool, label, Icon }) => (
+          {SHAPES.map(({ tool, Icon }) => (
             <button
               key={tool}
               type="button"
@@ -42,7 +45,7 @@ export function ShapesMenu(props: { active: boolean; current: string; onPick: (t
               )}
             >
               <Icon className="size-4" />
-              {label}
+              {t[tool]}
             </button>
           ))}
         </div>
