@@ -43,4 +43,4 @@ The full set of tokens is in the identity spec, [`docs/superpowers/specs/2026-10
 | Folder | Content |
 |---|---|
 | [`screenshots/`](screenshots/) | The board in both themes, and the usage detail |
-| [`demo/`](demo/) | The five tour GIFs, recorded from the real app on a throwaway repository |
+| [`demo/`](demo/) | The tour GIFs and a real mission, recorded from the real app on a throwaway repository |

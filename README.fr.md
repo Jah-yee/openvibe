@@ -86,6 +86,10 @@ Si vous connaissez Symvibe : OpenVibe couvre le même terrain (piloter une flott
 
 L'orchestrateur est une session Claude Code qui joue le rôle de manager d'équipe. Reliez-en un à un groupe depuis le menu du groupe (*Relier un orchestrateur*) et décrivez l'objectif dans son terminal. Ensuite :
 
+![Une vraie mission : l'objectif tapé à l'orchestrateur, son plan avec le routeur de modèles, le feu vert, deux agents au travail dans leurs worktrees, puis la fusion](docs/assets/demo/mission.gif)
+
+*Une vraie mission, accélérée là où le badge l'indique. Le routeur met les deux sous-tâches sur Haiku, chaque agent travaille et commite sur sa propre branche, et l'orchestrateur fusionne les deux dans la branche de mission.*
+
 1. **Il propose un plan.** Il découpe l'objectif en sous-tâches, chacune avec un responsable, un budget de temps et, au besoin, un niveau de difficulté. Le plan s'affiche dans le panneau de mission, sous l'orchestrateur.
 2. **Vous lancez la mission.** OpenVibe crée la branche de mission `openvibe/<mission>`, ainsi qu'une branche et un worktree par agent, à côté de votre dépôt. Puis il confie à chaque agent sa sous-tâche.
 3. **Les agents rendent compte.** Chaque agent Claude déclare ses étapes, qui s'affichent en frise sous son terminal, et rend compte quand il a fini. Un agent peut confier une partie de son travail à ses propres sous-agents.

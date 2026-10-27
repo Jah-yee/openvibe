@@ -86,6 +86,10 @@ If you know Symvibe, OpenVibe covers the same ground (driving a fleet of CLI age
 
 The orchestrator is a Claude Code session that acts as a team manager. Link one to a group from the group menu (*Relier un orchestrateur*) and describe the goal in its terminal. Then:
 
+![A real mission: the goal typed to the orchestrator, its plan with the model router, the go-ahead, two agents at work in their worktrees, then the merge](docs/assets/demo/mission.gif)
+
+*A real mission, sped up where the badge says so. The router puts both sub-tasks on Haiku, each agent works and commits on its own branch, and the orchestrator merges both into the mission branch.*
+
 1. **It proposes a plan.** It splits the goal into sub-tasks, each with an owner, a time budget and, optionally, a difficulty level. The plan appears in the mission panel under the orchestrator.
 2. **You launch the mission.** OpenVibe creates the mission branch `openvibe/<mission>`, plus a branch and a worktree for each agent next to your repository. It then gives every agent its sub-task.
 3. **The agents report.** Each Claude agent declares its steps, which appear as a timeline under its terminal, and reports back when done. Agents can hand parts of their work to their own sub-agents.
