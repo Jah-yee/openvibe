@@ -4,6 +4,8 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 
 ## [Unreleased]
 
+## [1.0.0-beta.1] - 2026-10-27
+
 The first public beta of OpenVibe: a local, open source canvas where AI coding agents work side by side in real terminals.
 
 ### Highlights

@@ -1,6 +1,6 @@
 [package]
 name = "openvibe"
-version = "0.1.0"
+version = "1.0.0-beta.1"
 description = "OpenVibe: a local-first canvas of real terminals for AI coding agents"
 authors = ["Mathieu Kerbel"]
 license = "MIT"
