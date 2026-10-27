@@ -70,3 +70,19 @@ export function changelogSection(text, version) {
   if (!section) throw new Error(`No ${version} section in the CHANGELOG`);
   return trimBlank(section.body);
 }
+
+/**
+ * tauri-action writes a draft's latest.json with API asset URLs (a draft has
+ * no download link yet): each becomes the release's own download link, which
+ * works once published and counts against no API limit.
+ */
+export function directDownloadUrls(latest, assets, repo, tag) {
+  const platforms = Object.fromEntries(
+    Object.entries(latest.platforms).map(([platform, entry]) => {
+      const asset = assets.find((a) => a.apiUrl === entry.url || a.url === entry.url);
+      if (!asset) throw new Error(`No release asset for ${platform}: ${entry.url}`);
+      return [platform, { ...entry, url: `https://github.com/${repo}/releases/download/${tag}/${asset.name}` }];
+    }),
+  );
+  return { ...latest, platforms };
+}

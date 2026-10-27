@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bumpCargoLock, bumpCargoToml, bumpPackageJson, changelogSection, isSemver, releaseChangelog } from "./release-lib.mjs";
+import { bumpCargoLock, bumpCargoToml, bumpPackageJson, changelogSection, directDownloadUrls, isSemver, releaseChangelog } from "./release-lib.mjs";
 
 describe("isSemver", () => {
   it("takes a version with or without a pre-release, never a leading v", () => {
@@ -72,5 +72,31 @@ describe("the changelog", () => {
     expect(() => releaseChangelog(CHANGELOG, "0.1.0", "2026-10-29")).toThrow(/0\.1\.0/);
     expect(() => releaseChangelog(CHANGELOG, "v1", "2026-10-29")).toThrow(/semver/);
     expect(() => changelogSection(CHANGELOG, "9.9.9")).toThrow(/9\.9\.9/);
+  });
+});
+
+describe("latest.json of a drafted release", () => {
+  it("points each platform at the release's download link, not the API asset (tauri-action drafts use the API)", () => {
+    const latest = {
+      version: "1.0.0-beta.2",
+      platforms: {
+        "windows-x86_64": { signature: "s", url: "https://api.github.com/repos/Mideky-hub/openvibe/releases/assets/682035832" },
+        "windows-x86_64-nsis": { signature: "s", url: "https://api.github.com/repos/Mideky-hub/openvibe/releases/assets/682035832" },
+      },
+    };
+    const assets = [
+      { name: "OpenVibe_1.0.0-beta.2_x64-setup.exe", apiUrl: "https://api.github.com/repos/Mideky-hub/openvibe/releases/assets/682035832" },
+      { name: "latest.json", apiUrl: "https://api.github.com/repos/Mideky-hub/openvibe/releases/assets/682035833" },
+    ];
+    const fixed = directDownloadUrls(latest, assets, "Mideky-hub/openvibe", "v1.0.0-beta.2");
+    const url = "https://github.com/Mideky-hub/openvibe/releases/download/v1.0.0-beta.2/OpenVibe_1.0.0-beta.2_x64-setup.exe";
+    expect(Object.values(fixed.platforms).map((p) => p.url)).toEqual([url, url]);
+    expect(fixed.platforms["windows-x86_64"].signature).toBe("s");
+    expect(fixed.version).toBe("1.0.0-beta.2");
+  });
+
+  it("refuses a URL that matches no asset rather than publish a broken update", () => {
+    const latest = { version: "1", platforms: { "windows-x86_64": { signature: "s", url: "https://api.github.com/repos/o/r/releases/assets/1" } } };
+    expect(() => directDownloadUrls(latest, [], "o/r", "v1")).toThrow(/asset/);
   });
 });

@@ -9,7 +9,7 @@ Versions follow [Semantic Versioning](https://semver.org/). Betas of the first v
 3. Push: `git push origin main v<version>`.
 4. The **Release** workflow builds the installer and drafts the release `OpenVibe <version>` with:
    - `OpenVibe_<version>_x64-setup.exe` and its `.sig`,
-   - `latest.json`, which installed copies read to find updates,
+   - `latest.json`, which installed copies read to find updates; the workflow points it at the release's download links (tauri-action writes a draft's with API URLs),
    - the changelog section and install instructions as notes.
 5. Open the draft on GitHub, check the files are there, and **publish** it. Installed copies see it within 6 hours (or at once with « Rechercher les mises à jour »).
 
