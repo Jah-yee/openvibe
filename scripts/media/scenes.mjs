@@ -197,3 +197,145 @@ export const icons = {
     await sleep(1800);
   },
 };
+
+/** The mission's state as the panel shows it, read from the orchestrator node. */
+async function missionState(d) {
+  return d.eval(`(async () => {
+    const { nodesStore } = await import("/src/store/nodes.ts");
+    const { missionOf } = await import("/src/mission/store.ts");
+    const node = Object.values(nodesStore.getState().nodes).find((n) => n?.kind === "orchestrator");
+    const m = node && missionOf(node);
+    return m ? { state: m.state, plan: m.plan?.length ?? 0, merged: (m.members ?? []).filter((x) => x.merged).length, members: (m.members ?? []).length, error: m.error ?? null } : null;
+  })()`);
+}
+
+/**
+ * Starts a group of `names` and an orchestrator wired to it, on `model` (setup only).
+ * The orchestrator is made the way "Relier un orchestrateur" makes it, with a model.
+ */
+export async function orchestratedTeam(d, sleep, { names = ["Athéna", "Hermès"], model = "claude-sonnet-5-5" } = {}) {
+  await d.eval(`(async () => {
+    const { launchGroup } = await import("/src/fleet/groups.ts");
+    const { defaultLaunchOptions } = await import("/src/fleet/launchAgent.ts");
+    const { canvasStore } = await import("/src/canvas/canvasStore.ts");
+    const { createNodeElement } = await import("/src/canvas/nodeElement.ts");
+    const { orchestratorSession } = await import("/src/nodes/terminal/launch.ts");
+    const { markForAutostart } = await import("/src/nodes/terminal/registry.ts");
+    const { ORCHESTRATOR_NAME } = await import("/src/nodes/types.ts");
+    const { nodesStore } = await import("/src/store/nodes.ts");
+    const { workspacesStore } = await import("/src/store/workspaces.ts");
+    const { orchestratorSpot } = await import("/src/fleet/groupLayout.ts");
+    const { withWire } = await import("/src/fleet/wires.ts");
+    const options = defaultLaunchOptions();
+    const names = ${JSON.stringify(names)};
+    const g = await launchGroup({ name: "Backend", role: "backend", agents: names.map(() => "claude") }, options, undefined, {
+      pantheon: "greek", names, cwds: names.map(() => options.cwd),
+    });
+    const api = canvasStore.getState().api;
+    const frame = canvasStore.getState().frames.find((f) => f.id === g.frameId);
+    const element = createNodeElement("orchestrator", orchestratorSpot(frame));
+    const session = { ...orchestratorSession(ORCHESTRATOR_NAME, options), model: ${JSON.stringify(model)} };
+    await nodesStore.getState().create(element.id, { workspaceId: workspacesStore.getState().activeId, kind: "orchestrator", payload: { name: ORCHESTRATOR_NAME, session } });
+    markForAutostart(element.id);
+    api.updateScene({ elements: withWire([...api.getSceneElementsIncludingDeleted(), element], element.id, g.frameId), captureUpdate: "IMMEDIATELY" });
+  })()`);
+  await sleep(14000);
+}
+
+/** A real mission: the router on, a goal typed to the orchestrator, its plan, the go-ahead, the team at work, the merge. */
+export const mission = {
+  record: { format: "jpeg", quality: 82 },
+  goal: "Add validation to the cart: addItem must reject a quantity below 1 or a negative price, with unit tests. Also add unit tests for src/coupons.ts. Write the code and the tests only: install nothing, run nothing.",
+  async setup(d, sleep) {
+    await orchestratedTeam(d, sleep);
+    await panel(d, sleep, false);
+    await fit(d, sleep, 0.94, 1, -20, "true", 20);
+    await d.move(900, 700, 10);
+  },
+  async play(d, sleep) {
+    const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+    await sleep(800);
+    // Ctrl+P to the orchestrator: the view comes to it and its terminal takes the keyboard.
+    await d.key("Ctrl+P");
+    await sleep(700);
+    await d.type("orchestrateur", 12);
+    await sleep(800);
+    await d.key("Enter");
+    await sleep(1500);
+    await d.click(await d.at('input[aria-label="Routeur de modèles"]'), { ms: 800 });
+    await sleep(700);
+    const term = await d.eval(`(() => {
+      let host = document.querySelector("[data-mission]");
+      while (host && !host.querySelector(".xterm-screen")) host = host.parentElement;
+      if (!host) return null;
+      const b = host.querySelector(".xterm-screen").getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height * 0.55 };
+    })()`);
+    if (!term) throw new Error("no orchestrator terminal");
+    await d.click(term, { ms: 700 });
+    await sleep(400);
+    const focused = await d.eval(`document.activeElement?.className === "xterm-helper-textarea"`);
+    if (!focused) throw new Error("the orchestrator's terminal has no keyboard");
+    await d.type(mission.goal, 28);
+    await sleep(500);
+    await d.key("Enter");
+    log("goal sent");
+    // The plan: streamed until it shows (the orchestrator reads the code first).
+    let s;
+    for (let i = 0; i < 360; i++) {
+      s = await missionState(d);
+      if (s?.state === "plan" || s?.error) break;
+      if (i === 20) await d.pauseStream();
+      if (i >= 20) await d.snapshot();
+      await sleep(1000);
+    }
+    await d.resumeStream();
+    log("plan", JSON.stringify(s));
+    if (s?.state !== "plan") throw new Error("no plan: " + JSON.stringify(s));
+    await sleep(2500);
+    await afterPlan(d, sleep, log);
+  },
+};
+
+/** The mission's second half, from a proposed plan: the go-ahead, the team at work, the merge. */
+/** From a proposed plan: « Lancer la mission » (clicked once the panel is still), the team at work, the merge. */
+async function afterPlan(d, sleep, log) {
+  let s;
+  for (let attempt = 0; attempt < 3 && (s = await missionState(d))?.state === "plan"; attempt++) {
+    let at = await d.at("button", "Lancer la mission");
+    for (let i = 0; i < 10; i++) {
+      await sleep(300);
+      const now = await d.at("button", "Lancer la mission");
+      if (Math.abs(now.x - at.x) + Math.abs(now.y - at.y) < 1) break;
+      at = now;
+    }
+    await d.click(at, { ms: attempt ? 200 : 900 });
+    for (let i = 0; i < 10 && (s = await missionState(d))?.state === "plan"; i++) await sleep(300);
+  }
+  if (s?.state === "plan") throw new Error("the launch did not start");
+  log("launched");
+  await sleep(2000);
+  await d.click(await d.at('button[aria-label="Ajuster la vue"]'), { ms: 900 });
+  await sleep(6000);
+  await d.move(1100, 760, 800);
+  await d.pauseStream();
+  for (let i = 0; i < 900; i++) {
+    await d.snapshot();
+    s = await missionState(d);
+    if (s?.state === "terminee" || s?.error) break;
+    if (i % 30 === 0) log("state", JSON.stringify(s));
+    await sleep(1500);
+  }
+  log("end", JSON.stringify(s));
+  await d.resumeStream();
+  await sleep(3000);
+}
+
+/** The mission's second half alone, from a plan already proposed. */
+export const missionGo = {
+  record: { format: "jpeg", quality: 82 },
+  async play(d, sleep) {
+    await sleep(1000);
+    await afterPlan(d, sleep, (...a) => console.log(new Date().toISOString().slice(11, 19), ...a));
+  },
+};

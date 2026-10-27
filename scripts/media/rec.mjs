@@ -12,7 +12,7 @@ const dir = path.join(os.tmpdir(), "openvibe-media", "frames", name);
 const d = await connect(Number(port));
 await d.cursor(true);
 if (scene.setup) await scene.setup(d, sleep);
-await d.startRecording(dir, { format: "png" });
+await d.startRecording(dir, scene.record ?? { format: "png" });
 try {
   await scene.play(d, sleep);
 } finally {

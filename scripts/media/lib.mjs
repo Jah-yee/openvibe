@@ -186,15 +186,39 @@ class Driver {
       this.hooked = true;
       this.on("Page.screencastFrame", (p) => {
         this.send("Page.screencastFrameAck", { sessionId: p.sessionId }).catch(() => {});
-        if (!this.recording) return;
-        const file = path.join(this.dir, `f${String(this.frames.length).padStart(5, "0")}.${this.format}`);
-        fs.writeFileSync(file, Buffer.from(p.data, "base64"));
-        this.frames.push({ file: path.basename(file), t: p.metadata.timestamp });
+        if (this.recording) this.keep(p.data);
       });
     }
     this.format = format === "jpeg" ? "jpg" : "png";
+    this.quality = quality;
+    this.stream = { format, quality, everyNthFrame: 1, ...(maxWidth ? { maxWidth, maxHeight } : {}) };
     this.recording = true;
-    await this.send("Page.startScreencast", { format, quality, everyNthFrame: 1, ...(maxWidth ? { maxWidth, maxHeight } : {}) });
+    await this.send("Page.startScreencast", this.stream);
+  }
+
+  /** One frame, stamped with its arrival: streamed and snapshot frames share one clock. */
+  keep(data) {
+    const file = path.join(this.dir, `f${String(this.frames.length).padStart(5, "0")}.${this.format}`);
+    fs.writeFileSync(file, Buffer.from(data, "base64"));
+    this.frames.push({ file: path.basename(file), t: Date.now() / 1000 });
+  }
+
+  /** For long waits: the stream stops, `snapshot` adds a frame when asked, `resumeStream` goes back. */
+  async pauseStream() {
+    if (this.paused) return;
+    this.paused = true;
+    await this.send("Page.stopScreencast");
+  }
+
+  async resumeStream() {
+    if (!this.paused) return;
+    this.paused = false;
+    await this.send("Page.startScreencast", this.stream);
+  }
+
+  async snapshot() {
+    const shot = await this.send("Page.captureScreenshot", { format: this.format === "jpg" ? "jpeg" : "png", quality: this.quality });
+    this.keep(shot.data);
   }
 
   async stopRecording() {
