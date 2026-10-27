@@ -15,7 +15,7 @@ Versions follow [Semantic Versioning](https://semver.org/). Betas of the first v
 
 Keep betas as normal releases, not pre-releases, until `1.0.0`: the updater reads `releases/latest/download/latest.json`, and GitHub's latest release is never a pre-release.
 
-Running the **Release** workflow by hand (Actions → Release → Run workflow) only builds the installer and keeps it as an artifact.
+Running the **Release** workflow by hand (Actions → Release → Run workflow) only builds the installer and keeps it as an artifact. Like a tagged build, it needs the update key's secrets (below): without them the bundler refuses to build the signed updater files.
 
 ## The update key
 

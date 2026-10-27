@@ -16,7 +16,8 @@ function fail(message) {
 const version = process.argv[2];
 if (!version || !isSemver(version)) fail("Usage: node scripts/release.mjs <semver version, e.g. 1.0.0-beta.1>");
 if (git("rev-parse", "--abbrev-ref", "HEAD") !== "main") fail("Release from main.");
-if (git("status", "--porcelain")) fail("The working tree is not clean.");
+// Untracked files never reach the release commit: only changes to tracked ones block it.
+if (git("status", "--porcelain", "--untracked-files=no")) fail("The working tree has uncommitted changes.");
 if (git("tag", "-l", `v${version}`)) fail(`Tag v${version} already exists.`);
 
 const date = new Date().toISOString().slice(0, 10);
