@@ -5,6 +5,7 @@ pub mod mcp;
 pub mod mcp_files;
 pub mod prompts;
 pub mod subagents;
+pub mod transcripts;
 
 use std::process::Command;
 

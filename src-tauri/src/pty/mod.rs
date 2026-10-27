@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 pub use portable_pty::PtySize;
 
 use crate::error::{AppError, AppResult};
+use crate::sync::lock;
 use paste::{ENTER_DELAY, paste_payload};
 use session::{OnOutput, OutputSink, Session, Started};
 use shell::SpawnPlan;
@@ -16,7 +17,7 @@ use shell::SpawnPlan;
 /// Reported once a terminal's process has exited and its output is drained.
 pub struct ExitInfo {
     pub code: Option<u32>,
-    pub scrollback: Vec<u8>,
+    pub scrollback: scrollback::Capture,
 }
 
 /// Owns every running terminal, keyed by canvas node id.
@@ -44,7 +45,7 @@ impl PtyManager {
         on_output: OnOutput,
         on_exit: impl FnOnce(ExitInfo) + Send + 'static,
     ) -> AppResult<Option<u32>> {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = lock(&self.sessions);
         if sessions.contains_key(node_id) {
             return Err(AppError::InvalidInput(format!(
                 "le terminal {node_id} tourne déjà"
@@ -66,10 +67,10 @@ impl PtyManager {
             session.close();
             // Join so every byte reaches the sink before the exit is reported.
             let _ = reader.join();
-            sessions.lock().unwrap().remove(&node_id);
+            lock(&sessions).remove(&node_id);
             on_exit(ExitInfo {
                 code,
-                scrollback: session.scrollback(),
+                scrollback: session.capture(),
             });
         });
         Ok(pid)
@@ -124,17 +125,17 @@ impl PtyManager {
     }
 
     pub fn kill_all(&self) {
-        for session in self.sessions.lock().unwrap().values() {
+        for session in lock(&self.sessions).values() {
             session.kill();
         }
     }
 
     pub fn is_running(&self, node_id: &str) -> bool {
-        self.sessions.lock().unwrap().contains_key(node_id)
+        lock(&self.sessions).contains_key(node_id)
     }
 
     pub fn list(&self) -> Vec<String> {
-        self.sessions.lock().unwrap().keys().cloned().collect()
+        lock(&self.sessions).keys().cloned().collect()
     }
 
     pub fn scrollback(&self, node_id: &str) -> Option<Vec<u8>> {
@@ -142,24 +143,24 @@ impl PtyManager {
     }
 
     /// Scrollbacks that changed since the previous call (spec §5.6, every 10 s).
-    pub fn dirty_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+    pub fn dirty_scrollbacks(&self) -> Vec<(String, scrollback::Capture)> {
         self.snapshot_sessions()
             .into_iter()
-            .filter_map(|(id, session)| session.take_dirty_scrollback().map(|data| (id, data)))
+            .filter_map(|(id, session)| session.take_dirty_capture().map(|capture| (id, capture)))
             .collect()
     }
 
     /// Every live scrollback, for the final flush when the app exits.
-    pub fn all_scrollbacks(&self) -> Vec<(String, Vec<u8>)> {
+    pub fn all_scrollbacks(&self) -> Vec<(String, scrollback::Capture)> {
         self.snapshot_sessions()
             .into_iter()
-            .map(|(id, session)| (id, session.scrollback()))
+            .map(|(id, session)| (id, session.capture()))
             .collect()
     }
 
     /// Copies the session list so no output lock is taken while holding the map lock.
     fn snapshot_sessions(&self) -> Vec<(String, Arc<Session>)> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = lock(&self.sessions);
         sessions
             .iter()
             .map(|(id, s)| (id.clone(), s.clone()))
@@ -167,7 +168,7 @@ impl PtyManager {
     }
 
     fn get(&self, node_id: &str) -> Option<Arc<Session>> {
-        self.sessions.lock().unwrap().get(node_id).cloned()
+        lock(&self.sessions).get(node_id).cloned()
     }
 
     fn require(&self, node_id: &str) -> AppResult<Arc<Session>> {
@@ -280,7 +281,7 @@ mod windows_tests {
             "output: {:?}",
             sink.text()
         );
-        assert!(String::from_utf8_lossy(&info.scrollback).contains("openvibe-hello"));
+        assert!(String::from_utf8_lossy(&info.scrollback.data).contains("openvibe-hello"));
         assert!(mgr.list().is_empty());
         assert!(mgr.scrollback("a").is_none());
     }
@@ -369,7 +370,7 @@ mod windows_tests {
         let dirty = mgr.dirty_scrollbacks();
         assert_eq!(dirty.len(), 1);
         assert_eq!(dirty[0].0, "f");
-        assert!(String::from_utf8_lossy(&dirty[0].1).contains("flushed"));
+        assert!(String::from_utf8_lossy(&dirty[0].1.data).contains("flushed"));
         assert!(mgr.dirty_scrollbacks().is_empty());
         assert_eq!(mgr.all_scrollbacks().len(), 1);
         mgr.kill_all();

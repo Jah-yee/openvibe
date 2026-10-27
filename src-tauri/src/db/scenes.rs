@@ -150,7 +150,7 @@ mod tests {
                 let w = test_workspace(conn, "A")?;
                 nodes::save(conn, "kept", &w.id, NodeKind::Terminal, "{}")?;
                 nodes::save(conn, "gone", &w.id, NodeKind::Terminal, "{}")?;
-                scrollback::save(conn, "gone", b"old output")?;
+                scrollback::save(conn, "gone", b"old output", 1)?;
                 save(conn, &w.id, "[1]", r#"{"zoom":1}"#, &["kept".to_string()])?;
                 save(conn, &w.id, "[1,2]", r#"{"zoom":2}"#, &["kept".to_string()])?;
                 let data = load(conn, &w.id)?;
@@ -206,7 +206,7 @@ mod tests {
                 let a = test_workspace(conn, "A")?;
                 test_workspace(conn, "B")?;
                 nodes::save(conn, "t", &a.id, NodeKind::Terminal, "{}")?;
-                scrollback::save(conn, "t", b"x")?;
+                scrollback::save(conn, "t", b"x", 1)?;
                 save(conn, &a.id, "[]", "{}", &["t".to_string()])?;
                 save_files(conn, &a.id, &[file("f", "data:x")])?;
                 workspaces::delete(conn, &a.id)?;

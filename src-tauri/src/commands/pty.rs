@@ -2,7 +2,7 @@ use serde::Serialize;
 use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::agents::{self as catalog, AgentInfo};
+use crate::agents::{self as catalog, AgentInfo, claude_settings, transcripts};
 use crate::commands::agents;
 use crate::db::{Db, scrollback};
 use crate::error::{AppError, AppResult};
@@ -43,6 +43,17 @@ pub async fn pty_spawn(
             "le terminal {node_id} tourne déjà"
         )));
     }
+    let mut spec = spec;
+    if let Some(claude) = spec.claude.as_mut() {
+        let config = claude_settings::claude_config_dir();
+        let cwd = std::path::Path::new(&spec.cwd);
+        let mode =
+            transcripts::launch_mode(claude.mode, &claude.session_id, cwd, config.as_deref());
+        if mode != claude.mode {
+            log::info!("terminal {node_id}: no saved conversation, a new one under the same id");
+            claude.mode = mode;
+        }
+    }
     let role = spec.claude.as_ref().map(|c| c.role).unwrap_or_default();
     let hooks = agents::hooks_for(
         &app,
@@ -73,12 +84,13 @@ pub async fn pty_spawn(
         move |info| {
             agents::ended(&exit_app, &exited_id);
             // Saved before the event so a restore right after the exit finds it.
-            let saved = exit_app
-                .state::<Db>()
-                .with(|conn| scrollback::save(conn, &exited_id, &info.scrollback));
+            let saved = exit_app.state::<Db>().with(|conn| {
+                scrollback::save(conn, &exited_id, &info.scrollback.data, info.scrollback.at)
+            });
             if let Err(err) = saved {
-                eprintln!("scrollback of {exited_id} not saved: {err}");
+                log::error!("scrollback of {exited_id} not saved: {err}");
             }
+            log::info!("terminal {exited_id} exited: {:?}", info.code);
             let _ = exit_app.emit(
                 "pty-exit",
                 PtyExitEvent {
@@ -88,8 +100,12 @@ pub async fn pty_spawn(
             );
         },
     );
-    if spawned.is_err() {
-        agents::ended(&app, &node_id);
+    match &spawned {
+        Ok(_) => log::info!("terminal {node_id} started: {:?}", spec.agent),
+        Err(err) => {
+            log::warn!("terminal {node_id} not started: {err}");
+            agents::ended(&app, &node_id);
+        }
     }
     spawned
 }
@@ -207,9 +223,10 @@ pub fn flush_scrollbacks(app: &AppHandle, all: bool) {
         pty.dirty_scrollbacks()
     };
     let db = app.state::<Db>();
-    for (node_id, data) in batch {
-        if let Err(err) = db.with(|conn| scrollback::save(conn, &node_id, &data)) {
-            eprintln!("scrollback of {node_id} not saved: {err}");
+    for (node_id, capture) in batch {
+        let saved = db.with(|conn| scrollback::save(conn, &node_id, &capture.data, capture.at));
+        if let Err(err) = saved {
+            log::error!("scrollback of {node_id} not saved: {err}");
         }
     }
 }

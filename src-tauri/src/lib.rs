@@ -3,10 +3,12 @@ mod commands;
 mod db;
 mod error;
 mod git;
+mod logging;
 mod mission;
 mod process;
 mod pty;
 mod review;
+mod sync;
 
 use std::time::Duration;
 
@@ -21,7 +23,10 @@ const SCROLLBACK_FLUSH_INTERVAL: Duration = Duration::from_secs(10);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logging::install_panic_hook();
     let app = tauri::Builder::default()
+        // First: the other plugins and the setup can already write to the log.
+        .plugin(logging::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(PtyManager::default())
@@ -32,10 +37,17 @@ pub fn run() {
             WebviewWindowBuilder::from_config(app.handle(), &app.config().app.windows[0])?
                 .enable_clipboard_access()
                 .build()?;
+            log::info!(
+                "OpenVibe {} on {} {}",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
             let path = app.path().app_data_dir()?.join("openvibe.db");
             let db = match Db::open(&path) {
                 Ok(db) => db,
                 Err(err) => {
+                    log::error!("base not opened: {err}");
                     // Spec §10: a blocking dialog with the file path, then stop.
                     app.dialog()
                         .message(format!(
@@ -55,6 +67,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::ping,
+            commands::app::open_log_dir,
             commands::pty::pty_spawn,
             commands::pty::pty_attach,
             commands::pty::pty_write,

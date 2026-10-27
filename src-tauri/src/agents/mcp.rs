@@ -2,6 +2,7 @@
 //! POST, answered at once. Rust holds the transport and the caller's identity;
 //! `tools/list` and `tools/call` are answered by the interface.
 
+use crate::sync::lock;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -83,18 +84,18 @@ pub struct Tokens(Mutex<HashMap<String, String>>);
 impl Tokens {
     pub fn issue(&self, node_id: &str) -> String {
         let token = uuid::Uuid::new_v4().to_string();
-        let mut tokens = self.0.lock().unwrap();
+        let mut tokens = lock(&self.0);
         tokens.retain(|_, node| node != node_id);
         tokens.insert(token.clone(), node_id.to_string());
         token
     }
 
     pub fn node(&self, token: &str) -> Option<String> {
-        self.0.lock().unwrap().get(token).cloned()
+        lock(&self.0).get(token).cloned()
     }
 
     pub fn revoke(&self, node_id: &str) {
-        self.0.lock().unwrap().retain(|_, node| node != node_id);
+        lock(&self.0).retain(|_, node| node != node_id);
     }
 }
 
@@ -109,19 +110,19 @@ impl Pending {
     pub fn open(&self) -> (u64, mpsc::Receiver<Value>) {
         let id = self.next.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
-        self.waiting.lock().unwrap().insert(id, tx);
+        lock(&self.waiting).insert(id, tx);
         (id, rx)
     }
 
     /// False when nothing waits any more (answered too late).
     pub fn answer(&self, id: u64, value: Value) -> bool {
-        match self.waiting.lock().unwrap().remove(&id) {
+        match lock(&self.waiting).remove(&id) {
             Some(tx) => tx.send(value).is_ok(),
             None => false,
         }
     }
 
     pub fn close(&self, id: u64) {
-        self.waiting.lock().unwrap().remove(&id);
+        lock(&self.waiting).remove(&id);
     }
 }

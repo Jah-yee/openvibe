@@ -1,5 +1,6 @@
 import { getScrollback, ptyAttach, ptyKill, ptySpawn } from "@/ipc/pty";
 import type { TerminalPayload } from "@/nodes/types";
+import { nodesStore } from "@/store/nodes";
 import { isRunning, terminalStatusStore, waitForExit } from "@/store/terminalStatus";
 import { buildSpawnSpec, type LaunchMode } from "./launch";
 
@@ -24,12 +25,24 @@ export function acceptsInput(nodeId: string, state: SessionState): boolean {
   return !state.replaying && !state.restarting && isRunning(nodeId);
 }
 
+/**
+ * A Claude terminal from before conversation ids gets one, kept in its node:
+ * the next "Reprendre" must name the conversation this launch starts.
+ */
+function withConversationId(nodeId: string, payload: TerminalPayload): TerminalPayload {
+  if (payload.agent !== "claude" || payload.claudeSessionId) return payload;
+  const claudeSessionId = crypto.randomUUID();
+  nodesStore.getState().update(nodeId, { claudeSessionId });
+  return { ...payload, claudeSessionId };
+}
+
 export async function startSession(nodeId: string, term: TermSink, payload: TerminalPayload, mode: LaunchMode) {
   // "running" is set before spawning: ConPTY's cursor query arrives before the
   // spawn command returns, and xterm's answer must be let through.
   setStatus(nodeId, { state: "running" });
   try {
-    await ptySpawn(nodeId, buildSpawnSpec(payload, mode), term.cols, term.rows, (bytes) => term.write(bytes));
+    const spec = buildSpawnSpec(withConversationId(nodeId, payload), mode);
+    await ptySpawn(nodeId, spec, term.cols, term.rows, (bytes) => term.write(bytes));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     setStatus(nodeId, { state: "error", message });

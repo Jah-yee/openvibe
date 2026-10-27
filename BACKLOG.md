@@ -12,10 +12,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Avoir une option Routeur dans l'orchestrateur, qui attribue pour chaque agent un modèle faible pour les tâches faibles Haiku 5.5, moyen Sonnet 5.5, elevé Opus, extrême Fable 5.1
 - Permettre d'activer le remote-control sur plusieurs terminaux, à l'unité ou au travers de l'orchestrateur pour gérer et avoir accès aux workflows à distance.
 
-## Priorité haute
-
-- **Reprendre une session Claude qui n'a jamais eu de conversation** (constaté après J8b, le 2026-10-26) : « Relancer » de la palette, « Reprendre la session » de l'en-tête et « Reprendre toutes les conversations » lancent `claude --resume <id>` (`src-tauri/src/pty/shell.rs`, `ClaudeMode::Resume`). Si l'agent n'a encore reçu aucun message, Claude n'a rien enregistré sous cet identifiant : il affiche « No conversation found with session ID » et rend la main au shell nu. Correctif proposé : avant le lancement, vérifier que la conversation existe (fichier `<id>.jsonl` dans `~/.claude/projects/<dossier>/`) et, sinon, démarrer une nouvelle session sous le même identifiant (`--session-id <id>`).
-
 ## Fonctionnalités inspirées de Symvibe
 
 ### Widgets du canvas (remplacent les nœuds Note, Kanban et Git Watcher de la spec V1)
@@ -70,10 +66,7 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 
 - Un rattachement raté devrait revenir à l'écran sauvegardé (`restoreSession`) et retirer le nœud des sessions vivantes à `pty-exit` ; le recalage avant rattachement marque le terminal comme actif.
 - Les échecs de sauvegarde différée sont des rejets non gérés (aucun toast).
-- Le sauvegardeur périodique (10 s) peut écraser l'historique final d'un terminal avec un instantané plus ancien.
 - Un `pty-exit` tardif d'un ancien processus peut marquer un terminal relancé comme terminé (ajouter le pid à l'événement).
-- Un mutex de base empoisonné après une panique désactive la persistance pour la session.
-- `tauri-plugin-log` (logs Rust dans un fichier).
 - CSP de la webview à `null` : à corriger avant d'afficher du contenu externe (tuile web, studios).
 - Noms de workspace en double autorisés.
 
@@ -90,7 +83,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - « Nouvelle console » lance un Shell si on clique avant que la liste des agents soit chargée.
 - Ouvrir le menu Stylo réécrit la couleur et l'épaisseur courantes partagées avec les formes.
 - Les prénoms des terminaux fermés (encore en mémoire pour Ctrl+Z) ne sont réutilisés qu'au redémarrage.
-- Sauvegarde automatique de la base (`openvibe.vN-backup.db`) avant chaque migration (à faire avec la migration du plan B).
 
 ## Constats du plan B1 (groupes, relecture finale)
 
@@ -101,7 +93,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Les identifiants de cadres ne passent pas par `CSS.escape` dans les règles de transparence injectées.
 - Les terminaux arrêtés avant la mise à jour de la netteté rejouent une fois leur ancien écran dans une grille plus étroite (cellule de base de 8 px arrondie, contre 7 px avec FitAddon) : affichage brouillé jusqu'à la relance.
 - Entrée dans le champ nom de « Composer un groupe » ne lance pas le groupe.
-- Aucune limite d'erreur React : une erreur de rendu efface toute l'interface jusqu'au rechargement.
 - Développement : modifier `Canvas.tsx` pendant que l'application tourne fait remonter `LoadedCanvas` avec sa scène d'origine (Fast Refresh), qui est alors enregistrée par-dessus la scène courante (nœuds purgés) ; l'observateur de Vite manque parfois des modifications rapprochées (toucher le fichier).
 
 ## Constats du plan B2 (états des agents, relecture finale)
@@ -113,7 +104,6 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Le dialogue de fermeture dit toujours « tourne encore » ; la spec (§7.5) veut « est en cours » ou « est prête » selon l'activité.
 - Le clic sur une ligne du panneau Flotte centre et donne le clavier mais n'active pas l'élément (spec §5.5 « l'active ») : le menu de l'en-tête demande un clic de plus.
 - Les compteurs de groupe ne vérifient pas que le processus tourne ; `fleetStateOf` range « en marche sans activité connue » dans Inactifs alors que la pastille dit ACTIF.
-- Le verrou du suivi d'activité se prend avec `lock().unwrap()` : un verrou empoisonné figerait tous les terminaux. Piste : `unwrap_or_else(PoisonError::into_inner)`.
 - Non traités : un proxy HTTP qui intercepterait `127.0.0.1` (les hooks échouent, l'activité du terminal prend le relais) ; les marqueurs de session Claude Code au-delà des 8 de la spec (`CLAUDE_CODE_SSE_PORT`…) ; un dialogue d'autorisation répondu hors du terminal (IDE, à distance) laisse ATTEND jusqu'au hook suivant.
 
 ## Constats du plan B3 (commande et orchestrateur, relecture finale)
@@ -297,3 +287,11 @@ Ce qui est reporté. La spec en cours est `docs/superpowers/specs/2026-10-24-ope
 - Détail de l'usage : la section « Cache de prompt » garde les sessions des agents fermés. Après trois relances d'un groupe Athéna/Hermès/Apollon, chaque prénom y figure trois fois. N'y montrer que les sessions vivantes, ou griser et dater les autres.
 - Après « Lancer 4 agents », la vue s'ajuste à 40 % : les terminaux sont illisibles tant qu'on ne zoome pas. Plafonner l'ajustement plus haut, quitte à ne montrer que le début du groupe.
 
+## Constats du jalon R1 (ne rien perdre)
+
+- Une relance remplace dans la base l'historique de la session précédente : la mémoire tampon Rust repart vide, et sa première sauvegarde écrase l'ancienne (xterm garde les deux à l'écran jusqu'au redémarrage).
+- Le texte des cibles du journal côté page est long (`webview::write@http://localhost:1420/src/app/log.ts:12:54`) : n'y garder que `webview`.
+- `text()` de `src/app/log.ts` peut lever dans le `console.error` détourné (objet sans prototype, `toString` qui lève) : l'entourer d'un `try`.
+- Une panique dans le traitement d'une requête arrête la boucle du serveur local : hooks et outils MCP ne répondent plus jusqu'au redémarrage. Entourer chaque requête de `catch_unwind` et répondre 500.
+- Une sauvegarde d'historique refusée (capture plus ancienne, horloge reculée) ne laisse aucune trace : la journaliser.
+- React journalise ses erreurs avec `console.error("%o…")` : la ligne du journal commence par un `%o` littéral.
