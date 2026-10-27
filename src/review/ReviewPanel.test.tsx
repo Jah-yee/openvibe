@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { sendToAgents } from "@/fleet/broadcast";
+import { langStore } from "@/i18n";
+import { toast } from "sonner";
 import { nodesStore } from "@/store/nodes";
 import { ReviewPanel } from "./ReviewPanel";
 import { reviewStore } from "./reviewStore";
@@ -51,6 +53,7 @@ beforeEach(async () => {
   await act(async () => reviewStore.getState().open("isis"));
 });
 afterEach(async () => {
+  langStore.setState({ lang: "fr" });
   await act(async () => root.unmount());
   host.remove();
   clearMocks();
@@ -116,3 +119,18 @@ it("closes on Escape, unless another part of the window already used it (final r
   expect(reviewStore.getState().nodeId).toBeNull();
 });
 
+
+it("shows the review in English", async () => {
+  await act(async () => langStore.setState({ lang: "en" }));
+  await vi.waitFor(() => expect(text()).toContain("src/a.ts"));
+  expect(text()).toContain("Review · Isis");
+  expect(text()).toContain("Since main");
+  expect(text()).toContain("Uncommitted");
+  expect(host.querySelector('[title*="modified"]')).not.toBeNull();
+  await vi.waitFor(() => expect(host.querySelectorAll("[data-diff-line]").length).toBe(4));
+  await act(async () => reviewStore.getState().add({ file: "src/a.ts", line: 2, text: "Why 3?" }));
+  expect(text()).toContain("1 remark");
+  expect(button("Send to Isis")).toBeDefined();
+  await act(async () => button("Send to Isis").click());
+  expect(toast).toHaveBeenCalledWith("Review sent to Isis");
+});
