@@ -5,6 +5,7 @@ All notable changes to OpenVibe are documented here. The format follows [Keep a 
 ## [Unreleased]
 
 ### Added
+- The interface in English and French. It follows Windows' language (English unless Windows is in French); the settings menu and the command palette switch it at once.
 - A log file (`%LOCALAPPDATA%\dev.openvibe.app\logs\openvibe.log`), opened from the command palette or the settings menu, to attach to a bug report. It never holds a token, a terminal's text or an instruction.
 - Before upgrading its database, OpenVibe keeps a copy of it (`openvibe.v<N>-backup.db`).
 - An orchestrator that cannot get OpenVibe's tools does not start, and its node says why.

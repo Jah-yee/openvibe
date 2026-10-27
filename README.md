@@ -23,7 +23,7 @@ Everything runs on your machine. OpenVibe adds no cloud service and no telemetry
 If you know Symvibe, OpenVibe covers the same ground (driving a fleet of CLI agents from an infinite canvas) as an independent, open-source project with its own design and features.
 
 > [!NOTE]
-> OpenVibe is an early preview. It is built and tested on **Windows 10/11**, and **its interface is in French** for now.
+> OpenVibe is an early preview, built and tested on **Windows 10/11**. Its interface speaks **English and French**: it follows Windows, and the settings menu switches it.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshots/board-light.png">

@@ -23,7 +23,7 @@ Tout tourne sur votre machine. OpenVibe n'ajoute aucun service en ligne ni aucun
 Si vous connaissez Symvibe : OpenVibe couvre le même terrain (piloter une flotte d'agents en ligne de commande depuis un canvas infini), en projet indépendant et open source, avec son propre design et ses propres fonctions.
 
 > [!NOTE]
-> OpenVibe est une préversion, développée et testée sous **Windows 10/11**. Son interface est en français.
+> OpenVibe est une préversion, développée et testée sous **Windows 10/11**. Son interface parle **français et anglais** : elle suit Windows, et le menu des réglages en change.
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/assets/screenshots/board-light.png">
