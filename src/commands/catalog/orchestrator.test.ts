@@ -2,7 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { arrive, showNode } from "@/canvas/arrive";
-import { removeOrchestrator } from "@/fleet/orchestrators";
+import { requestCloseOrchestrator } from "@/fleet/orchestrators";
 import { pasteIntoTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
 import { uiStore } from "@/store/ui";
@@ -12,7 +12,7 @@ import { ORCHESTRATOR } from "./orchestrator";
 
 vi.mock("@excalidraw/excalidraw", () => ({}));
 vi.mock("@/canvas/arrive", () => ({ arrive: vi.fn(), showNode: vi.fn() }));
-vi.mock("@/fleet/orchestrators", () => ({ removeOrchestrator: vi.fn() }));
+vi.mock("@/fleet/orchestrators", () => ({ requestCloseOrchestrator: vi.fn() }));
 vi.mock("@/nodes/terminal/registry", () => ({ pasteIntoTerminal: vi.fn() }));
 vi.mock("@/radial/bridges", () => ({ readClipboardText: vi.fn(() => Promise.resolve("texte")) }));
 
@@ -44,6 +44,6 @@ describe("Orchestrateur · <nom> (spec menu radial §4.4, §6.2)", () => {
     expect(arrive).toHaveBeenCalledWith("chef");
     expect(pasteIntoTerminal).toHaveBeenCalledWith("chef", "texte");
     await find("orchestrator.remove").run(ring);
-    expect(removeOrchestrator).toHaveBeenCalledWith("chef");
+    expect(requestCloseOrchestrator).toHaveBeenCalledWith("chef");
   });
 });

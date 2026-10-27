@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import { nodesStore } from "@/store/nodes";
 import { notify } from "./events";
 import { overruns } from "./mission";
-import { missionOf, setMission, updateMember } from "./store";
+import { isOrchestratorClosed, missionOf, setMission, updateMember } from "./store";
 
 /** How often the missions' clocks are read. */
 export const CLOCK_MS = 15_000;
@@ -11,7 +11,7 @@ export const CLOCK_MS = 15_000;
 export function checkBudgets(now = Date.now()) {
   for (const [orchestratorId, record] of Object.entries(nodesStore.getState().nodes)) {
     const mission = missionOf(record);
-    if (!mission) continue;
+    if (!mission || isOrchestratorClosed(orchestratorId)) continue;
     const found = overruns(mission, now);
     for (const overrun of found.members) {
       const before = mission.members.find((m) => m.nodeId === overrun.nodeId)?.overdue ?? 0;

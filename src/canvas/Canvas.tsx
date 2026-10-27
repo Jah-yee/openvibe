@@ -13,6 +13,7 @@ import { orchestratorLinks, unmarkedWires } from "@/fleet/wires";
 import { saveFiles, saveScene } from "@/ipc/db";
 import { onFlushAll } from "@/lib/flush";
 import { NodeHost } from "@/nodes/NodeHost";
+import { setOrchestratorClosed } from "@/mission/store";
 import { disposeTerminal, focusTerminal } from "@/nodes/terminal/registry";
 import { nodesStore } from "@/store/nodes";
 import { isRunning } from "@/store/terminalStatus";
@@ -107,6 +108,8 @@ function LoadedCanvas({ workspaceId, scene }: { workspaceId: string; scene: Load
             const added = classifyAddedNodes(ids, elements, (id) => id in nodesStore.getState().nodes);
             // An undo can bring back a node whose row the last scene save purged.
             added.restored.forEach((id) => void nodesStore.getState().persist(id).catch(reportSaveError));
+            // A closed orchestrator brought back takes its mission up again (spec première version §5.4).
+            added.restored.forEach((id) => setOrchestratorClosed(id, false));
             if (added.copies.length) void adoptCopies(workspaceId, added.copies).catch(reportSaveError);
           },
           onNodesRemoved: (ids) => {
@@ -200,7 +203,10 @@ function showAtFullSize(api: ExcalidrawImperativeAPI, nodeId: string) {
  * unasked, as they were and outside the undo history, then asks (retours J8b).
  */
 function settleRemovals({ dispose, restore, ask }: RemovalVerdict) {
-  dispose.forEach(disposeTerminal);
+  for (const id of dispose) {
+    if (nodesStore.getState().nodes[id]?.kind === "orchestrator") setOrchestratorClosed(id, true);
+    disposeTerminal(id);
+  }
   if (restore.length === 0) return;
   // Deferred: changing the scene from inside onChange would re-enter it.
   requestAnimationFrame(() => {

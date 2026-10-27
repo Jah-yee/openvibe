@@ -7,6 +7,8 @@ import { orchestratorSession } from "@/nodes/terminal/launch";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import { ORCHESTRATOR_NAME } from "@/nodes/types";
 import { nodesStore } from "@/store/nodes";
+import { isRunning } from "@/store/terminalStatus";
+import { uiStore } from "@/store/ui";
 import { workspacesStore } from "@/store/workspaces";
 import { orchestratorSpot } from "./groupLayout";
 import { defaultLaunchOptions } from "./launchAgent";
@@ -56,19 +58,35 @@ export function linkOrchestrator(orchestratorId: string, targetId: string) {
   });
 }
 
+type Bound = { id: string; type: string; isDeleted?: boolean; startBinding?: { elementId: string } | null; endBinding?: { elementId: string } | null };
+
+/** The wires of an orchestrator still on the canvas: they go with it. */
+function orchestratorWires(elements: readonly Bound[], orchestratorId: string): string[] {
+  return elements
+    .filter((e) => !e.isDeleted && e.type === "arrow" && (e.startBinding?.elementId === orchestratorId || e.endBinding?.elementId === orchestratorId))
+    .map((e) => e.id);
+}
+
 /** The × of an orchestrator: it and its wires go, in one undo step. */
 export function removeOrchestrator(orchestratorId: string) {
   const api = canvasStore.getState().api;
   if (!api) return;
   allowRemoval([orchestratorId]);
-  const wired = (e: { type: string; startBinding?: { elementId: string } | null; endBinding?: { elementId: string } | null }) =>
-    e.type === "arrow" && (e.startBinding?.elementId === orchestratorId || e.endBinding?.elementId === orchestratorId);
+  const going = new Set([orchestratorId, ...orchestratorWires(api.getSceneElementsIncludingDeleted(), orchestratorId)]);
   api.updateScene({
     elements: api
       .getSceneElementsIncludingDeleted()
-      .map((e) => (!e.isDeleted && (e.id === orchestratorId || wired(e)) ? newElementWith(e, { isDeleted: true }) : e)),
+      .map((e) => (!e.isDeleted && going.has(e.id) ? newElementWith(e, { isDeleted: true }) : e)),
     captureUpdate: CaptureUpdateAction.IMMEDIATELY,
   });
+}
+
+/** The × and « Fermer l'orchestrateur »: a working orchestrator asks first (spec première version §5.4). */
+export function requestCloseOrchestrator(orchestratorId: string) {
+  const api = canvasStore.getState().api;
+  if (!api || !isRunning(orchestratorId)) return removeOrchestrator(orchestratorId);
+  const wires = orchestratorWires(api.getSceneElementsIncludingDeleted(), orchestratorId);
+  uiStore.getState().setClosing({ agents: [orchestratorId], remove: [orchestratorId, ...wires] });
 }
 
 export function renameOrchestrator(orchestratorId: string, name: string) {

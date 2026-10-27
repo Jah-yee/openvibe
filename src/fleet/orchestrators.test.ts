@@ -5,7 +5,9 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { canvasStore } from "@/canvas/canvasStore";
 import { markForAutostart } from "@/nodes/terminal/registry";
 import { nodesStore, sessionOf } from "@/store/nodes";
-import { addOrchestrator } from "./orchestrators";
+import { terminalStatusStore } from "@/store/terminalStatus";
+import { uiStore } from "@/store/ui";
+import { addOrchestrator, requestCloseOrchestrator } from "./orchestrators";
 import { adoptCopies } from "./terminals";
 
 vi.mock("@excalidraw/excalidraw", () => ({ CaptureUpdateAction: { IMMEDIATELY: "i", NEVER: "n" }, newElementWith: (e: object, patch: object) => ({ ...e, ...patch }) }));
@@ -38,4 +40,18 @@ it("gives a copied orchestrator a session of its own, created when shown", async
   scene = [{ id: "copie", type: "embeddable", customData: { kind: "orchestrator" }, frameId: null }];
   await adoptCopies("w1", [{ id: "copie", sourceId: "chef" }]);
   expect(nodesStore.getState().nodes.copie.payload).toEqual({ name: "Chef" });
+});
+
+it("asks before closing a working orchestrator, with its wires; a stopped one goes at once (spec première version §5.4)", () => {
+  const wire = { id: "fil", type: "arrow", startBinding: { elementId: "chef" }, endBinding: { elementId: "isis" } };
+  scene = [{ id: "chef", type: "embeddable" }, wire as (typeof scene)[number], { id: "isis", type: "embeddable" }];
+  terminalStatusStore.getState().set("chef", { state: "running" });
+  requestCloseOrchestrator("chef");
+  expect(uiStore.getState().closing).toEqual({ agents: ["chef"], remove: ["chef", "fil"] });
+  expect(scene.some((e) => e.isDeleted)).toBe(false);
+  uiStore.getState().setClosing(null);
+  terminalStatusStore.getState().set("chef", { state: "stopped" });
+  requestCloseOrchestrator("chef");
+  expect(uiStore.getState().closing).toBeNull();
+  expect(scene.filter((e) => e.isDeleted).map((e) => e.id)).toEqual(["chef", "fil"]);
 });

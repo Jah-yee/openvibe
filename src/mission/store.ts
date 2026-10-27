@@ -22,11 +22,31 @@ export function updateMember(orchestratorId: string, nodeId: string, patch: Part
   if (mission) setMission(orchestratorId, { members: mission.members.map((m) => (m.nodeId === nodeId ? { ...m, ...patch } : m)) });
 }
 
-/** The running mission an agent works for, once its sub-task was sent (spec §7.5). */
-export function memberOf(nodeId: string): { orchestratorId: string; member: Member } | null {
+/**
+ * Orchestrators deleted from the canvas. Their record stays for an undo, and so
+ * does their mission: it waits, unheard, until the undo brings them back
+ * (spec première version §5.4).
+ */
+const closedOrchestrators = new Set<string>();
+
+export function setOrchestratorClosed(orchestratorId: string, closed: boolean) {
+  if (closed) closedOrchestrators.add(orchestratorId);
+  else closedOrchestrators.delete(orchestratorId);
+}
+
+export function isOrchestratorClosed(orchestratorId: string): boolean {
+  return closedOrchestrators.has(orchestratorId);
+}
+
+/**
+ * The running mission an agent works for, once its sub-task was sent (spec §7.5);
+ * a closed orchestrator's only with `evenClosed`.
+ */
+export function memberOf(nodeId: string, { evenClosed = false } = {}): { orchestratorId: string; member: Member } | null {
   for (const [orchestratorId, record] of Object.entries(nodesStore.getState().nodes)) {
     const mission = missionOf(record);
     if (mission?.state !== "en_cours") continue;
+    if (!evenClosed && closedOrchestrators.has(orchestratorId)) continue;
     const member = mission.members.find((m) => m.nodeId === nodeId && m.sentAt !== undefined);
     if (member) return { orchestratorId, member };
   }
