@@ -1,7 +1,9 @@
 import { toast } from "sonner";
 import { createStore, useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { messages } from "@/i18n";
 import { getSetting, setSetting } from "@/ipc/db";
+import { appMessages } from "./messages";
 
 /** Spec identité §4.5. */
 export type ThemeChoice = "system" | "light" | "dark";
@@ -88,7 +90,7 @@ export async function loadThemeSettings() {
 
 async function save(key: string, value: string) {
   await setSetting(key, value).catch((error: unknown) => {
-    toast.error(`Réglage non enregistré : ${String(error)}`);
+    toast.error(messages(appMessages).settingNotSaved(String(error)));
   });
 }
 

@@ -9,14 +9,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCanvas } from "@/canvas/canvasStore";
+import { useMessages } from "@/i18n";
 import { closeGroup } from "@/fleet/groups";
 import { livingAgents } from "@/fleet/groupSummary";
 import { useNodes } from "@/store/nodes";
 import { terminalStatusStore } from "@/store/terminalStatus";
 import { uiStore, useUi } from "@/store/ui";
+import { shellMessages } from "./messages";
 
 /** "Fermer le groupe Backend ?" listing the agents still running (spec habillage §11.4). */
 export function CloseGroupDialog() {
+  const t = useMessages(shellMessages).closeGroup;
   const groupId = useUi((s) => s.closingGroup);
   const group = useCanvas((s) => s.frames.find((f) => f.id === groupId) ?? null);
   const nodes = useNodes((s) => s.nodes);
@@ -30,14 +33,12 @@ export function CloseGroupDialog() {
     <Dialog open={groupId !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent showCloseButton={false} className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Fermer le groupe {group?.name} ?</DialogTitle>
-          <DialogDescription>
-            Ces agents tournent encore ; fermer le groupe met fin à leur session : {living.join(", ")}.
-          </DialogDescription>
+          <DialogTitle>{t.title(group?.name)}</DialogTitle>
+          <DialogDescription>{t.description(living)}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={close}>
-            Annuler
+            {t.cancel}
           </Button>
           <Button
             className="bg-ov-danger text-white hover:bg-ov-danger/90"
@@ -46,7 +47,7 @@ export function CloseGroupDialog() {
               close();
             }}
           >
-            Fermer le groupe
+            {t.confirm}
           </Button>
         </DialogFooter>
       </DialogContent>

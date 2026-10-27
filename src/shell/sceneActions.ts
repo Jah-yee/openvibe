@@ -1,14 +1,16 @@
 import { toast } from "sonner";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { currentTheme } from "@/app/theme";
+import { messages } from "@/i18n";
 import { canvasStore } from "@/canvas/canvasStore";
 import { workspacesStore } from "@/store/workspaces";
+import { shellMessages } from "./messages";
 import { exportPng, exportScene, importScene } from "./sceneFiles";
 
-function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure: string) {
+function run(action: (api: ExcalidrawImperativeAPI) => Promise<boolean>, failure: "exportFailed" | "importFailed") {
   const api = canvasStore.getState().api;
   if (!api) return;
-  action(api).catch((error: unknown) => toast.error(`${failure} : ${String(error)}`));
+  action(api).catch((error: unknown) => toast.error(messages(shellMessages).failed(messages(shellMessages).scene[failure], String(error))));
 }
 
 /** The file name of the scene on screen: its workspace's. */
@@ -18,10 +20,10 @@ function sceneName(): string {
 }
 
 /** « Exporter la scène… » of the settings menu and the palette. */
-export const exportCurrentScene = () => run((api) => exportScene(api, sceneName()), "Export impossible");
+export const exportCurrentScene = () => run((api) => exportScene(api, sceneName()), "exportFailed");
 
 /** « Importer une scène… ». */
-export const importIntoScene = () => run(importScene, "Import impossible");
+export const importIntoScene = () => run(importScene, "importFailed");
 
 /** « Exporter en PNG… », in the app's theme. */
-export const exportCurrentPng = () => run((api) => exportPng(api, sceneName(), currentTheme()), "Export impossible");
+export const exportCurrentPng = () => run((api) => exportPng(api, sceneName(), currentTheme()), "exportFailed");

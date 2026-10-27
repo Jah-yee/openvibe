@@ -1,8 +1,10 @@
 import { CaptureUpdateAction, exportToBlob, loadFromBlob, serializeAsJSON } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { messages } from "@/i18n";
 import { nodeKindOf } from "@/canvas/nodeElement";
 import type { Theme } from "@/app/theme";
 import { exportBackground } from "@/theme/sceneColors";
+import { shellMessages } from "./messages";
 
 type SavePicker = (options: unknown) => Promise<FileSystemFileHandle>;
 
@@ -42,7 +44,7 @@ export function exportScene(api: ExcalidrawImperativeAPI, name: string) {
     new Blob([json], { type: "application/json" }),
     `${name}.excalidraw`,
     { "application/json": [".excalidraw", ".json"] },
-    "Scène Excalidraw",
+    messages(shellMessages).scene.excalidrawScene,
   );
 }
 
@@ -53,7 +55,7 @@ export async function exportPng(api: ExcalidrawImperativeAPI, name: string, them
     files: api.getFiles(),
     mimeType: "image/png",
   });
-  return saveBlob(blob, `${name}.png`, { "image/png": [".png"] }, "Image PNG");
+  return saveBlob(blob, `${name}.png`, { "image/png": [".png"] }, messages(shellMessages).scene.pngImage);
 }
 
 /**
