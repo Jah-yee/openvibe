@@ -1,3 +1,4 @@
+use crate::tr;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -43,12 +44,13 @@ pub fn project_views(db: &Db, pty: &PtyManager) -> AppResult<Vec<ProjectView>> {
 }
 
 fn existing_folder(path: &str) -> AppResult<()> {
-    if Path::new(path.trim()).is_dir() {
+    let path = path.trim();
+    if Path::new(path).is_dir() {
         Ok(())
     } else {
-        Err(AppError::NotFound(format!(
-            "dossier introuvable : {}",
-            path.trim()
+        Err(AppError::NotFound(tr!(
+            "dossier introuvable : {path}",
+            "folder not found: {path}"
         )))
     }
 }
@@ -114,6 +116,12 @@ mod tests {
     use super::*;
     use crate::commands::test_support::run_terminal;
     use crate::db::{nodes, workspaces};
+
+    #[test]
+    fn a_missing_folder_is_named_in_english() {
+        let error = crate::i18n::in_english(|| existing_folder(" Z:/not here ").unwrap_err());
+        assert_eq!(error.to_string(), "folder not found: Z:/not here");
+    }
 
     #[test]
     fn deleting_a_project_stops_the_terminals_of_all_its_workspaces() {

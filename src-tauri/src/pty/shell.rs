@@ -431,9 +431,10 @@ fn claude_command(
     }
     // Parsing guarantees the id is a bare UUID, so it never needs quoting.
     let session = uuid::Uuid::parse_str(&launch.session_id).map_err(|_| {
-        AppError::InvalidInput(format!(
-            "identifiant de session invalide : {}",
-            launch.session_id
+        let id = &launch.session_id;
+        AppError::InvalidInput(tr!(
+            "identifiant de session invalide : {id}",
+            "invalid session id: {id}"
         ))
     })?;
     let title = clean_title(&launch.title);
@@ -506,9 +507,10 @@ pub fn build_plan(
 ) -> AppResult<SpawnPlan> {
     let cwd = PathBuf::from(&spec.cwd);
     if !cwd.is_dir() {
-        return Err(AppError::NotFound(format!(
-            "dossier introuvable : {}",
-            spec.cwd
+        let cwd = &spec.cwd;
+        return Err(AppError::NotFound(tr!(
+            "dossier introuvable : {cwd}",
+            "folder not found: {cwd}"
         )));
     }
     let shell = resolve_shell(spec.shell, locate)?;
@@ -711,6 +713,26 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.kind(), "invalidInput");
+        let english = crate::i18n::in_english(|| {
+            agent_command(
+                &spec(Agent::Claude, launch_with("x; rm -rf /")),
+                ShellSyntax::Posix,
+                &AgentHooks::default(),
+            )
+            .unwrap_err()
+        });
+        assert_eq!(english.to_string(), "invalid session id: x; rm -rf /");
+    }
+
+    fn launch_with(session_id: &str) -> Option<ClaudeLaunch> {
+        Some(ClaudeLaunch {
+            mode: ClaudeMode::Resume,
+            session_id: session_id.into(),
+            title: String::new(),
+            role: Role::Agent,
+            remote_control: None,
+            model: None,
+        })
     }
 
     #[test]
@@ -989,6 +1011,13 @@ mod tests {
                 .unwrap_err()
                 .kind(),
             "notFound"
+        );
+        let english = crate::i18n::in_english(|| {
+            build_plan("n", &s, &nothing_on_path, &AgentHooks::default()).unwrap_err()
+        });
+        assert_eq!(
+            english.to_string(),
+            "folder not found: Z:/definitely/not/here"
         );
     }
 
